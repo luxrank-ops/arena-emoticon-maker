@@ -38,9 +38,8 @@ export default function CreditsPage() {
   const handlePurchase = async (packageId: string, isSubscription = false) => {
     try {
       if (paymentProvider === 'toss') {
-        // 토스페이먼츠: 위젯 모달 표시 (주문 ID 생성)
-        const orderId = `${isSubscription ? 'SUB' : 'CREDIT'}_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-        setShowPaymentWidget({ packageId, isSubscription, provider: 'toss', orderId });
+        alert('토스 결제는 안전성 검증이 완료될 때까지 사용할 수 없습니다.');
+        return;
       } else {
         // 스트라이프: 기존 리다이렉트 방식
         const response = await fetch('/api/checkout', {

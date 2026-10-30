@@ -1,7 +1,6 @@
 import { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import GitHubProvider from 'next-auth/providers/github';
-import CredentialsProvider from 'next-auth/providers/credentials';
 import { PrismaAdapter } from '@auth/prisma-adapter';
 import prisma from './prisma';
 import { Adapter } from 'next-auth/adapters';
@@ -24,46 +23,20 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
     }),
-    CredentialsProvider({
-      name: 'credentials',
-      credentials: {
-        email: { label: 'Email', type: 'email' },
-        password: { label: 'Password', type: 'password' },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email) return null;
-        
-        const user = await prisma.user.findUnique({
-          where: { email: credentials.email },
-        });
-        
-        if (!user) return null;
-        
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name,
-          image: user.image,
-          role: user.role,
-          credits: user.credits,
-        };
-      },
-    }),
+
   ],
   callbacks: {
-    async jwt({ token, user, trigger, session }) {
-      if (user) {
-        token.id = user.id;
-        token.role = (user as any).role;
-        token.credits = (user as any).credits;
-      }
-      if (trigger === 'update' && session) {
-        token.name = session.name;
-        token.image = session.image;
-        // 세션 업데이트 시 크레딧도 갱신
-        if ((session as any).credits !== undefined) {
-          token.credits = (session as any).credits;
-        }
+    async jwt({ token, user }) {
+      if (user) token.id = user.id;
+      // Roles and credits are always read from the database, never from client updates.
+      if (typeof token.id === 'string') {
+        const account = await prisma.user.findUnique({
+          where: { id: token.id },
+          select: { role: true, credits: true },
+        });
+        if (!account) return {};
+        token.role = account.role;
+        token.credits = account.credits;
       }
       return token;
     },
