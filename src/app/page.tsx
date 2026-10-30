@@ -1,7 +1,7 @@
 'use client';
 
-import { EmoticonGenerator } from '@/components/generator/EmoticonGenerator';
-import { Sparkles, Zap, Heart, Star, ArrowRight, CheckCircle } from 'lucide-react';
+import { ImageGenerator } from '@/components/generator/ImageGenerator';
+import { Sparkles, Zap, Heart, Star, ArrowRight, CheckCircle, Image } from 'lucide-react';
 import Link from 'next/link';
 
 const features = [
@@ -11,9 +11,9 @@ const features = [
     desc: 'Gemini AI가 캐릭터 컨셉과 감정을 분석해 최적의 이미지 생성 프롬프트를 자동 작성',
   },
   {
-    icon: Zap,
-    title: '즉시 사용 가능',
-    desc: '생성된 프롬프트를 DALL·E 3, Midjourney, Stable Diffusion에 바로 복사해 사용',
+    icon: Image,
+    title: '실제 이미지 생성',
+    desc: 'DALL·E 3 연동으로 프롬프트에서 바로 고품질 이모티콘 이미지 자동 생성',
   },
   {
     icon: Heart,
@@ -28,10 +28,10 @@ const features = [
 ];
 
 const steps = [
-  { step: '01', title: '캐릭터 설정', desc: '이름, 컨셉, 아트 스타일 선택' },
-  { step: '02', title: '감정 & 대사', desc: '표정 종류와 말풍선 대사 입력' },
-  { step: '03', title: 'AI 최적화', desc: 'Gemini AI로 프롬프트 자동 생성' },
-  { step: '04', title: '이미지 생성', desc: 'DALL·E/Midjourney로 고품질 이미지 제작' },
+  { step: '01', title: '캐릭터 설정', desc: '이름, 상세 컨셉, 아트 스타일 선택' },
+  { step: '02', title: '감정 & 대사', desc: '표정 종류, 말풍선 대사, 크기/품질 설정' },
+  { step: '03', title: 'AI 이미지 생성', desc: 'DALL·E 3로 고품질 이모티콘 이미지 자동 생성' },
+  { step: '04', title: '다운로드 & 공유', desc: '생성된 이미지 다운로드, 프롬프트 복사/공유' },
 ];
 
 export default function HomePage() {
@@ -141,7 +141,7 @@ export default function HomePage() {
             </p>
           </div>
           <div className="max-w-2xl mx-auto">
-            <EmoticonGenerator />
+            <ImageGenerator />
           </div>
         </div>
       </section>
