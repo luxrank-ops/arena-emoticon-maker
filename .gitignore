@@ -1,0 +1,40 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# next / build
+.next/
+out/
+build/
+dist/
+*.tsbuildinfo
+
+# env
+.env
+.env.local
+.env*.local
+!.env.example
+
+# test
+coverage/
+playwright-report/
+test-results/
+.vercel
+
+# prisma / local db
+prisma/dev.db
+prisma/dev.db-journal
+*.sqlite
+
+# generated media (never commit user faces or rendered packs)
+public/generated/
+tmp/
+uploads/
+*.log
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json
