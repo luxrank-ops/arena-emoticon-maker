@@ -77,22 +77,32 @@ model Emoticon {
 }
 
 model Generation {
-  id          String        @id @default(cuid())
-  userId      String
-  emoticonId  String?
-  prompt      String        @db.Text
-  imageUrl    String?
-  revisedPrompt String?     @db.Text
-  emotion     String
-  dialogue    String?
-  style       String
-  status      GenStatus     @default(PENDING)
-  error       String?
-  creditsUsed Int           @default(1)
-  createdAt   DateTime      @default(now())
+  id            String        @id @default(cuid())
+  userId        String
+  emoticonId    String?
+  prompt        String        @db.Text
+  revisedPrompt String?       @db.Text
+  imageUrl      String?
+  thumbnailUrl  String?
+  emotion       String
+  dialogue      String?
+  style         String
+  model         String        @default("dall-e-3")
+  size          String        @default("1024x1024")
+  quality       String        @default("standard")
+  status        GenStatus     @default(PENDING)
+  error         String?
+  creditsUsed   Int           @default(1)
+  generationTime Int?         // milliseconds
+  seed          Int?
+  createdAt     DateTime      @default(now())
+  completedAt   DateTime?
 
   user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   emoticon   Emoticon?  @relation(fields: [emoticonId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+  @@index([status])
 }
 
 model Subscription {
