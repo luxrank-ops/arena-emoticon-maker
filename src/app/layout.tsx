@@ -1,68 +1,28 @@
-import type { Metadata, Viewport } from 'next';
+import type { Metadata } from 'next';
 import './globals.css';
-import { Providers } from './providers';
+import { SiteHeader } from '@/components/SiteHeader';
+import { SiteFooter } from '@/components/SiteFooter';
 
 export const metadata: Metadata = {
-  title: {
-    default: 'Arena Emoticon Maker - 나만의 이모티콘 제작기',
-    template: '%s | Arena Emoticon Maker',
-  },
-  description: 'AI로 나만의 캐릭터 이모티콘을 만들어보세요. Gemini AI로 프롬프트를 최적화하고 DALL·E, Midjourney로 고품질 이미지를 생성하세요.',
-  keywords: ['이모티콘', '캐릭터', 'AI', '프롬프트', 'Gemini', 'DALL-E', 'Midjourney'],
-  authors: [{ name: 'Arena AI' }],
-  creator: 'Arena AI',
-  publisher: 'Arena AI',
-  robots: 'index, follow',
+  title: '이모티미 · 내 얼굴로 만드는 3초 이모티콘',
+  description:
+    '사진 한 장으로 내 얼굴 이모티콘 24컷. 오늘 쓸 답장을 매일 추천하고, 실물 굿즈까지. 이모티미.',
+  keywords: ['이모티콘 만들기', '내 얼굴 이모티콘', 'AI 이모티콘', '캐리커처', '카카오 이모티콘'],
   openGraph: {
+    title: '이모티미 · 내 얼굴로 만드는 3초 이모티콘',
+    description: '사진 1장 → 24컷 이모티콘 → 매일 아침 오늘의 답장 추천',
     type: 'website',
-    locale: 'ko_KR',
-    url: 'https://emoticon.arena.ai',
-    siteName: 'Arena Emoticon Maker',
-    title: 'Arena Emoticon Maker - 나만의 이모티콘 제작기',
-    description: 'AI로 나만의 캐릭터 이모티콘을 만들어보세요.',
-    images: [
-      {
-        url: '/og-image.png',
-        width: 1200,
-        height: 630,
-        alt: 'Arena Emoticon Maker',
-      },
-    ],
   },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'Arena Emoticon Maker',
-    description: 'AI로 나만의 캐릭터 이모티콘을 만들어보세요.',
-    images: ['/og-image.png'],
-  },
-  verification: {
-    google: 'google-site-verification-code',
-  },
+  robots: { index: true, follow: true },
 };
 
-export const viewport: Viewport = {
-  themeColor: [
-    { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-    { media: '(prefers-color-scheme: dark)', color: '#0f172a' },
-  ],
-  width: 'device-width',
-  initialScale: 1,
-  maximumScale: 5,
-};
-
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-      </head>
-      <body className="min-h-screen bg-slate-50 antialiased">
-        <Providers>{children}</Providers>
+      <body className="flex min-h-screen flex-col">
+        <SiteHeader />
+        <main className="flex-1">{children}</main>
+        <SiteFooter />
       </body>
     </html>
   );

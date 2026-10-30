@@ -1,50 +1,30 @@
-import { withAuth } from 'next-auth/middleware';
 import { NextResponse } from 'next/server';
+import type { NextRequest } from 'next/server';
 
-export default withAuth(
-  function middleware(req) {
-    const token = req.nextauth.token;
-    const path = req.nextUrl.pathname;
+export const SID_COOKIE = 'emotime_sid';
 
-    // 관리자 페이지 접근 제어
-    if (path.startsWith('/admin') && token?.role !== 'ADMIN') {
-      return NextResponse.redirect(new URL('/dashboard', req.url));
-    }
+export function middleware(req: NextRequest) {
+  const existing = req.cookies.get(SID_COOKIE)?.value;
+  const sid = existing ?? crypto.randomUUID();
 
-    // 크리에이터 페이지 접근 제어
-    if (path.startsWith('/creator') && !['CREATOR', 'ADMIN'].includes(token?.role as string)) {
-      return NextResponse.redirect(new URL('/dashboard', req.url));
-    }
-
-    return NextResponse.next();
-  },
-  {
-    callbacks: {
-      authorized: ({ token, req }) => {
-        const path = req.nextUrl.pathname;
-        
-        // 공개 페이지는 항상 허용
-        if (['/', '/auth/signin', '/auth/signup', '/auth/error', '/pricing', '/gallery'].includes(path)) {
-          return true;
-        }
-
-        // 대시보드 및 API는 인증 필요
-        if (path.startsWith('/dashboard') || path.startsWith('/api/')) {
-          return !!token;
-        }
-
-        return true;
-      },
-    },
+  const requestHeaders = new Headers(req.headers);
+  if (!existing) {
+    const cookie = requestHeaders.get('cookie');
+    requestHeaders.set('cookie', `${SID_COOKIE}=${sid}${cookie ? `; ${cookie}` : ''}`);
   }
-);
+
+  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  if (!existing) {
+    res.cookies.set(SID_COOKIE, sid, {
+      httpOnly: true,
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 180,
+    });
+  }
+  return res;
+}
 
 export const config = {
-  matcher: [
-    '/dashboard/:path*',
-    '/admin/:path*',
-    '/creator/:path*',
-    '/api/generate',
-    '/api/user/:path*',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };
