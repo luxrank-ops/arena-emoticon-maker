@@ -190,7 +190,7 @@ export default function AdminDashboardClient({ initialData }: AdminDashboardClie
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8 gap-4">
         {statCards.map((stat, index) => (
           <Card key={stat.title} variant="elevated" padding="md" className="relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-transparent to-current/10" style={{ '--tw-gradient-from': stat.color.replace('text-', '').replace('-600', '-500') }} />
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-transparent" style={{ backgroundImage: `linear-gradient(to bottom left, transparent, ${stat.color.replace('text-', '').replace('-600', '-200')})` }} />
             <CardContent className="relative flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">{stat.title}</p>
@@ -236,11 +236,11 @@ export default function AdminDashboardClient({ initialData }: AdminDashboardClie
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="date" stroke="#94a3b8" fontSize={12} tick={{ fill: '#64748b' }} />
                   <YAxis stroke="#94a3b8" fontSize={12} tick={{ fill: '#64748b' }} tickFormatter={formatNumber} />
-                  <Tooltip
+<Tooltip
                     contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [formatNumber(value), '건']}
+                    formatter={(value: any) => [formatNumber(typeof value === 'number' ? value : 0), '건']}
                     labelFormatter={(label) => `${label}일`}
-                  />
+/>
                   <Area
                     type="monotone"
                     dataKey="count"
@@ -277,14 +277,14 @@ export default function AdminDashboardClient({ initialData }: AdminDashboardClie
                       paddingAngle={2}
                       dataKey="value"
                       nameKey="name"
-                      label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                      label={({ name, percent = 0 }) => `${name} ${(percent * 100).toFixed(1)}%`}
                       labelLine={false}
                     >
                       {planData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))}
                     </Pie>
-                    <Tooltip formatter={(value: number) => [formatNumber(value), '명']} />
+                    <Tooltip formatter={(value: any) => [formatNumber(typeof value === 'number' ? value : 0), '명']} />
                   </PieChart>
                 </ResponsiveContainer>
               ) : (
@@ -322,11 +322,11 @@ export default function AdminDashboardClient({ initialData }: AdminDashboardClie
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                   <XAxis type="number" stroke="#94a3b8" fontSize={12} tick={{ fill: '#64748b' }} tickFormatter={v => formatCurrency(v / 10000) + '만' } />
                   <YAxis dataKey="date" type="category" stroke="#94a3b8" fontSize={12} tick={{ fill: '#64748b' }} width={60} />
-                  <Tooltip
+<Tooltip
                     contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }}
-                    formatter={(value: number) => [formatCurrency(value), '원']}
-                  />
-                  <Bar dataKey="count" fill="#22c55e" radius={[0, 4, 4, 0]} maxBarWidth={30} />
+                    formatter={(value: any) => [formatCurrency(typeof value === 'number' ? value : 0), '원']}
+/>
+                  <Bar dataKey="count" fill="#22c55e" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

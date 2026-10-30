@@ -57,10 +57,10 @@ async function getGenerationsData(searchParams: Promise<{ page?: string; status?
   });
 
   // 상태별 통계 변환
-  const statusStats = stats.reduce((acc, s) => {
+  const statusStats = (stats as Array<{ status: string; _count: number }>).reduce<Record<string, number>>((acc, s) => {
     acc[s.status] = s._count;
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
 
   return {
     generations,
@@ -72,12 +72,12 @@ async function getGenerationsData(searchParams: Promise<{ page?: string; status?
       pending: statusStats.PENDING || 0,
       processing: statusStats.PROCESSING || 0,
     },
-    modelStats: modelStats.map(m => ({
+    modelStats: (modelStats as Array<{ model: string; _count: number; _avg: { generationTime: number | null } }>).map(m => ({
       model: m.model,
       count: m._count,
       avgTime: m._avg.generationTime || 0,
     })),
-    dailyTrend: dailyTrend.map(d => ({
+    dailyTrend: (dailyTrend as Array<{ createdAt: Date; _count: number; _avg: { generationTime: number | null } }>).map(d => ({
       date: new Date(d.createdAt).toISOString().split('T')[0],
       count: d._count,
       avgTime: d._avg.generationTime || 0,

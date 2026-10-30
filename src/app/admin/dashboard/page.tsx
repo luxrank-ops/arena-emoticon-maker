@@ -66,7 +66,7 @@ async function getAdminStats() {
     by: ['createdAt'],
     where: { createdAt: { gte: sevenDaysAgo } },
     _count: true,
-  });
+  }) as Array<{ createdAt: Date; _count: number }>;
 
   const dailyData = Array.from({ length: 7 }, (_, i) => {
     const date = new Date();
@@ -79,11 +79,11 @@ async function getAdminStats() {
   });
 
   // 플랜별 구독 현황
-  const planStats = subscriptionStats.reduce((acc, s) => {
+  const planStats = (subscriptionStats as Array<{ plan: string; status: string; _count: number }>).reduce<Record<string, number>>((acc, s) => {
     const key = `${s.plan}_${s.status}`;
     acc[key] = (acc[key] || 0) + s._count;
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
 
   return {
     stats: {
