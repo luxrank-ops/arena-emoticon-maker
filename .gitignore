@@ -38,3 +38,6 @@ uploads/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# emotime local runtime data (file-backed store)
+.data/

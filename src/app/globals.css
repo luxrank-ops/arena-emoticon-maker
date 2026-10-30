@@ -1,0 +1,85 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #191512;
+  --cream: #fff9f2;
+}
+
+html,
+body {
+  background: var(--cream);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+body {
+  font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
+    'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+  letter-spacing: -0.01em;
+}
+
+::selection {
+  background: #ffcf4d;
+  color: #191512;
+}
+
+@layer utilities {
+  .wrap {
+    @apply mx-auto w-full max-w-6xl px-5 sm:px-8;
+  }
+  .card {
+    @apply rounded-3xl border-2 border-ink/90 bg-paper shadow-card;
+  }
+  .card-flat {
+    @apply rounded-2xl border-2 border-line bg-paper;
+  }
+  .btn {
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-full border-2 border-ink px-5 py-3 text-sm font-extrabold transition active:translate-y-[2px] disabled:cursor-not-allowed disabled:opacity-40;
+  }
+  .btn-primary {
+    @apply btn bg-coral text-white shadow-card hover:bg-coralink;
+  }
+  .btn-dark {
+    @apply btn bg-ink text-cream shadow-card hover:bg-black;
+  }
+  .btn-ghost {
+    @apply btn border-line bg-paper text-ink hover:border-ink;
+  }
+  .chip {
+    @apply inline-flex items-center gap-1 rounded-full border border-line bg-paper px-3 py-1 text-xs font-bold text-sub;
+  }
+  .h1 {
+    @apply text-[clamp(2rem,5vw,3.4rem)] font-black leading-[1.12] tracking-[-0.04em];
+  }
+  .h2 {
+    @apply text-[clamp(1.4rem,3vw,2.1rem)] font-black leading-tight tracking-[-0.03em];
+  }
+  .muted {
+    @apply text-sub;
+  }
+  .dot-grid {
+    background-image: radial-gradient(#e7d9c9 1.2px, transparent 1.2px);
+    background-size: 18px 18px;
+  }
+}
+
+/* 스티커(SVG) 렌더 컨테이너 */
+.sticker-svg > svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+input,
+textarea,
+select {
+  font-family: inherit;
+}
+
+*:focus-visible {
+  outline: 3px solid #ff6b5b;
+  outline-offset: 2px;
+}

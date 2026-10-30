@@ -67,11 +67,12 @@
 | 스프린트 | 목표 | 담당 | 상태 |
 | --- | --- | --- | --- |
 | S0 | 클린 슬레이트 + Step 1 전략/설계 | PM 전원 | ✅ 완료 |
-| **S1** | **스캐폴드 · 랜딩 · 업로드 · Identity Lock · 팩 생성** | Sub 3+1 | ⏳ 승인 대기 |
-| S2 | 편집기 · Chat-to-Sticker · Daily Brief | Sub 3+4 | 대기 |
-| S3 | 결제(토스/Mock) · 크레딧 원장 · 빌링 | Sub 3+PM | 대기 |
-| S4 | 굿즈 커머스 · 카카오 패키저 · 관리자 | Sub 3+4 | 대기 |
-| S5 | CI/CD · Sentry · PostHog · 자동 리포트 | Sub 5 | 대기 |
+| S1 | 스캐폴드 · 랜딩 · 업로드 · Identity Lock · 팩 생성(SSE) | Sub 3+1 | ✅ 완료 |
+| S2 | 편집기(대사/감정선/소품/GIF) · Chat-to-Sticker · Daily Brief | Sub 3+4 | ✅ 완료 |
+| S3 | 결제 Provider · 크레딧 원장(멱등) · 빌링/체크아웃 | Sub 3+PM | ✅ 완료 (mock) |
+| S4 | 굿즈 커머스 · 내보내기(ZIP/PNG/GIF) · 관리자 콘솔 | Sub 3+4 | ✅ 완료 (카톡 패키저 검증은 S6) |
+| S5 | CI 문서검증·스모크 28케이스 / Sentry·PostHog 연동 | Sub 5 | 🟡 부분 (CI· smoke 완료, 관측 연동 대기) |
+| S6 | 프로덕션 어댑터(Prisma/BullMQ/Gemini/S3) · 안전장치(NSFW/유명인) | Sub 1+3+5 | ⏳ Step 3 |
 
 ---
 
@@ -89,6 +90,8 @@
 | ADR-005 | 얼굴 원본 24h 파기 | 2026-10-30 |
 | ADR-006 | PaymentProvider 추상화 (toss/iap/mock) | 2026-10-30 |
 | ADR-007 | 데모 렌더러 내장 (키 없는 시연 보장) | 2026-10-30 |
+| ADR-008 | Step 2는 파일 저장소·인프로세스 큐로 구현, 계약 유지 후 어댑터 교체 | 2026-10-30 |
+| ADR-009 | 내보내기(PNG/GIF/ZIP)를 클라이언트로 이동 — 서버 네이티브 의존 제거 | 2026-10-30 |
 
 ---
 
