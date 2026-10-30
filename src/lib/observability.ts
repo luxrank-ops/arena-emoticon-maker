@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { logEvent, withDB } from '@/lib/store';
 
 // ─────────────────────────────────────────────────────────────
@@ -26,6 +27,19 @@ export function log(level: Level, scope: string, message: string, meta: Record<s
 export async function captureError(scope: string, error: unknown, userId?: string, meta: Record<string, unknown> = {}) {
   const message = error instanceof Error ? error.message : String(error);
   log('error', scope, message, meta);
+
+  // ── Sentry 전송 (DSN 미설정 시 SDK 가 스스로 no-op) ──
+  //  · 태그: 어느 레이어에서 터졌는지 / 사용자: 내부 ID 만 (이메일·IP 미전송)
+  try {
+    Sentry.captureException(error, {
+      tags: { scope },
+      user: userId ? { id: userId } : undefined,
+      extra: meta,
+      fingerprint: [scope, message.slice(0, 80)],
+    });
+  } catch {
+    /* Sentry 장애가 요청을 죽이지 않게 */
+  }
   try {
     await withDB((db) =>
       logEvent(db, userId ?? 'anonymous', 'error', { scope, message: message.slice(0, 160), ...(meta as Record<string, string | number | boolean>) }),

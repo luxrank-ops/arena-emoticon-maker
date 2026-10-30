@@ -12,11 +12,14 @@
     "store:reset": "node -e \"require('fs').rmSync('.data',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@sentry/nextjs": "8.55.2",
     "clsx": "2.1.1",
     "gifenc": "1.0.3",
     "jszip": "3.10.1",
     "lucide-react": "0.451.0",
     "next": "14.2.35",
+    "posthog-js": "1.443.0",
+    "posthog-node": "4.18.0",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "tailwind-merge": "2.5.4",
