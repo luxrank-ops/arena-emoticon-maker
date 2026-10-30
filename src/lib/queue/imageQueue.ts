@@ -4,6 +4,7 @@ import prisma from '@/lib/prisma';
 import { generateImageWithDalle, buildEmoticonPrompt, STYLE_ART_PROMPTS } from '@/lib/ai/dalle';
 import { uploadExternalImage, uploadThumbnail, ensureBucketExists } from '@/lib/storage/supabase';
 import { emitGenerationUpdate } from '@/lib/socket/server';
+import { notify } from '@/lib/notifications/in-app';
 
 const REDIS_URL = process.env.REDIS_URL || 'redis://localhost:6379';
 
@@ -128,6 +129,20 @@ export const imageGenerationWorker = new Worker<GenerationJobData, GenerationJob
         revisedPrompt: result.revisedPrompt,
       });
 
+      // 8. 인앱/이메일/푸시 알림 발송
+      try {
+        await notify.generationComplete(userId, {
+          characterName,
+          emotion,
+          imageUrl: imageUpload.url,
+          creditsUsed,
+          remainingCredits: 0, // 별도 조회 필요시 추가
+          generationId,
+        });
+      } catch (notifyError) {
+        console.error('생성 완료 알림 발송 실패:', notifyError);
+      }
+
       return {
         imageUrl: imageUpload.url,
         thumbnailUrl: thumbnailUpload,
@@ -159,6 +174,18 @@ export const imageGenerationWorker = new Worker<GenerationJobData, GenerationJob
         status: 'FAILED',
         error: errorMessage,
       });
+
+      // 인앱/이메일/푸시 알림 발송 (생성 실패)
+      try {
+        await notify.generationFailed(userId, {
+          characterName,
+          error: errorMessage,
+          creditsRefunded: creditsUsed,
+          generationId,
+        });
+      } catch (notifyError) {
+        console.error('생성 실패 알림 발송 실패:', notifyError);
+      }
 
       throw error;
     }

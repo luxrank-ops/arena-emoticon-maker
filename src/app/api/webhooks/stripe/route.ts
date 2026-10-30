@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
 import prisma from '@/lib/prisma';
+import { notify } from '@/lib/notifications/in-app';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: '2024-04-10',
@@ -88,6 +89,35 @@ async function handleCheckoutCompleted(session: Stripe.Checkout.Session) {
         },
       });
     });
+
+    // 결제 성공 알림
+    try {
+      const pkgName = packageId === 'starter' ? '스타터 팩' : 
+                      packageId === 'pro' ? '프로 팩' :
+                      packageId === 'business' ? '비즈니스 팩' : '엔터프라이즈';
+      await notify.paymentSuccess(userId, {
+        plan: pkgName,
+        amount: session.amount_total || 0,
+        credits: parseInt(credits),
+        receiptNumber: session.id,
+      });
+    } catch (notifyError) {
+      console.error('결제 성공 알림 발송 실패:', notifyError);
+    }
+  }
+  
+  if (type === 'subscription') {
+    // 구독 시작 알림
+    try {
+      await notify.systemAnnouncement(userId, {
+        title: '구독 시작됨 🎉',
+        message: '구독이 시작되었습니다. 매월 자동으로 크레딧이 지급됩니다.',
+        actionUrl: '/dashboard/credits',
+        actionLabel: '구독 관리',
+      });
+    } catch (notifyError) {
+      console.error('구독 시작 알림 발송 실패:', notifyError);
+    }
   }
 }
 
@@ -111,7 +141,14 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
     [process.env.STRIPE_PRICE_BUSINESS || '']: 1200,
   };
 
+  const planNames: Record<string, string> = {
+    [process.env.STRIPE_PRICE_STARTER || '']: 'STARTER',
+    [process.env.STRIPE_PRICE_PRO || '']: 'PRO',
+    [process.env.STRIPE_PRICE_BUSINESS || '']: 'ENTERPRISE',
+  };
+
   const credits = planCredits[priceId] || 0;
+  const planName = planNames[priceId] || 'STARTER';
 
   if (credits > 0) {
     await prisma.$transaction(async (tx: typeof prisma) => {
@@ -133,6 +170,18 @@ async function handleInvoicePaymentSucceeded(invoice: Stripe.Invoice) {
         },
       });
     });
+
+    // 구독 갱신 알림
+    try {
+      const periodEnd = new Date(subscription.current_period_end * 1000);
+      await notify.subscriptionRenewed(user.id, {
+        plan: planName,
+        monthlyCredits: credits,
+        nextBillingDate: periodEnd.toLocaleDateString('ko-KR'),
+      });
+    } catch (notifyError) {
+      console.error('구독 갱신 알림 발송 실패:', notifyError);
+    }
   }
 }
 
@@ -187,6 +236,17 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
 
   if (!user) return;
 
+  const planNames: Record<string, string> = {
+    [process.env.STRIPE_PRICE_STARTER || '']: 'STARTER',
+    [process.env.STRIPE_PRICE_PRO || '']: 'PRO',
+    [process.env.STRIPE_PRICE_BUSINESS || '']: 'ENTERPRISE',
+  };
+  const priceId = subscription.items.data[0]?.price.id;
+  const planName = planNames[priceId] || 'STARTER';
+  const periodEnd = subscription.current_period_end 
+    ? new Date(subscription.current_period_end * 1000).toLocaleDateString('ko-KR')
+    : '즉시';
+
   await prisma.subscription.update({
     where: { userId: user.id },
     data: {
@@ -197,6 +257,17 @@ async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
       plan: 'FREE',
     },
   });
+
+  // 구독 해지 알림
+  try {
+    await notify.subscriptionCancelled(user.id, {
+      plan: planName,
+      expiresAt: periodEnd,
+      reason: subscription.cancellation_details?.reason || undefined,
+    });
+  } catch (notifyError) {
+    console.error('구독 해지 알림 발송 실패:', notifyError);
+  }
 }
 
 async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
@@ -220,4 +291,14 @@ async function handlePaymentFailed(paymentIntent: Stripe.PaymentIntent) {
       metadata: { error: paymentIntent.last_payment_error?.message },
     },
   });
+
+  // 결제 실패 알림
+  try {
+    await notify.paymentFailed(user.id, {
+      plan: '크레딧 충전/구독',
+      error: paymentIntent.last_payment_error?.message || '알 수 없는 오류',
+    });
+  } catch (notifyError) {
+    console.error('결제 실패 알림 발송 실패:', notifyError);
+  }
 }
