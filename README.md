@@ -22,6 +22,7 @@
 | 마이페이지 | `/billing` | 크레딧 원장 · 결제 내역 · 내 팩 |
 | 운영 콘솔 | `/admin` | 매출 · 원가 · 플랜 분포 · 최다 사용 컷 (코드 `emotime-demo`) |
 | 정책 | `/terms` `/privacy` `/refund` `/support` | PG 심사 대응 문서 |
+| 관측 | Sentry · PostHog | 에러 추적 + 퍼널 분석(사진·대사 미전송, 키 없으면 no-op) |
 
 ## 빠른 시작
 
@@ -33,6 +34,9 @@ npm run build && npm run start # 프로덕션 빌드
 BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 28 케이스 스모크
 node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
 ```
+
+- **관측/분석은 키를 넣는 순간 켜집니다.** `SENTRY_DSN`·`NEXT_PUBLIC_POSTHOG_KEY` 가 없으면 SDK 는 no-op 이고,
+  기존 구조화 로그 + `/admin` 에러 카드만으로 동작합니다. 연동 지점·개인정보 설계는 [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
 
 - **API 키 없이 전 플로우가 동작합니다.** 이미지 생성은 절차적 SVG 렌더러가 담당하고, 결제는 Mock Provider가
   실제와 동일한 주문→승인→원장 지급 파이프라인을 수행합니다.
@@ -52,6 +56,7 @@ Next.js 14 (App Router) · React 18 · TypeScript strict · Tailwind CSS · Zod 
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Identity Lock 파이프라인 · 데이터 모델 · API 계약 · ADR |
 | [docs/COMPLIANCE.md](docs/COMPLIANCE.md) | 토스페이먼츠 심사 · 청약철회 · 개인정보 · AI 표시 의무 |
 | [docs/STEP2-BUILD-NOTES.md](docs/STEP2-BUILD-NOTES.md) | **구현 결과 · 설계 대비 변경 로그 · 보안 현황** |
+| [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | **Sentry · PostHog 실연동** — 붙은 지점 · 개인정보 설계 · 무료 쿼터 가드레일 |
 | [AGENTS.md](AGENTS.md) | 5개 서브 에이전트 조직 · 스프린트 보드 |
 
 ## 핵심 설계 3원칙

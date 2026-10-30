@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { analyzeSelfie, type FaceAnalysis } from '@/lib/face/analyze';
 import { Sticker } from '@/components/Sticker';
 import { EMOTIONS, TONES } from '@/lib/art/sticker';
+import { track } from '@/lib/analytics';
 import type { Emotion, StickerSpec, Tone } from '@/lib/types';
 
 const CONSENT_VERSION = 'v1.0';
@@ -37,6 +38,7 @@ export function UploadFlow({
     try {
       const result = await analyzeSelfie(file);
       setAnalysis(result);
+      track('photo_analyzed', { ok: result.ok });
     } catch {
       setError('사진을 읽지 못했어요. 다른 사진으로 시도해 주세요.');
     } finally {
@@ -88,8 +90,10 @@ export function UploadFlow({
       const sheetJson = await sheetRes.json();
       if (!sheetRes.ok) throw new Error(sheetJson?.error?.message ?? '캐릭터 시트를 만들지 못했어요');
 
+      track('sheet_created', { tone, credits });
       router.push(`/studio/sheet/${sheetJson.sheet.id}`);
     } catch (e) {
+      track('sheet_failed', { tone });
       setError((e as Error).message);
       setBusy(false);
     }

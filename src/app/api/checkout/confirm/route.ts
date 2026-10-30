@@ -3,6 +3,7 @@ import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { applyCredits } from '@/lib/credits';
 import { logEvent, withDB } from '@/lib/store';
+import { captureServer } from '@/lib/analytics-server';
 import type { Order } from '@/lib/types';
 
 const schema = z.object({
@@ -70,6 +71,14 @@ export async function POST(req: Request) {
       const paidRec = db.orders.find((o) => o.id === order.id) as (typeof db.orders)[number] & { consentAt?: string };
       if (paidRec) paidRec.consentAt = new Date().toISOString();
       logEvent(db, user.id, 'order_paid', { orderId: order.id, amount: order.amount, provider });
+    });
+
+    void captureServer('order_paid', user.id, {
+      orderId: order.id,
+      kind: order.kind,
+      amount: order.amount,
+      credits: order.credits,
+      plan: order.plan ?? null,
     });
 
     return ok({ order: paid, credits: await balanceOf(user.id), granted: order.credits });

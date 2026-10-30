@@ -1,9 +1,16 @@
 name: Smoke
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
   workflow_dispatch:
+
+# 같은 브랜치에서 연속 push 시 이전 런은 취소 (러너 낭비 방지)
+concurrency:
+  group: smoke-${{ github.ref }}
+  cancel-in-progress: true
 
 jobs:
   smoke:

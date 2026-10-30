@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { BACKGROUNDS, EMOTIONS, PROPS } from '@/lib/art/sticker';
 import { downloadBlob, renderGifBlob, renderPngBlob } from '@/lib/export';
+import { track } from '@/lib/analytics';
 import type { BackgroundKey, Emotion, FrameView, PropKey, StickerSpec } from '@/lib/types';
 
 const QUICK_LINES = ['ㅇㅋ', '킹받네', '출근합니다', '퇴근!!', '고마워!', '배고파아', 'ㅋㅋㅋㅋ', 'ㅠㅠ'];
@@ -60,6 +61,7 @@ export function FrameEditor({
     try {
       const blob = await renderPngBlob(spec, { watermark, size: 1024 });
       downloadBlob(blob, `${frame.label}-${frame.index + 1}.png`);
+      track('export_sticker', { format: 'png', emotion: frame.emotion });
     } finally {
       setExporting(null);
     }
@@ -70,6 +72,7 @@ export function FrameEditor({
     try {
       const blob = await renderGifBlob(spec, { frames: 12, size: 360 });
       downloadBlob(blob, `${frame.label}-${frame.index + 1}.gif`);
+      track('export_sticker', { format: 'gif', emotion: frame.emotion });
     } finally {
       setExporting(null);
     }
