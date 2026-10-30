@@ -55,10 +55,15 @@ export const authOptions: NextAuthOptions = {
       if (user) {
         token.id = user.id;
         token.role = (user as any).role;
+        token.credits = (user as any).credits;
       }
       if (trigger === 'update' && session) {
         token.name = session.name;
         token.image = session.image;
+        // 세션 업데이트 시 크레딧도 갱신
+        if ((session as any).credits !== undefined) {
+          token.credits = (session as any).credits;
+        }
       }
       return token;
     },
@@ -66,6 +71,7 @@ export const authOptions: NextAuthOptions = {
       if (session.user) {
         (session.user as any).id = token.id;
         (session.user as any).role = token.role;
+        (session.user as any).credits = token.credits;
       }
       return session;
     },
