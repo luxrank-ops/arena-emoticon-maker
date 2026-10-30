@@ -153,20 +153,17 @@ export const imageGenerationWorker = new Worker<GenerationJobData, GenerationJob
       const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류';
       console.error(`생성 작업 실패 (${generationId}):`, error);
 
-      // 실패 상태 업데이트
-      await prisma.generation.update({
-        where: { id: generationId },
-        data: {
-          status: 'FAILED',
-          error: errorMessage,
-          completedAt: new Date(),
-        },
-      });
-
-      // 크레딧 환불
-      await prisma.user.update({
-        where: { id: userId },
-        data: { credits: { increment: creditsUsed } },
+      // Retry without refunding; only the final failed attempt may refund.
+      if (job.attemptsMade + 1 < (job.opts.attempts ?? 1)) throw error;
+      await prisma.$transaction(async (tx) => {
+        // Guard against duplicate finalization and refund atomically.
+        const updated = await tx.generation.updateMany({
+          where: { id: generationId, status: { in: ['PENDING', 'PROCESSING'] } },
+          data: { status: 'FAILED', error: errorMessage, completedAt: new Date() },
+        });
+        if (updated.count) {
+          await tx.user.update({ where: { id: userId }, data: { credits: { increment: creditsUsed } } });
+        }
       });
 
       // 실패 알림

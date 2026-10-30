@@ -22,6 +22,7 @@ export async function GET(
       where: { id },
       select: {
         id: true,
+        userId: true,
         status: true,
         imageUrl: true,
         thumbnailUrl: true,

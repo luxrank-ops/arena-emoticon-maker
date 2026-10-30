@@ -8,7 +8,6 @@
  */
 
 import { imageGenerationWorker, getQueueStats } from '@/lib/queue/imageQueue';
-import { processMonthlyRollover } from '@/lib/billing/rollover';
 import prisma from '@/lib/prisma';
 
 // Graceful shutdown 처리
@@ -65,20 +64,7 @@ setInterval(async () => {
   }
 }, 5 * 60 * 1000);
 
-// 월간 롤오버 체크 (매일 자정 실행)
-setInterval(async () => {
-  const now = new Date();
-  // 매월 1일 00:00 KST 체크
-  if (now.getDate() === 1 && now.getHours() === 0 && now.getMinutes() < 5) {
-    console.log('📅 월간 크레딧 이월 처리 시작...');
-    try {
-      const result = await processMonthlyRollover();
-      console.log('✅ 월간 이월 완료:', result);
-    } catch (error) {
-      console.error('❌ 월간 이월 실패:', error);
-    }
-  }
-}, 60 * 1000); // 1분마다 체크 (정확한 타이밍 위해)
+// Credit rollover is disabled until an idempotent credit ledger exists.
 
 // 워커 이벤트 로깅
 imageGenerationWorker.on('completed', (job) => {

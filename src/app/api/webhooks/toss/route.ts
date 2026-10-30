@@ -5,72 +5,10 @@ import { notify } from '@/lib/notifications/in-app';
 
 const TOSS_WEBHOOK_SECRET = process.env.TOSS_WEBHOOK_SECRET!;
 
-export async function POST(request: NextRequest) {
-  try {
-    const body = await request.text();
-    const headersList = await headers();
-    const signature = headersList.get('tosspayments-signature');
-
-    if (!signature) {
-      console.error('Toss Webhook: Missing signature');
-      return NextResponse.json({ error: 'Missing signature' }, { status: 400 });
-    }
-
-    // 토스페이먼츠 웹훅 서명 검증
-    // 토스는 HMAC-SHA256으로 서명하며, secret key로 검증
-    const crypto = await import('crypto');
-    const expectedSignature = crypto
-      .createHmac('sha256', TOSS_WEBHOOK_SECRET)
-      .update(body)
-      .digest('base64');
-
-    // 타이밍 공격 방지를 위한 비교
-    if (!crypto.timingSafeEqual(Buffer.from(signature), Buffer.from(expectedSignature))) {
-      console.error('Toss Webhook: Invalid signature');
-      return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
-    }
-
-    let event: TossWebhookEvent;
-
-    try {
-      event = JSON.parse(body);
-    } catch (err) {
-      console.error('Toss Webhook: Invalid JSON', err);
-      return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 });
-    }
-
-    console.log(`Toss Webhook received: ${event.eventType}`, {
-      eventId: event.eventId,
-      timestamp: event.timestamp,
-    });
-
-    // 이벤트 타입별 처리
-    switch (event.eventType) {
-      case 'PAYMENT_STATUS_CHANGED': {
-        await handlePaymentStatusChanged(event.data);
-        break;
-      }
-      case 'BILLING_KEY_STATUS_CHANGED': {
-        await handleBillingKeyStatusChanged(event.data);
-        break;
-      }
-      case 'BILLING_PAYMENT_STATUS_CHANGED': {
-        await handleBillingPaymentStatusChanged(event.data);
-        break;
-      }
-      case 'CASH_RECEIPT_STATUS_CHANGED': {
-        await handleCashReceiptStatusChanged(event.data);
-        break;
-      }
-      default:
-        console.log(`Unhandled Toss webhook event: ${event.eventType}`);
-    }
-
-    return NextResponse.json({ received: true });
-  } catch (error) {
-    console.error('Toss Webhook error:', error);
-    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
-  }
+// Fail closed and request retries rather than acknowledging unverified events.
+// The old handler assumed an unverified signature format and unreliable metadata.
+export async function POST(_request: NextRequest) {
+  return NextResponse.json({ error: 'Toss webhook temporarily unavailable pending verification' }, { status: 503 });
 }
 
 // 토스페이먼츠 웹훅 이벤트 타입
