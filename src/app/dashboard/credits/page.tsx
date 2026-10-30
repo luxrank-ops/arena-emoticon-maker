@@ -1,9 +1,11 @@
-'use client';
+"use client";
 
 import { useSession } from 'next-auth/react';
+import { useState } from 'react';
 import { Button } from '@/components/ui/Button';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/Card';
-import { CreditCard, Zap, ArrowRight, CheckCircle, Clock, AlertCircle } from 'lucide-react';
+import { CreditCard, Zap, ArrowRight, CheckCircle, Clock, AlertCircle, Shield } from 'lucide-react';
+import TossPaymentWidget from '@/components/payments/TossPaymentWidget';
 
 const CREDIT_PACKAGES = [
   { id: 'starter', name: '스타터 팩', credits: 100, price: 9900, bonus: 0, popular: false },
@@ -18,25 +20,158 @@ const SUBSCRIPTION_PLANS = [
   { id: 'monthly_business', name: '월간 비즈니스', monthlyCredits: 1200, price: 69900, features: ['매월 1200 크레딧', '롤오버 100% 지원', '전용 지원', 'API 접근'] },
 ];
 
+type PaymentProvider = 'stripe' | 'toss';
+
+type TossPaymentWidgetState = { 
+  packageId: string; 
+  isSubscription: boolean; 
+  provider: PaymentProvider;
+  orderId: string;
+};
+
 export default function CreditsPage() {
   const { data: session, update } = useSession();
   const credits = session?.user ? (session.user as any).credits ?? 0 : 0;
+  const [paymentProvider, setPaymentProvider] = useState<PaymentProvider>('toss'); // 기본 토스
+  const [showPaymentWidget, setShowPaymentWidget] = useState<TossPaymentWidgetState | null>(null);
 
   const handlePurchase = async (packageId: string, isSubscription = false) => {
     try {
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ packageId, isSubscription }),
-      });
-      const data = await response.json();
-      if (data.url) {
-        window.location.href = data.url;
+      if (paymentProvider === 'toss') {
+        // 토스페이먼츠: 위젯 모달 표시 (주문 ID 생성)
+        const orderId = `${isSubscription ? 'SUB' : 'CREDIT'}_${Date.now()}_${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
+        setShowPaymentWidget({ packageId, isSubscription, provider: 'toss', orderId });
+      } else {
+        // 스트라이프: 기존 리다이렉트 방식
+        const response = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ packageId, isSubscription }),
+        });
+        const data = await response.json();
+        if (data.url) {
+          window.location.href = data.url;
+        } else if (data.orderId) {
+          // 토스 결제 위젯용 데이터인 경우
+          setShowPaymentWidget({ packageId, isSubscription, provider: 'toss', orderId: data.orderId });
+        }
       }
     } catch (error) {
       console.error('Checkout error:', error);
       alert('결제 페이지 이동 중 오류가 발생했습니다.');
     }
+  };
+
+  const handleTossPaymentSuccess = async (data: { paymentKey: string; orderId: string; amount: number }) => {
+    // 결제 성공 시 세션 업데이트 (크레딧 반영)
+    try {
+      await update();
+    } catch (e) {
+      console.error('Session update failed:', e);
+    }
+    setShowPaymentWidget(null);
+    alert('결제가 완료되었습니다! 크레딧이 충전되었습니다.');
+    // 페이지 새로고침으로 최신 크레딧 반영
+    window.location.reload();
+  };
+
+  const handleTossPaymentError = (error: { code: string; message: string }) => {
+    console.error('Toss payment error:', error);
+    if (error.code !== 'USER_CANCEL') {
+      alert(`결제 실패: ${error.message}`);
+    }
+    setShowPaymentWidget(null);
+  };
+
+  const handleTossPaymentClose = () => {
+    setShowPaymentWidget(null);
+  };
+
+  // 결제 공급자 선택 컴포넌트
+  const renderProviderSelector = () => (
+    <div className="mb-6 p-4 bg-slate-50 rounded-xl">
+      <p className="text-sm font-medium text-slate-900 mb-3">결제 수단 선택</p>
+      <div className="flex gap-4">
+        <button
+          onClick={() => setPaymentProvider('toss')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
+            paymentProvider === 'toss'
+              ? 'border-primary-500 bg-primary-50 text-primary-700'
+              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+          }`}
+        >
+          <Shield className="w-5 h-5" />
+          <span className="font-medium">토스페이먼츠</span>
+          <span className="text-xs bg-primary-100 text-primary-700 px-2 py-0.5 rounded">추천</span>
+        </button>
+        <button
+          onClick={() => setPaymentProvider('stripe')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-colors ${
+            paymentProvider === 'stripe'
+              ? 'border-primary-500 bg-primary-50 text-primary-700'
+              : 'border-slate-200 text-slate-600 hover:border-slate-300'
+          }`}
+        >
+          <CreditCard className="w-5 h-5" />
+          <span className="font-medium">Stripe</span>
+          <span className="text-xs bg-slate-100 text-slate-600 px-2 py-0.5 rounded">해외결제</span>
+        </button>
+      </div>
+      <p className="text-xs text-slate-500 mt-2">
+        토스페이먼츠: 국내 카드/간편결제(토스페이, 카카오페이, 네이버페이 등) 지원, 수수료 저렴
+        <br />Stripe: 해외 카드 결제 지원, 구독 관리 기능 강력
+      </p>
+    </div>
+  );
+
+  // 토스 결제 위젯 모달
+  const renderTossPaymentModal = () => {
+    if (!showPaymentWidget) return null;
+
+    const pkg = CREDIT_PACKAGES.find(p => p.id === showPaymentWidget.packageId);
+    const sub = SUBSCRIPTION_PLANS.find(p => p.id === showPaymentWidget.packageId);
+    const item = pkg || sub;
+    const isSubscription = showPaymentWidget.isSubscription;
+
+    if (!item) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+        <div className="bg-white rounded-2xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b border-slate-200 flex items-center justify-between">
+            <h3 className="text-lg font-semibold text-slate-900">
+              {isSubscription ? '구독 첫 결제' : '크레딧 충전'} - {item.name}
+            </h3>
+            <button
+              onClick={handleTossPaymentClose}
+              className="p-2 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-6">
+            <TossPaymentWidget
+              orderId={showPaymentWidget.orderId}
+              amount={item.price}
+              orderName={`${item.name}${isSubscription ? ' - 첫 결제' : ` - ${'credits' in item ? item.credits : item.monthlyCredits} 크레딧`}${'bonus' in item && item.bonus ? ` (+${item.bonus} 보너스)` : ''}`}
+              customerEmail={session?.user?.email || undefined}
+              customerName={session?.user?.name || undefined}
+              metadata={{
+                userId: (session?.user as any)?.id,
+                packageId: showPaymentWidget.packageId,
+                credits: (pkg?.credits || sub?.monthlyCredits || 0).toString(),
+                type: isSubscription ? 'subscription' : 'credits',
+                ...(isSubscription && { monthlyCredits: (sub?.monthlyCredits || 0).toString() }),
+              }}
+              onSuccess={handleTossPaymentSuccess}
+              onError={handleTossPaymentError}
+            />
+          </div>
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -76,6 +211,9 @@ export default function CreditsPage() {
             </div>
           </CardContent>
         </Card>
+
+        {/* 결제 공급자 선택 */}
+        {renderProviderSelector()}
 
         {/* One-time Packages */}
         <section className="mb-12">
@@ -122,7 +260,7 @@ export default function CreditsPage() {
                   size="lg"
                   onClick={() => handlePurchase(pkg.id)}
                 >
-                  구매하기
+                  {paymentProvider === 'toss' ? '토스페이로 구매' : '구매하기'}
                 </Button>
               </Card>
             ))}
@@ -163,7 +301,7 @@ export default function CreditsPage() {
                   className="w-full"
                   onClick={() => handlePurchase(plan.id, true)}
                 >
-                  구독 시작
+                  {paymentProvider === 'toss' ? '토스페이로 구독' : '구독 시작'}
                 </Button>
               </Card>
             ))}
@@ -178,7 +316,7 @@ export default function CreditsPage() {
               { icon: Zap, title: '최우선 생성 큐', desc: '대기 시간 없이 즉시 생성', color: 'amber' },
               { icon: CheckCircle, title: '롤오버 크레딧', desc: '미사용 크레딧 다음 달 이월 (프로 이상)', color: 'emerald' },
               { icon: CreditCard, title: '자동 충전', desc: '크레딧 부족 걱정 없이 자동 갱신', color: 'blue' },
-              { icon: AlertCircle, title: '전용 지원', desc: '우선 기술 지원 및 문의 응대', color: 'purple' },
+              { icon: Shield, title: '전용 지원', desc: '우선 기술 지원 및 문의 응대', color: 'purple' },
               { icon: Clock, title: '고해상도 다운로드', desc: '4K 해상도 원본 파일 제공 (프로 이상)', color: 'indigo' },
               { icon: ArrowRight, title: 'API 접근', desc: '자동화 연동을 위한 REST API 키 (비즈니스)', color: 'rose' },
             ].map((benefit, idx) => (
@@ -202,6 +340,7 @@ export default function CreditsPage() {
               { q: '환불이 가능한가요?', a: '사용하지 않은 일회성 크레딧은 구매 후 7일 이내 전액 환불 가능합니다. 구독은 현재 월 이용분 제외하고 즉시 해지 및 환불 처리됩니다.' },
               { q: '세금계산서 발행되나요?', a: '네, 사업자 등록번호를 프로필에 등록하시면 자동으로 세금계산서가 발행됩니다. (부가가치세 10% 별도)' },
               { q: '팀/조직 단위 구매는 어떻게 하나요?', a: '엔터프라이즈 플랜 또는 별도 B2B 계약을 통해 팀 관리자 콘솔, 통합 청구, SSO 등을 제공합니다. 영업팀에 문의해주세요.' },
+              { q: '토스페이먼츠와 Stripe 중 뭐가 좋나요?', a: '국내 카드/간편결제 위주면 토스페이먼츠(수수료 저렴, 간편결제 지원), 해외 결제 필요하면 Stripe를 추천합니다. 언제든 변경 가능합니다.' },
             ].map((faq, idx) => (
               <Card key={idx} variant="outlined" padding="md">
                 <details className="group">
@@ -215,6 +354,9 @@ export default function CreditsPage() {
             ))}
           </div>
         </section>
+
+        {/* 토스 결제 모달 */}
+        {renderTossPaymentModal()}
       </div>
     </div>
   );
