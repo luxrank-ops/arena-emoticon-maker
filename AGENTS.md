@@ -71,7 +71,7 @@
 | S2 | 편집기(대사/감정선/소품/GIF) · Chat-to-Sticker · Daily Brief | Sub 3+4 | ✅ 완료 |
 | S3 | 결제 Provider · 크레딧 원장(멱등) · 빌링/체크아웃 | Sub 3+PM | ✅ 완료 (mock) |
 | S4 | 굿즈 커머스 · 내보내기(ZIP/PNG/GIF) · 관리자 콘솔 | Sub 3+4 | ✅ 완료 (카톡 패키저 검증은 S6) |
-| S5 | CI 문서검증·스모크 28케이스 / Sentry·PostHog 연동 | Sub 5 | 🟡 부분 (CI· smoke 완료, 관측 연동 대기) |
+| S5 | CI(문서·빌드·스모크 28) · 구조화 로그/에러 수집 · 자동 KPI 리포트 | Sub 5 | ✅ 완료 (Sentry/PostHog SDK 연동은 키 발급 후) |
 | S6 | 프로덕션 어댑터(Prisma/BullMQ/Gemini/S3) · 안전장치(NSFW/유명인) | Sub 1+3+5 | ⏳ Step 3 |
 
 ---

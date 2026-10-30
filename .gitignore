@@ -41,3 +41,4 @@ uploads/
 
 # emotime local runtime data (file-backed store)
 .data/
+reports/

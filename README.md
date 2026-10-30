@@ -31,6 +31,7 @@ cp .env.example .env.local     # 값이 없으면 DEMO_MODE 로 동작 (API 키 
 npm run dev                    # http://localhost:3000
 npm run build && npm run start # 프로덕션 빌드
 BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 28 케이스 스모크
+node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
 ```
 
 - **API 키 없이 전 플로우가 동작합니다.** 이미지 생성은 절차적 SVG 렌더러가 담당하고, 결제는 Mock Provider가

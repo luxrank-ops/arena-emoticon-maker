@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { ZodError } from 'zod';
+import { captureError } from '@/lib/observability';
 
 export function ok<T>(data: T, init?: ResponseInit) {
   return NextResponse.json({ ok: true, ...data }, init);
@@ -17,6 +18,6 @@ export function handleError(e: unknown) {
   if (err?.code && typeof err.code === 'string' && err.code === err.code.toUpperCase()) {
     return fail(err.code, err.message ?? '요청을 처리할 수 없습니다', err.code === 'QUOTA_EXCEEDED' ? 402 : 404);
   }
-  console.error('[api]', e);
+  void captureError('api', e);
   return fail('INTERNAL', '잠시 후 다시 시도해 주세요', 500);
 }

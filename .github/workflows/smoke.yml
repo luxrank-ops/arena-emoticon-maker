@@ -1,0 +1,48 @@
+name: Smoke
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  smoke:
+    if: ${{ hashFiles('package.json') != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Build
+        env:
+          DEMO_MODE: '1'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run build
+      - name: Start server
+        env:
+          DEMO_MODE: '1'
+        run: |
+          npm run start > server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then echo "server up"; exit 0; fi
+            sleep 2
+          done
+          echo "server did not start"; cat server.log; exit 1
+      - name: Run smoke suite
+        run: BASE_URL=http://localhost:3000 node scripts/smoke.mjs
+      - name: Ops report artifact
+        if: always()
+        run: node scripts/ops-report.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ops-report
+          path: reports/
+          retention-days: 14
+      - name: Server log on failure
+        if: failure()
+        run: tail -100 server.log
