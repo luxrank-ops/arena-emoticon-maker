@@ -207,7 +207,7 @@ export default function AdminRevenueClient({ initialData }: AdminRevenueClientPr
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 mb-6">
         {summaryCards.map((stat, index) => (
           <Card key={stat.title} variant="elevated" padding="md" className="relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-transparent to-current/10" style={{ '--tw-gradient-from': stat.color.replace('text-', '').replace('-600', '-500') }} />
+            <div className="absolute top-0 right-0 w-24 h-24 bg-gradient-to-bl from-transparent" style={{ backgroundImage: `linear-gradient(to bottom left, transparent, ${stat.color.replace('text-', '').replace('-600', '-200')})` }} />
             <CardContent className="relative flex items-start justify-between">
               <div>
                 <p className="text-sm font-medium text-slate-500">{stat.title}</p>
@@ -252,11 +252,11 @@ export default function AdminRevenueClient({ initialData }: AdminRevenueClientPr
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
                   <XAxis dataKey="label" stroke="#94a3b8" fontSize={11} tick={{ fill: '#64748b' }} interval={Math.max(1, Math.floor(chartData.length / 10))} />
                   <YAxis stroke="#94a3b8" fontSize={11} tick={{ fill: '#64748b' }} tickFormatter={v => formatCurrency(v / 10000) + '만' } />
-                  <Tooltip
+<Tooltip
                     contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value: number) => [formatCurrency(value), '원']}
+                    formatter={(value: any) => [formatCurrency(typeof value === 'number' ? value : 0), '원']}
                     labelFormatter={(label) => label}
-                  />
+/>
                   <Area
                     type="monotone"
                     dataKey="revenue"
@@ -283,7 +283,7 @@ export default function AdminRevenueClient({ initialData }: AdminRevenueClientPr
             <div className="h-80 flex flex-col items-center justify-center">
               {planData.length > 0 ? (
                 <>
-                  <ResponsiveContainer width="200" height="200">
+                  <ResponsiveContainer width={200} height={200}>
                     <PieChart>
                       <Pie
                         data={planData}
@@ -294,14 +294,14 @@ export default function AdminRevenueClient({ initialData }: AdminRevenueClientPr
                         paddingAngle={3}
                         dataKey="value"
                         nameKey="name"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(1)}%`}
+                        label={({ name, percent = 0 }) => `${name} ${(percent * 100).toFixed(1)}%`}
                         labelLine={false}
                       >
                         {planData.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={entry.color} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(value: number) => [formatCurrency(value), '원']} />
+                      <Tooltip formatter={(value: any) => [formatCurrency(typeof value === 'number' ? value : 0), '원']} />
                     </PieChart>
                   </ResponsiveContainer>
                   <div className="mt-4 flex flex-wrap justify-center gap-3">
@@ -342,8 +342,8 @@ export default function AdminRevenueClient({ initialData }: AdminRevenueClientPr
                   <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
                   <XAxis type="number" stroke="#94a3b8" fontSize={11} tick={{ fill: '#64748b' }} tickFormatter={formatNumber} />
                   <YAxis dataKey="label" type="category" stroke="#94a3b8" fontSize={11} tick={{ fill: '#64748b' }} width={80} />
-                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value: number) => [formatNumber(value), '건']} />
-                  <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} maxBarWidth={25} />
+                  <Tooltip contentStyle={{ backgroundColor: '#fff', border: '1px solid #e2e8f0', borderRadius: '8px' }} formatter={(value: any) => [formatNumber(typeof value === 'number' ? value : 0), '건']} />
+                  <Bar dataKey="revenue" fill="#6366f1" radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>

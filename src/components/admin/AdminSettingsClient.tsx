@@ -21,6 +21,8 @@ import {
   Settings,
   Save,
   Loader2,
+  CheckCircle,
+  AlertCircle,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -113,16 +115,16 @@ export default function AdminSettingsClient() {
     { value: 'integrations', label: '연동', icon: Globe },
   ];
 
-  const renderSwitch = ({ label, description, checked, onChange, icon }: {
+  const renderSwitch = ({ label, description, checked, onChange, Icon }: {
     label: string;
     description: string;
     checked: boolean;
     onChange: (checked: boolean) => void;
-    icon?: any;
+    Icon?: React.ComponentType<any>;
   }) => (
     <div className="flex items-center justify-between py-3 border-b border-slate-100 last:border-0">
       <div className="flex items-center gap-3">
-        {icon && <icon className="w-5 h-5 text-slate-400" />}
+        {Icon && <Icon className="w-5 h-5 text-slate-400" />}
         <div>
           <Label className="font-medium text-slate-900">{label}</Label>
           <p className="text-sm text-slate-500">{description}</p>
@@ -196,14 +198,14 @@ export default function AdminSettingsClient() {
                   description: '활성화 시 일반 사용자의 접근을 차단합니다. (관리자 제외)',
                   checked: generalSettings.maintenanceMode,
                   onChange: (v) => setGeneralSettings({...generalSettings, maintenanceMode: v}),
-                  icon: Settings,
+                  Icon: Settings,
                 })}
                 {renderSwitch({
                   label: '회원가입 허용',
                   description: '새로운 사용자 회원가입을 허용합니다.',
                   checked: generalSettings.registrationEnabled,
                   onChange: (v) => setGeneralSettings({...generalSettings, registrationEnabled: v}),
-                  icon: Users,
+                  Icon: Users,
                 })}
               </div>
 
@@ -310,7 +312,7 @@ export default function AdminSettingsClient() {
                   description: 'Gemini AI로 프롬프트를 자동 개선하여 이미지 품질 향상',
                   checked: aiSettings.enableGeminiOptimization,
                   onChange: (v) => setAiSettings({...aiSettings, enableGeminiOptimization: v}),
-                  icon: Zap,
+                  Icon: Zap,
                 })}
               </div>
             </CardContent>
@@ -346,21 +348,21 @@ export default function AdminSettingsClient() {
                   description: '회원가입 시 이메일 인증을 필수로 요구합니다.',
                   checked: emailSettings.emailVerificationRequired,
                   onChange: (v) => setEmailSettings({...emailSettings, emailVerificationRequired: v}),
-                  icon: Shield,
+                  Icon: Shield,
                 })}
                 {renderSwitch({
                   label: '마케팅 이메일 발송',
                   description: '동의한 사용자에게 마케팅 이메일을 발송합니다.',
                   checked: emailSettings.marketingEmailsEnabled,
                   onChange: (v) => setEmailSettings({...emailSettings, marketingEmailsEnabled: v}),
-                  icon: Mail,
+                  Icon: Mail,
                 })}
                 {renderSwitch({
                   label: '알림 이메일 발송',
                   description: '생성 완료, 결제 등 주요 알림 이메일을 발송합니다.',
                   checked: emailSettings.notificationEmailsEnabled,
                   onChange: (v) => setEmailSettings({...emailSettings, notificationEmailsEnabled: v}),
-                  icon: Bell,
+                  Icon: Bell,
                 })}
               </div>
             </CardContent>
@@ -398,14 +400,14 @@ export default function AdminSettingsClient() {
                   description: '관리자 계정은 2단계 인증을 필수로 요구합니다.',
                   checked: securitySettings.require2FA,
                   onChange: (v) => setSecuritySettings({...securitySettings, require2FA: v}),
-                  icon: Shield,
+                  Icon: Shield,
                 })}
                 {renderSwitch({
                   label: 'CORS 활성화',
                   description: 'Cross-Origin Resource Sharing을 허용합니다.',
                   checked: securitySettings.corsEnabled,
                   onChange: (v) => setSecuritySettings({...securitySettings, corsEnabled: v}),
-                  icon: Globe,
+                  Icon: Globe,
                 })}
               </div>
             </CardContent>

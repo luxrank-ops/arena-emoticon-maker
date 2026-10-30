@@ -56,7 +56,7 @@ async function getRevenueData(searchParams: Promise<{ period?: string }>) {
   });
 
   // 집계 계산
-  const totalRevenue = payments.reduce((sum, p) => sum + p.amount, 0);
+  const totalRevenue = (payments as Array<{ amount: number }>).reduce((sum, p) => sum + p.amount, 0);
   const totalTransactions = payments.length;
   const avgOrderValue = totalTransactions > 0 ? totalRevenue / totalTransactions : 0;
 
@@ -71,7 +71,7 @@ async function getRevenueData(searchParams: Promise<{ period?: string }>) {
   });
 
   // 일/주/월별 수익 그룹화
-  const revenueByPeriod = payments.reduce((acc, payment) => {
+  const revenueByPeriod = (payments as Array<{ amount: number; createdAt: Date }>).reduce<Record<string, number>>((acc, payment) => {
     let key: string;
     const date = new Date(payment.createdAt);
     if (groupBy === 'day') {
@@ -85,7 +85,7 @@ async function getRevenueData(searchParams: Promise<{ period?: string }>) {
     }
     acc[key] = (acc[key] || 0) + payment.amount;
     return acc;
-  }, {} as Record<string, number>);
+  }, {});
 
   // 연속된 기간 데이터 생성
   const chartData = [];
@@ -124,7 +124,7 @@ async function getRevenueData(searchParams: Promise<{ period?: string }>) {
   });
 
   // 상위 결제 사용자
-  const topUsers = payments.reduce((acc, p) => {
+  const topUsers = (payments as Array<{ amount: number; createdAt: Date; user: { id: string; name: string | null; email: string; role: string } }>).reduce<Record<string, { user: { id: string; name: string | null; email: string; role: string }; total: number; count: number }>>((acc, p) => {
     const key = p.user.id;
     if (!acc[key]) {
       acc[key] = { user: p.user, total: 0, count: 0 };
@@ -132,14 +132,14 @@ async function getRevenueData(searchParams: Promise<{ period?: string }>) {
     acc[key].total += p.amount;
     acc[key].count += 1;
     return acc;
-  }, {} as Record<string, { user: any; total: number; count: number }>);
+  }, {});
 
   const topUsersList = Object.values(topUsers)
     .sort((a, b) => b.total - a.total)
     .slice(0, 10);
 
   // MRR 계산 (활성 구독의 월간 수익)
-  const mrr = subscriptions.reduce((sum, sub) => {
+  const mrr = (subscriptions as Array<{ plan: string }>).reduce((sum, sub) => {
     const planPrices: Record<string, number> = {
       STARTER: 9900,
       PRO: 29900,
