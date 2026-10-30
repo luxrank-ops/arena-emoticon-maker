@@ -108,10 +108,13 @@ model Generation {
 model Subscription {
   id                   String   @id @default(cuid())
   userId               String   @unique
-  stripeCustomerId     String   @unique
+  stripeCustomerId     String?  @unique
   stripeSubscriptionId String?  @unique
   stripePriceId        String?
   stripeCurrentPeriodEnd DateTime?
+  tossCustomerId       String?  @unique
+  tossBillingKey       String?  @unique
+  tossSubscriptionId   String?  @unique
   plan                 Plan     @default(FREE)
   status               SubStatus @default(ACTIVE)
   cancelAtPeriodEnd    Boolean  @default(false)
@@ -124,16 +127,21 @@ model Subscription {
 model Payment {
   id              String      @id @default(cuid())
   userId          String
-  stripePaymentIntentId String @unique
-  amount          Int         // cents 단위
+  stripePaymentIntentId String? @unique
+  tossPaymentKey  String?     @unique
+  amount          Int         // 원 단위 (토스는 원 단위)
   currency        String      @default("krw")
   status          PaymentStatus @default(PENDING)
   creditsGranted  Int         @default(0)
   description     String?
   metadata        Json?
+  provider        String      @default("stripe") // "stripe" | "toss"
   createdAt       DateTime    @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+  @@index([provider, status])
 }
 
 model Notification {
