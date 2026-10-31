@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { logEvent, uid, withDB } from '@/lib/store';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 const schema = z.object({
   palette: z.object({
@@ -24,6 +25,8 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+    const limited = enforceRateLimit(user.id, 'faceAnalyze', RATE_LIMITS.faceAnalyze);
+    if (limited) return limited;
     const body = schema.parse(await req.json());
     const id = uid('face');
     const now = new Date();

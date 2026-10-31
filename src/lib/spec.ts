@@ -1,7 +1,7 @@
 import type { BackgroundKey, Emotion, PropKey, StickerSpec, Tone } from '@/lib/types';
 import { DEFAULT_PALETTE, DEFAULT_SIGNATURE, signatureFromSeed } from '@/lib/art/sticker';
 import { withDB } from '@/lib/store';
-import { materializeSpec } from '@/lib/packs';
+import { identityOf, specFromIdentity } from '@/lib/packs';
 
 export interface SpecInput {
   emotion: Emotion;
@@ -21,15 +21,12 @@ export async function specFor(userId: string, input: SpecInput): Promise<Sticker
       .filter((p) => p.userId === userId)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     if (!pack) return null;
-    const sheet = db.sheets.find((s) => s.id === pack.sheetId);
-    if (!sheet?.chosenKey) return null;
-    const face = db.faces.find((f) => f.id === sheet.faceId);
-    if (!face) return null;
-    return { face, sheet };
+    // 스냅샷이 있으면 얼굴 프로필이 파기돼도 내 얼굴로 계속 그린다
+    return identityOf(db, pack);
   });
 
   const base = ctx
-    ? materializeSpec(ctx.face, ctx.sheet, {
+    ? specFromIdentity(ctx, {
         id: 'virtual',
         packId: 'virtual',
         index: 0,

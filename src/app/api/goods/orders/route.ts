@@ -4,6 +4,7 @@ import { getCurrentUser } from '@/lib/session';
 import { GOODS, PLANS, won } from '@/lib/pricing';
 import { logEvent, uid, withDB } from '@/lib/store';
 import type { GoodsOrder } from '@/lib/types';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 const schema = z.object({
   goodsSku: z.string().min(3),
@@ -21,6 +22,8 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+    const limited = enforceRateLimit(user.id, 'goods', RATE_LIMITS.goods);
+    if (limited) return limited;
     const body = schema.parse(await req.json());
     const goods = GOODS.find((g) => g.sku === body.goodsSku);
     if (!goods) return fail('GOODS_NOT_FOUND', '상품을 찾을 수 없습니다');

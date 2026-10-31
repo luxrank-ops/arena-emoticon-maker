@@ -31,6 +31,10 @@ jobs:
       - name: Start server
         env:
           DEMO_MODE: '1'
+          # 운영(NODE_ENV=production)에서는 ADMIN_PASSCODE 미설정 시 로그인이 fail-closed 되므로
+          # CI 에서는 실제 배포와 동일하게 값을 주입해 관리자 파기 시나리오까지 검증한다.
+          ADMIN_PASSCODE: emotime-demo
+          CRON_SECRET: ci-cron-secret
         run: |
           npm run start > server.log 2>&1 &
           for i in $(seq 1 30); do
@@ -39,6 +43,8 @@ jobs:
           done
           echo "server did not start"; cat server.log; exit 1
       - name: Run smoke suite
+        env:
+          ADMIN_PASSCODE: emotime-demo
         run: BASE_URL=http://localhost:3000 node scripts/smoke.mjs
       - name: Ops report artifact
         if: always()

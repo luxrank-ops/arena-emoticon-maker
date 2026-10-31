@@ -4,12 +4,15 @@ import { getCurrentUser } from '@/lib/session';
 import { SKUS } from '@/lib/pricing';
 import { logEvent, uid, withDB } from '@/lib/store';
 import type { Order } from '@/lib/types';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 const schema = z.object({ sku: z.string().min(3) });
 
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+    const limited = enforceRateLimit(user.id, 'checkout', RATE_LIMITS.checkout);
+    if (limited) return limited;
     const { sku } = schema.parse(await req.json());
     const item = SKUS[sku];
     if (!item) return fail('SKU_NOT_FOUND', '존재하지 않는 상품입니다');

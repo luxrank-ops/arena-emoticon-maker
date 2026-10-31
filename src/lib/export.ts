@@ -2,6 +2,7 @@
 
 import type { StickerSpec } from '@/lib/types';
 import { renderSticker } from '@/lib/art/sticker';
+import { KAKAO_RULES, validateKakaoFiles, type PackValidation } from '@/lib/packager';
 
 // ─────────────────────────────────────────────────────────────
 // 브라우저 내보내기 — PNG / GIF / ZIP (서버 왕복 없음)
@@ -155,4 +156,65 @@ export async function exportPackZip(
     ].join('\n'),
   );
   return await zip.generateAsync({ type: 'blob' });
+}
+
+// ─────────────────────────────────────────────────────────────
+// 카카오 제안 규격 패키저 (24종 · 360×360 · PNG · 개당 2MB 이하)
+//  · 배경은 투명으로 다시 그린다 (제안 규격 권장)
+//  · 렌더 결과의 실제 바이트/픽셀을 검사해 validation.json 에 남긴다
+// ─────────────────────────────────────────────────────────────
+export interface KakaoPackResult {
+  blob: Blob;
+  validation: PackValidation;
+  files: { name: string; bytes: number }[];
+}
+
+export async function exportKakaoPackZip(
+  items: { spec: StickerSpec; filename: string }[],
+  opts: { watermark?: boolean } = {},
+): Promise<KakaoPackResult> {
+  const JSZip = (await import('jszip')).default;
+  const zip = new JSZip();
+  const folder = zip.folder('kakao') ?? zip;
+  const rendered: { name: string; bytes: number; width: number; height: number }[] = [];
+
+  for (const [i, it] of items.entries()) {
+    const spec: StickerSpec = { ...it.spec, background: 'transparent' };
+    const blob = await renderPngBlob(spec, { watermark: opts.watermark, size: KAKAO_RULES.size });
+    const name = `${String(i + 1).padStart(2, '0')}.png`;
+    folder.file(name, blob);
+    rendered.push({ name, bytes: blob.size, width: KAKAO_RULES.size, height: KAKAO_RULES.size });
+  }
+
+  const validation = validateKakaoFiles(rendered);
+
+  folder.file(
+    'validation.json',
+    JSON.stringify(
+      {
+        rules: KAKAO_RULES,
+        generatedAt: new Date().toISOString(),
+        ok: validation.ok,
+        summary: validation.summary,
+        checks: validation.checks,
+        files: rendered,
+      },
+      null,
+      2,
+    ),
+  );
+  folder.file(
+    'README.txt',
+    [
+      '이모티미(EmotiMe) · 카카오 이모티콘 스튜디오 제안 규격 패키지',
+      '',
+      `· 구성: ${items.length}종 · ${KAKAO_RULES.size}×${KAKAO_RULES.size}px · 투명 PNG`,
+      `· 파일 크기 한도: 개당 ${KAKAO_RULES.maxBytes / (1024 * 1024)}MB (validation.json 참고)`,
+      `· 검증 결과: ${validation.ok ? '통과' : '미충족 — ' + validation.summary}`,
+      '· AI 생성 결과물이며 본인 사용 목적입니다. 상업적 사용은 Studio 플랜 라이선스가 필요합니다.',
+    ].join('\n'),
+  );
+
+  const blob = await zip.generateAsync({ type: 'blob' });
+  return { blob, validation, files: rendered.map(({ name, bytes }) => ({ name, bytes })) };
 }

@@ -3,6 +3,8 @@ import { notFound } from 'next/navigation';
 import { PackViewer } from '@/components/studio/PackViewer';
 import { getCurrentUser } from '@/lib/session';
 import { getPackView } from '@/lib/packs';
+import { validatePackForKakao } from '@/lib/packager';
+import { PLANS } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,6 +17,12 @@ export default async function PackPage({ params }: { params: { id: string } }) {
     notFound();
   }
   if (!view) notFound();
+
+  const kakao = {
+    validation: validatePackForKakao({ size: view.pack.size, frames: view.frames }),
+    packaging: PLANS[user.plan].plan === 'STUDIO',
+    plan: user.plan,
+  };
 
   return (
     <div className="wrap py-10">
@@ -41,6 +49,7 @@ export default async function PackPage({ params }: { params: { id: string } }) {
         ready={view.ready}
         total={view.total}
         watermark={view.watermark}
+        kakao={kakao}
       />
     </div>
   );

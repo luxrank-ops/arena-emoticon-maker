@@ -71,8 +71,9 @@
 | S2 | 편집기(대사/감정선/소품/GIF) · Chat-to-Sticker · Daily Brief | Sub 3+4 | ✅ 완료 |
 | S3 | 결제 Provider · 크레딧 원장(멱등) · 빌링/체크아웃 | Sub 3+PM | ✅ 완료 (mock) |
 | S4 | 굿즈 커머스 · 내보내기(ZIP/PNG/GIF) · 관리자 콘솔 | Sub 3+4 | ✅ 완료 (카톡 패키저 검증은 S6) |
-| S5 | CI(문서·빌드·스모크 34) · 구조화 로그/에러 수집 · 자동 KPI 리포트 · **Sentry(서버/엣지/브라우저)·PostHog(퍼널) 실연동** | Sub 5 | ✅ 완료 (키 미설정 시 no-op, `docs/OBSERVABILITY.md`) |
+| S5 | CI(문서·빌드·스모크 53) · 구조화 로그/에러 수집 · 자동 KPI 리포트 · **Sentry(서버/엣지/브라우저)·PostHog(퍼널) 실연동** | Sub 5 | ✅ 완료 (키 미설정 시 no-op, `docs/OBSERVABILITY.md`) |
 | S6 | 프로덕션 어댑터(Prisma/BullMQ/Gemini/S3) · 안전장치(NSFW/유명인) | Sub 1+3+5 | ⏳ Step 3 |
+| S6a | 얼굴 파기 크론·기회적 스윕 · 카카오 규격 패키저 · 레이트리밋 · 관리자 인증 강화 | Sub 3+5 | ✅ 완료 (2026-10-31) |
 
 ---
 
