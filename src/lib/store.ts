@@ -51,7 +51,69 @@ const EMPTY: DB = {
 //   2) VERCEL → /tmp/.data (인스턴스 로컬 · 콜드스타트 시 소실)
 //   3) cwd/.data (로컬 · 도커 등 영속 볼륨)
 //   4) os.tmpdir()/.data (마지막 안전망)
-export type StoreMode = 'persistent' | 'ephemeral' | 'memory';
+export type StoreMode = 'remote' | 'persistent' | 'ephemeral' | 'memory';
+
+// ── 원격 KV (선택) ─────────────────────────────────────────────
+// Vercel KV / Upstash Redis REST. 설정돼 있으면 파일 저장소보다 우선한다.
+// (서버리스에서 /tmp 는 인스턴스 로컬이라 세션·주문이 인스턴스 간 공유되지 않는다)
+const KV_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
+const KV_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
+const KV_KEY = process.env.KV_STORE_KEY || 'emotime:store';
+const KV_TIMEOUT_MS = 4000;
+
+export function hasRemoteStore(): boolean {
+  return !!KV_URL && !!KV_TOKEN;
+}
+
+/** 원격이 최근에 실패했는지 (일정 시간 후 자동 재시도) */
+function remoteUsable(): boolean {
+  return hasRemoteStore() && Date.now() >= state.remoteDownUntil;
+}
+
+function markRemoteDown(e: unknown) {
+  state.lastError = (e as Error)?.message ?? 'kv error';
+  state.remoteDownUntil = Date.now() + 15_000;
+}
+
+/** 원격 저장소 호출 (Upstash REST 프로토콜) */
+async function kv(command: unknown[], path = ''): Promise<unknown> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), KV_TIMEOUT_MS);
+  try {
+    const res = await fetch(`${KV_URL}${path}`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${KV_TOKEN}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(command),
+      signal: ctrl.signal,
+      cache: 'no-store',
+    });
+    if (!res.ok) throw new Error(`kv ${res.status}`);
+    const json = (await res.json()) as { result?: unknown; error?: string };
+    if (json.error) throw new Error(json.error);
+    return json.result ?? null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** 현재 저장된 원문(없으면 null) */
+async function kvRaw(): Promise<string | null> {
+  const r = await kv(['GET', KV_KEY]);
+  return typeof r === 'string' ? r : null;
+}
+
+/**
+ * 원문이 그대로일 때만 교체 (compare-and-set).
+ *  · 멀티 인스턴스에서 동시에 써도 한쪽이 덮어써 잃어버리는 일이 없게 한다.
+ */
+const CAS_SCRIPT = `local cur = redis.call('GET', KEYS[1])
+if (cur == false) then cur = '' end
+if cur == ARGV[1] then redis.call('SET', KEYS[1], ARGV[2]) return 1 else return 0 end`;
+
+async function kvCas(expectedRaw: string, nextRaw: string): Promise<boolean> {
+  const r = await kv(['EVAL', CAS_SCRIPT, '1', KV_KEY, expectedRaw, nextRaw]);
+  return Number(r) === 1;
+}
 
 interface StoreGlobal {
   cache: DB | null;
@@ -61,6 +123,8 @@ interface StoreGlobal {
   mode: StoreMode;
   resolved: Promise<string | null> | null;
   lastError: string | null;
+  /** KV 장애 시 이 시각까지는 원격을 건너뛰고 파일/메모리로 서비스한다(자동 복구) */
+  remoteDownUntil: number;
 }
 const g = globalThis as unknown as { __emotimeStore?: StoreGlobal };
 g.__emotimeStore ??= {
@@ -71,6 +135,7 @@ g.__emotimeStore ??= {
   mode: 'persistent',
   resolved: null,
   lastError: null,
+  remoteDownUntil: 0,
 };
 const state = g.__emotimeStore;
 
@@ -131,6 +196,14 @@ async function resolveDir(): Promise<string | null> {
 
 /** 헬스체크/운영 화면용 저장소 상태 */
 export function storeStatus(): { dir: string | null; mode: StoreMode; lastError: string | null } {
+  if (hasRemoteStore()) {
+    return {
+      dir: `kv:${KV_KEY}`,
+      // 원격 장애로 파일/메모리로 내려간 상태는 degraded(memory)로 알린다
+      mode: remoteUsable() ? 'remote' : 'memory',
+      lastError: state.lastError,
+    };
+  }
   return { dir: state.dir, mode: state.mode, lastError: state.lastError };
 }
 
@@ -164,20 +237,85 @@ async function save(db: DB) {
     const tmp = `${file}.${process.pid}.tmp`;
     await fs.writeFile(tmp, JSON.stringify(db));
     await fs.rename(tmp, file);
-    state.lastError = null;
   } catch (e) {
     state.lastError = (e as Error).message;
     if (state.mode === 'persistent') state.mode = 'memory';
   }
 }
 
+/**
+ * 원격 KV 트랜잭션: 읽기 → fn → CAS 저장.
+ *  · 인프라 오류(KV 통신/파싱)만 파일·메모리로 폴백한다.
+ *  · **fn 이 던진 오류는 그대로 전파**한다 — 업무 오류(한도 초과·404 등)를 저장소 장애로
+ *    오인하면 멀쩡한 KV 를 15초간 버리고 파일 스냅샷으로 덮어써 데이터가 사라진다.
+ *  · CAS 충돌 시 최신 스냅샷으로 fn 을 다시 적용한다 (fn 은 부수효과 없는 순수 함수여야 한다).
+ */
+async function withRemote<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    let raw: string | null;
+    try {
+      raw = await kvRaw();
+    } catch (e) {
+      // 인프라 장애 → 잠시 파일/메모리로 서비스 (자동 복구)
+      markRemoteDown(e);
+      return fallbackLocal(fn);
+    }
+
+    let db: DB;
+    try {
+      db = raw ? { ...EMPTY, ...(JSON.parse(raw) as DB) } : { ...EMPTY };
+    } catch (e) {
+      // 저장값이 깨졌다 → 덮어쓰지 않고 장애로 취급 (데이터 보존 우선)
+      markRemoteDown(new Error(`corrupt store: ${(e as Error).message}`));
+      return fallbackLocal(fn);
+    }
+
+    // 업무 오류는 여기서 그대로 던져 나간다 (폴백 없음)
+    const result = await fn(db);
+    const next = JSON.stringify(db);
+
+    try {
+      if (await kvCas(raw ?? '', next)) {
+        state.mode = 'remote';
+        state.remoteDownUntil = 0;
+        state.lastError = null;
+        return result;
+      }
+    } catch (e) {
+      markRemoteDown(e);
+      await save(db);
+      return result;
+    }
+    // 다른 인스턴스가 먼저 썼다 → 최신 스냅샷으로 재시도
+  }
+
+  // 5회 모두 충돌: 최신본에 한 번 더 적용한 뒤 마지막 쓰기 승자 방식으로 저장 (파일로 새지 않게)
+  state.lastError = 'kv conflict: concurrent writes';
+  try {
+    const raw = await kvRaw();
+    const db: DB = raw ? { ...EMPTY, ...(JSON.parse(raw) as DB) } : { ...EMPTY };
+    const result = await fn(db);
+    await kv(['SET', KV_KEY, JSON.stringify(db)]);
+    return result;
+  } catch (e) {
+    markRemoteDown(e);
+    return fallbackLocal(fn);
+  }
+}
+
+/** 원격 장애 시에만 쓰는 로컬 경로 (파일 → 메모리) */
+async function fallbackLocal<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
+  const db = await load();
+  const result = await fn(db);
+  await save(db);
+  return result;
+}
+
 /** 모든 읽기/쓰기는 이 함수를 통과 → 직렬화된 단일 트랜잭션 */
 export function withDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
   const run = state.chain.then(async () => {
-    const db = await load();
-    const result = await fn(db);
-    await save(db);
-    return result;
+    if (remoteUsable()) return withRemote(fn);
+    return fallbackLocal(fn);
   });
   state.chain = run.catch(() => undefined);
   return run;

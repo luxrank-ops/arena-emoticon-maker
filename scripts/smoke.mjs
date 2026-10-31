@@ -58,6 +58,11 @@ async function req(path, opts = {}) {
 const PALETTE = { skin: '#F6D3B3', skinShade: '#E8BA95', hair: '#332621', shirt: '#5AB8F5', accent: '#FF6B5B' };
 const SIGNATURE = { headScale: 1.02, faceWidth: 0.98, eyeSpacing: 1, eyeSize: 1, browWeight: 0.9, mouthWidth: 1, hairStyle: 2, cheek: 0.6, glasses: false };
 
+// 세션 고정: 관리자 로그인 등이 다른 쿠키를 심어도 사용자 세션이 바뀌지 않게 한다.
+// (과거 이 때문에 '파기된 시트' 단언이 간헐적으로 404 가 됐다)
+const SID = `smoke_${Date.now().toString(36)}`;
+jar.set('emotime_sid', SID);
+
 console.log(`\nEmotiMe smoke test → ${BASE}\n`);
 
 console.log('[1] 정적 페이지');
@@ -234,10 +239,26 @@ console.log('\n[14] 저장소 폴백 (배포 환경 쓰기 가능 여부)');
   const store = health.json?.store;
   assert(health.status === 200 && !!store, `헬스체크에 저장소 상태 노출 (${JSON.stringify(store)})`);
   assert(
-    ['persistent', 'ephemeral', 'memory'].includes(store?.mode),
+    ['remote', 'persistent', 'ephemeral', 'memory'].includes(store?.mode),
     `저장소 모드가 계약된 값 중 하나 (mode=${store?.mode})`,
   );
   assert(typeof store?.dir === 'string' || store?.mode === 'memory', '쓰기 가능한 저장소 경로 확보');
+}
+
+console.log('\n[15] 톡 답장 의도 가중치 (사과 · 축하)');
+{
+  const sorry = await req('/api/reply', { method: 'POST', body: JSON.stringify({ text: '미안 늦었어 ㅠㅠ 진짜 미안해' }) });
+  const sorryTop = sorry.json?.result?.candidates?.[0]?.templateId;
+  assert(sorry.status === 200 && sorryTop === 't-sorry', `"미안" → 사과 컷 1순위 (top=${sorryTop})`);
+
+  const bday = await req('/api/reply', { method: 'POST', body: JSON.stringify({ text: '내일 생일인데 같이 저녁 먹을래?' }) });
+  const bdayTop = bday.json?.result?.candidates?.[0]?.templateId;
+  assert(bday.status === 200 && bdayTop === 't-hbd', `"생일 + 저녁" → 축하 컷 1순위 (top=${bdayTop})`);
+
+  const laugh = await req('/api/reply', { method: 'POST', body: JSON.stringify({ text: '야 너 또 늦었네 ㅋㅋㅋ' }) });
+  const laughIds = (laugh.json?.result?.candidates ?? []).map((c) => c.templateId);
+  assert(laughIds[0] === 't-lol', `"ㅋㅋㅋ" → 웃김 컷 1순위 (top=${laughIds[0]})`);
+  assert(!laughIds.includes('t-hbd'), `웃김 답장에 생일 컷이 섞이지 않음 (${laughIds.join(',')})`);
 }
 
 console.log(`\n결과: ${passed} passed, ${failed} failed\n`);

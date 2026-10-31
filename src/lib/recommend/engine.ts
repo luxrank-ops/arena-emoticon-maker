@@ -111,7 +111,7 @@ const MOOD_PREFERRED: Record<string, string[]> = {
   sad: ['t-cryy', 't-hug', 't-cheer'],
   cry: ['t-cryy', 't-hug', 't-cheer'],
   love: ['t-loveyou', 't-miss', 't-thumb'],
-  laugh: ['t-lol', 't-omg', 't-hbd'],
+  laugh: ['t-lol', 't-omg', 't-clap'],
   sulk: ['t-sulk2', 't-sorry', 't-hmph'],
   tired: ['t-sigh', 't-zzz', 't-quit'],
   surprised: ['t-wow', 't-gasp', 't-deadline'],
@@ -120,17 +120,27 @@ const MOOD_PREFERRED: Record<string, string[]> = {
   blank: ['t-hmm', 't-no', 't-done'],
 };
 
-const INTENT_RULES: { intent: string; words: string[]; templateIds: string[] }[] = [
-  { intent: '사과', words: ['미안', '사과', '잘못', 'sorry'], templateIds: ['t-sorry', 't-please', 't-sulk2'] },
-  { intent: '감사', words: ['고마', '감사', '땡큐'], templateIds: ['t-thx', 't-hug', 't-thumb'] },
-  { intent: '부탁', words: ['부탁', '해줘', '제발', '도와'], templateIds: ['t-please', 't-ok', 't-thumb'] },
-  { intent: '거절', words: ['안돼', '못해', '싫어', '어려울'], templateIds: ['t-no', 't-hmm', 't-sorry'] },
-  { intent: '축하', words: ['축하', '생일', '합격', '승진'], templateIds: ['t-hbd', 't-cong', 't-clap'] },
-  { intent: '약속', words: ['몇 시', '언제', '만나', '약속'], templateIds: ['t-ok', 't-good', 't-late'] },
-  { intent: '식사', words: ['밥', '점심', '저녁', '먹'], templateIds: ['t-lunch', 't-hungry', 't-chicken'] },
-  { intent: '업무', words: ['회의', '보고', '마감', '메일', '자료'], templateIds: ['t-meeting', 't-deadline', 't-overtime'] },
-  { intent: '안부', words: ['안녕', '뭐해', '잘 지내'], templateIds: ['t-hi', 't-ok', 't-lol'] },
+/**
+ * 의도 규칙.
+ *  · weight: "이 단어가 나오면 이 답장을 먼저 보여줘야 한다"는 강도.
+ *    사과·축하는 사용자가 **말로 하는 행위**라 감정보다 우선한다
+ *    ("미안 늦었어 ㅠㅠ" → 위로(ㅠㅠ)가 아니라 사과, "내일 생일인데" → 식사가 아니라 축하).
+ *  · strong: 감정보다 앞세울지 여부를 판단하는 임계값(가중치 합). 사과/축하는 3, 나머지는 1~2.
+ */
+const INTENT_RULES: { intent: string; words: string[]; templateIds: string[]; weight: number }[] = [
+  { intent: '사과', words: ['미안', '사과', '잘못', 'sorry'], templateIds: ['t-sorry', 't-please', 't-sulk2'], weight: 3 },
+  { intent: '감사', words: ['고마', '감사', '땡큐', 'thanks'], templateIds: ['t-thx', 't-hug', 't-thumb'], weight: 2 },
+  { intent: '부탁', words: ['부탁', '해줘', '제발', '도와'], templateIds: ['t-please', 't-ok', 't-thumb'], weight: 2 },
+  { intent: '거절', words: ['안돼', '못해', '싫어', '어려울'], templateIds: ['t-no', 't-hmm', 't-sorry'], weight: 2 },
+  { intent: '축하', words: ['축하', '생일', '합격', '승진', '취업', '결혼'], templateIds: ['t-hbd', 't-cong', 't-clap'], weight: 3 },
+  { intent: '약속', words: ['몇 시', '언제', '만나', '약속'], templateIds: ['t-ok', 't-good', 't-late'], weight: 1.5 },
+  { intent: '식사', words: ['밥', '점심', '저녁', '먹'], templateIds: ['t-lunch', 't-hungry', 't-chicken'], weight: 1 },
+  { intent: '업무', words: ['회의', '보고', '마감', '메일', '자료', '야근'], templateIds: ['t-meeting', 't-deadline', 't-overtime'], weight: 1.5 },
+  { intent: '안부', words: ['안녕', '뭐해', '잘 지내'], templateIds: ['t-hi', 't-ok', 't-lol'], weight: 1 },
 ];
+
+/** 이 점수 이상이면 감정보다 의도를 앞세운다 (사과·축하 = 3) */
+const STRONG_INTENT = 3;
 
 export function analyzeConversation(raw: string): ReplyResult {
   const text = raw.toLowerCase().replace(/\s+/g, ' ');
@@ -147,7 +157,9 @@ export function analyzeConversation(raw: string): ReplyResult {
   for (const rule of INTENT_RULES) {
     const hits = rule.words.filter((w) => text.includes(w));
     if (hits.length > 0) cues.push(`상황 신호: ${rule.intent}(${hits[0]})`);
-    if (hits.length > bestIntent.score) bestIntent = { intent: rule.intent, ids: rule.templateIds, score: hits.length };
+    // 같은 단어 개수라도 의도별 가중치를 곱해 우열을 가린다 (사과·축하 > 식사)
+    const score = hits.length * rule.weight;
+    if (score > bestIntent.score) bestIntent = { intent: rule.intent, ids: rule.templateIds, score };
   }
 
   const intentPool: SituationTemplate[] = [];
@@ -164,8 +176,14 @@ export function analyzeConversation(raw: string): ReplyResult {
     .filter(Boolean);
   const sameEmotion = TEMPLATES.filter((t) => t.emotion === bestMood.mood).sort((a, b) => b.weight - a.weight);
   const moodTemplates = [...preferred, ...sameEmotion.filter((t) => !preferred.some((p) => p.id === t.id))];
-  const pool: SituationTemplate[] =
-    bestMood.score >= 1 ? [...moodTemplates.slice(0, 3), ...intentPool] : [...intentPool, ...moodTemplates];
+  // 강한 의도(사과·축하)는 감정보다 먼저. 그 외에는 감정 우선(사용자는 '상황'보다 '감정'에 반응한다).
+  const strongIntent = bestIntent.score >= STRONG_INTENT && intentPool.length > 0;
+  if (strongIntent) cues.push(`의도 우선: ${bestIntent.intent}`);
+  const pool: SituationTemplate[] = strongIntent
+    ? [...intentPool.slice(0, 2), ...moodTemplates.slice(0, 3), ...intentPool.slice(2)]
+    : bestMood.score >= 1
+      ? [...moodTemplates.slice(0, 3), ...intentPool]
+      : [...intentPool, ...moodTemplates];
   const deduped = pool.filter((t, i) => pool.findIndex((x) => x.id === t.id) === i);
   pool.length = 0;
   pool.push(...deduped);
