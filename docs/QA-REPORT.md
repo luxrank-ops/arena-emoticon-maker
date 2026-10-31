@@ -172,6 +172,13 @@
 
 ---
 
+### ⑬ 운영 배포 후 라이브 재점검 (수정 반영 확인)
+- `/api/health` → `{"ok":true,"store":{"dir":"/tmp/.data","mode":"ephemeral","lastError":null}}` (프로덕션)
+- `/`, `/pricing`, `/reply`, `/brief`, `/admin` 모두 정상 렌더로 복구 확인.
+- 부수 결함: 운영에 `ADMIN_PASSCODE` 를 설정하자 `/admin` 이 **"데모 코드: emotime-demo"** 를 그대로 노출.
+  `demoHint` 조건이 "운영이 아니거나 코드가 설정됨"이라, 실제 코드가 바뀌어도 데모 값을 안내했다.
+  → 실제 설정값이 `emotime-demo` 일 때만 안내하도록 수정. (운영 코드 사용 시 안내 숨김 확인)
+
 ### ⑫ 프로덕션(서버리스) 저장소 폴백 — 배포는 성공, 앱은 미동작 (P0)
 - 머지 후 실제 도메인(`https://arena-emoticon-maker.vercel.app`)을 열어보니 `/`, `/pricing` 모두
   에러 화면("잠깐 문제가 생겼어요")이 떴다. Vercel 배포 상태는 `READY` 였다.

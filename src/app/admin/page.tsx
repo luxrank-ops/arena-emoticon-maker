@@ -18,7 +18,9 @@ export default async function AdminPage() {
           <p className="mt-2 text-sm text-sub">KPI · 모더레이션 · 결제 상태를 확인합니다.</p>
         </div>
         <AdminLogin
-          demoHint={process.env.NODE_ENV !== 'production' || !!process.env.ADMIN_PASSCODE}
+          // 운영에서 실제 코드가 데모 값일 때만 안내. 다른 코드를 쓰는데 '데모 코드'를
+          // 띄우면 운영자에게 잘못된 값을 알려주게 된다.
+          demoHint={process.env.ADMIN_PASSCODE === 'emotime-demo' || process.env.NODE_ENV !== 'production'}
           disabled={process.env.NODE_ENV === 'production' && !process.env.ADMIN_PASSCODE}
         />
       </div>
