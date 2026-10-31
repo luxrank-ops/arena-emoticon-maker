@@ -228,5 +228,17 @@ if (login.status === 503) {
   assert(newSheet.status === 404, '파기된 얼굴로 시트 재생성 → 404 안내');
 }
 
+console.log('\n[14] 저장소 폴백 (배포 환경 쓰기 가능 여부)');
+{
+  const health = await req('/api/health');
+  const store = health.json?.store;
+  assert(health.status === 200 && !!store, `헬스체크에 저장소 상태 노출 (${JSON.stringify(store)})`);
+  assert(
+    ['persistent', 'ephemeral', 'memory'].includes(store?.mode),
+    `저장소 모드가 계약된 값 중 하나 (mode=${store?.mode})`,
+  );
+  assert(typeof store?.dir === 'string' || store?.mode === 'memory', '쓰기 가능한 저장소 경로 확보');
+}
+
 console.log(`\n결과: ${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

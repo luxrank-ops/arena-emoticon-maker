@@ -172,13 +172,35 @@
 
 ---
 
+### ⑫ 프로덕션(서버리스) 저장소 폴백 — 배포는 성공, 앱은 미동작 (P0)
+- 머지 후 실제 도메인(`https://arena-emoticon-maker.vercel.app`)을 열어보니 `/`, `/pricing` 모두
+  에러 화면("잠깐 문제가 생겼어요")이 떴다. Vercel 배포 상태는 `READY` 였다.
+- 원인: `src/lib/store.ts` 의 저장 경로 기본값이 `process.cwd()/.data` 인데,
+  **Vercel 런타임 파일시스템은 `/tmp` 외 읽기 전용**이다. `DATA_DIR` 도 설정돼 있지 않았다.
+  쓰기 실패가 페이지 렌더까지 전파돼 사이트 전체가 죽었다.
+- 로컬 재현: `DATA_DIR` 를 쓸 수 없는 경로로 두고 프로덕션 빌드를 띄우면 `/`, `/api/health` 가
+  **응답 없이 멈춘다**(타임아웃). 로컬·CI 는 쓰기 가능한 cwd 를 쓰므로 그동안 초록불이었다.
+- 수정:
+  1. 저장 위치를 후보 순서로 해석 — `DATA_DIR` → (Vercel) `/tmp/.data` → `cwd/.data` → `os.tmpdir()`.
+     최초 1회 mkdir+write 프로브로 **실제 쓰기 가능 여부**를 확인하고 결과를 캐시.
+  2. 프로브에 500ms 상한 — `/proc` 처럼 예외 대신 **멈추는** 경로에서도 요청이 걸리지 않게.
+  3. `save()` 는 더 이상 던지지 않는다. 전부 실패하면 프로세스 메모리로 서비스(`mode:'memory'`)하고
+     페이지는 계속 뜬다. 실패는 `lastError` 로 표면화.
+  4. `/api/health` 에 `store: { dir, mode, lastError }` 노출 → 배포가 휘발성으로 도는지 즉시 확인.
+  5. 스모크 §14 추가(모드 계약 · 경로 확보). 56 케이스.
+- 검증: `DATA_DIR=/proc/ro-data VERCEL=1` 로 띄워 `store.dir=/tmp/.data`, `mode=ephemeral`,
+  `/ /pricing /studio/upload /admin` 모두 200 (`before: 응답 없음`).
+- 남은 과제: `/tmp` 는 **인스턴스 로컬 · 콜드스타트 시 소실** → 세션·주문이 인스턴스 간 공유되지 않는다.
+  실서비스 전 Vercel KV/Postgres 어댑터로 교체 필요(`docs/ARCHITECTURE.md` §3).
+- 운영 환경변수도 함께 등록: `ADMIN_PASSCODE`(없으면 `/admin` 503), `CRON_SECRET`(없으면 크론 거부).
+
 ## 6. 재현 방법
 
 ```bash
 npm install
 cp .env.example .env.local
 npm run build && npm run start
-BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 53 passed
+BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 56 passed
 # ADMIN_PASSCODE 를 비우고 띄우면 관리자 구간은 fail-closed 검증만 수행 → 46 passed
 ```
 

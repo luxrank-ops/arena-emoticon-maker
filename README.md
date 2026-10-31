@@ -33,7 +33,7 @@ npm install
 cp .env.example .env.local     # 값이 없으면 DEMO_MODE 로 동작 (API 키 불필요)
 npm run dev                    # http://localhost:3000
 npm run build && npm run start # 프로덕션 빌드
-BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 53 케이스 스모크
+BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 56 케이스 스모크
 node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
 ```
 
