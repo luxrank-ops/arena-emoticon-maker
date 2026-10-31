@@ -129,7 +129,7 @@
 - 검증: 위조 쿠키로 `/api/admin/metrics` → `locked: true` (스모크 고정).
 
 ### ⑥ 얼굴 파기 스케줄러 (P1 · 정책)
-`src/lib/purge.ts` · `/api/cron/purge` · `/api/admin/purge` · `vercel.json`(매시 크론) · `src/lib/session.ts`
+`src/lib/purge.ts` · `/api/cron/purge` · `/api/admin/purge` · `vercel.json`(일 1회 크론) · `src/lib/session.ts`
 - 증상: `purgedAt` 은 **예약 기록만** 있고 실제 삭제가 없어 "24시간 내 파기" 고지가 사실과 달랐다.
 - 구현: 예약 시각 도달분 삭제 + `face_purged` 이벤트(파기 시각·대상·사유) 기록.
   크론이 없는 환경을 위해 **요청 처리 중 5분 1회 기회적 스윕**(`FACE_PURGE_SWEEP_MS`).
@@ -151,7 +151,13 @@
 - 429 + `Retry-After`/`X-RateLimit-*` 헤더. 31번째 요청에서 429 확인. 인메모리(프로세스 단위)이며
   멀티 인스턴스에서는 Redis 어댑터로 교체 필요(ADR-008 과 동일 전략).
 
-### ⑨ 스모크 하네스 버그
+### ⑨ 배포 게이트: Vercel Hobby 크론 제한
+- 1차 구현은 `vercel.json` 에 매시 크론(`0 * * * *`)을 넣었지만, **Hobby 플랜은 1일 1회만 허용**해
+  배포가 `ERROR` 로 막혔다(`Hobby accounts are limited to daily cron jobs`).
+- 수정: 크론은 일 1회(03:00 KST)로 내리고, **24h 이내 파기 보장은 요청 중 5분 1회 기회적 스윕**이 담당.
+  Pro 플랜에서는 매시로 올리는 것을 권장(주석·README 에 명시).
+
+### ⑩ 스모크 하네스 버그
 `scripts/smoke.mjs` — `Set-Cookie` 를 단일 변수로 덮어써 로그인 직후 세션이 사라지던 문제(쿠키 병 도입).
 이 버그 때문에 1차에서는 관리자 로그인 이후 시나리오를 검증할 수 없었다.
 

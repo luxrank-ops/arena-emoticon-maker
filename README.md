@@ -40,7 +40,8 @@ node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
 - **관측/분석은 키를 넣는 순간 켜집니다.** `SENTRY_DSN`·`NEXT_PUBLIC_POSTHOG_KEY` 가 없으면 SDK 는 no-op 이고,
   기존 구조화 로그 + `/admin` 에러 카드만으로 동작합니다. 연동 지점·개인정보 설계는 [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
 
-- **얼굴 파기는 실제로 동작합니다.** `/api/cron/purge`(매시, `CRON_SECRET` 필요) + 요청 중 5분 1회 기회적 스윕.
+- **얼굴 파기는 실제로 동작합니다.** `/api/cron/purge`(`CRON_SECRET` 필요, Vercel Hobby 제한으로 일 1회) +
+  요청 중 5분 1회 기회적 스윕(`FACE_PURGE_SWEEP_MS`). Hobby 플랜에서도 24h 이내 파기가 유지됩니다.
   파기해도 이미 만든 팩은 `Pack.identity` 스냅샷으로 계속 렌더됩니다. 운영 콘솔에서 수동 파기·통계 확인 가능.
 
 - **API 키 없이 전 플로우가 동작합니다.** 이미지 생성은 절차적 SVG 렌더러가 담당하고, 결제는 Mock Provider가
