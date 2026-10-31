@@ -5,6 +5,7 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { downloadBlob, exportPackZip, renderPngBlob } from '@/lib/export';
+import { formatKstDateTime } from '@/lib/time';
 import type { FrameView, Pack } from '@/lib/types';
 
 export function PackViewer({
@@ -90,7 +91,7 @@ export function PackViewer({
             <p className="text-sm font-black">{initialPack.title}</p>
             <p className="text-xs text-sub">
               {initialPack.size}컷 · {initialPack.creditsSpent}크레딧 사용 ·{' '}
-              {new Date(initialPack.createdAt).toLocaleString('ko-KR')}
+              {formatKstDateTime(initialPack.createdAt)}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -164,6 +165,7 @@ export function PackViewer({
                 <button
                   onClick={() => downloadOne(f)}
                   disabled={!f.ready}
+                  title={f.ready ? '이 컷을 PNG로 저장' : '생성 중'}
                   className="rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-sub hover:border-ink disabled:opacity-40"
                 >
                   PNG

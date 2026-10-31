@@ -7,6 +7,7 @@ import { Sticker } from '@/components/Sticker';
 import { BACKGROUNDS, EMOTIONS, PROPS } from '@/lib/art/sticker';
 import { downloadBlob, renderGifBlob, renderPngBlob } from '@/lib/export';
 import { track } from '@/lib/analytics';
+import { formatKstTime } from '@/lib/time';
 import type { BackgroundKey, Emotion, FrameView, PropKey, StickerSpec } from '@/lib/types';
 
 const QUICK_LINES = ['ㅇㅋ', '킹받네', '출근합니다', '퇴근!!', '고마워!', '배고파아', 'ㅋㅋㅋㅋ', 'ㅠㅠ'];
@@ -49,7 +50,7 @@ export function FrameEditor({
       const json = await res.json();
       if (json.ok) {
         setFrame(json.frame);
-        setSavedAt(new Date().toLocaleTimeString('ko-KR'));
+        setSavedAt(formatKstTime(new Date()));
       }
     } catch {
       /* 오프라인 편집 유지 */

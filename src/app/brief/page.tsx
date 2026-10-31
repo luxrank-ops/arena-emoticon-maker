@@ -5,6 +5,7 @@ import { specFor } from '@/lib/spec';
 import { getCurrentUser } from '@/lib/session';
 import { PLANS } from '@/lib/pricing';
 import { withDB } from '@/lib/store';
+import { formatKstMonthDayWeekday, kstDateKey } from '@/lib/time';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +16,7 @@ export default async function BriefPage() {
     db.packs.filter((p) => p.userId === user.id).flatMap((p) => p.frames.map((f) => f.templateId)),
   );
   const plan = planBrief(now, recent);
-  const seeds = [...`${now.getFullYear()}${now.getMonth()}${now.getDate()}`].reduce(
+  const seeds = [...kstDateKey(now)].reduce(
     (s, c) => s + c.charCodeAt(0),
     0,
   );
@@ -48,7 +49,7 @@ export default async function BriefPage() {
           </p>
         </div>
         <div className="card-flat px-4 py-3 text-right text-xs">
-          <p className="font-black">{now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}</p>
+          <p className="font-black">{formatKstMonthDayWeekday(now)}</p>
           <p className="mt-0.5 text-sub">07:30 자동 도착 · {PLANS[user.plan].name} 플랜</p>
         </div>
       </div>

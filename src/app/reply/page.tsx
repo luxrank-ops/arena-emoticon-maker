@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ReplyStudio } from '@/components/reply/ReplyStudio';
 import { getCurrentUser } from '@/lib/session';
 import { hasFace } from '@/lib/spec';
+import { PLANS } from '@/lib/pricing';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,7 +29,7 @@ export default async function ReplyPage() {
         ) : null}
       </div>
 
-      <ReplyStudio hasFace={ready} />
+      <ReplyStudio hasFace={ready} watermark={PLANS[user.plan].watermark} />
     </div>
   );
 }

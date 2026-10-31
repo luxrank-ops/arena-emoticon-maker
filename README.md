@@ -23,6 +23,7 @@
 | 운영 콘솔 | `/admin` | 매출 · 원가 · 플랜 분포 · 최다 사용 컷 (코드 `emotime-demo`) |
 | 정책 | `/terms` `/privacy` `/refund` `/support` | PG 심사 대응 문서 |
 | 관측 | Sentry · PostHog | 에러 추적 + 퍼널 분석(사진·대사 미전송, 키 없으면 no-op) |
+| 점검 | `docs/QA-REPORT.md` | 기능별 실작동 점검 결과 · 수정 이력 · 남은 리스크 |
 
 ## 빠른 시작
 
@@ -31,7 +32,7 @@ npm install
 cp .env.example .env.local     # 값이 없으면 DEMO_MODE 로 동작 (API 키 불필요)
 npm run dev                    # http://localhost:3000
 npm run build && npm run start # 프로덕션 빌드
-BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 28 케이스 스모크
+BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 34 케이스 스모크
 node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
 ```
 

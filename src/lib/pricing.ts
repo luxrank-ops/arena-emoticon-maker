@@ -145,7 +145,7 @@ export function packCost(size: number) {
 }
 
 export function won(n: number) {
-  return n.toLocaleString('ko-KR');
+  return n.toLocaleString('en-US');
 }
 
 export function useCredits(plan: Plan, size: number) {
