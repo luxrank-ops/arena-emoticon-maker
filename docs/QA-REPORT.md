@@ -110,7 +110,7 @@
 | ✅ 해결 | 얼굴 파기 | 2차에서 크론 + 기회적 스윕으로 실제 구현 (§5-⑥) |
 | ✅ 해결 | 카톡 패키저 | 2차에서 24종·360×360·2MB 검증 + ZIP 패키징 구현 (§5-⑦) |
 | ✅ 해결 | 요청 제한·관리자 인증 | 2차에서 레이트리밋 도입, 쿠키 위조 우회 차단, fail-closed (§5-⑤, ⑧) |
-| ✅ 해결 | 파일 저장소 단일 프로세스 | 3차에서 KV(Upstash REST) 어댑터 + CAS 도입 — 멀티 인스턴스에서도 원장 손실 없음 (§5-⑮) |
+| ✅ 해결 | 파일 저장소 단일 프로세스 | 3차에서 KV(Upstash REST) 어댑터 + CAS 도입 (§5-⑮), 4차에서 **Firebase Firestore** 어댑터 추가 (§5-⑯) |
 | ✅ 해결 | 사과/축하 의도 가중치 | 3차에서 의도별 가중치 도입 — "미안" → 사과 컷, "생일" → 축하 컷 1순위 (§5-⑭) |
 
 ---
@@ -232,6 +232,44 @@
   2. 스텁(CAS) 인자 오프셋 — 테스트 도구 버그로, 실제 Upstash 에는 영향 없음.
 - 한계: KV 장애 중 발생한 쓰기는 로컬에만 남고 복구 후 KV 로 재생되지 않는다(마지막 쓰기 승자).
 - 남은 선택지: 대규모 전에는 KV 단일 키 JSON 대신 테이블(Postgres/Prisma)로 이전 권장 — 동시 쓰기가 많아질수록 CAS 재시도 비용이 커진다.
+
+### ⑯ Firebase Firestore 저장소 어댑터 (KV 다음 단계)
+
+- `FIREBASE_PROJECT_ID`·`FIREBASE_CLIENT_EMAIL`·`FIREBASE_PRIVATE_KEY` 가 있으면 **Firestore 우선** 모드.
+  (`STORE_BACKEND=auto|firestore|kv|file` 로 고정 가능 · 우선순위 Firestore → KV → 파일)
+- 구현: `firebase-admin` 없이 **Firestore REST v1 + 서비스 계정 JWT**(`src/lib/gcp-token.ts`).
+  - 스냅샷은 gzip → 필요 시 **해시 이름의 불변 청크 문서**로 분할(문서 1 MiB 상한 대응).
+  - 청크 + 메타를 **한 번의 commit** 으로 원자 기록, 메타 `updateTime` 을 선행조건으로 CAS.
+  - 읽기는 SHA-256 체크섬 검증. 청크 유실(교체 중)은 메타 재조회로 최대 3회 재시도.
+  - 이전 세대 청크는 **60초 유예 후** best-effort 삭제(읽던 인스턴스를 깨지 않게).
+- KV → Firestore **1회 자동 승계**: Firestore 가 비어 있고 KV 자격증명이 남아 있으면 첫 요청에서 복사
+  (`/api/health` 의 `store.importedFrom = "kv"`).
+- 장애/경합 표면화: `store.fallbackWrites`(원격 장애로 로컬에만 기록된 건수) 추가,
+  재시도 소진 시 **503 `STORE_BUSY` + Retry-After** (성공한 척 하지 않음).
+
+검증(로컬 Firestore 스텁 `scripts/firestore-stub.mjs`, 청크 크기 1 KB로 강제):
+
+| 항목 | 결과 |
+| --- | --- |
+| E2E 스모크 (Firestore 백엔드) | **60/60** |
+| 인증 경로(서비스 계정 JWT → 토큰 발급 → Bearer) | **60/60** · 토큰 1회 발급 후 캐시 |
+| 멀티 인스턴스 A·B 공유 저장소 | A 에서 만든 세션·주문이 B 에서 그대로 조회 |
+| 프로세스 재시작(콜드스타트) | users 8 · packs 3 · orders 6 유지 |
+| 동시 20요청(A·B 분산) | 성공 20/20, `orders +20` **유실 없음**, `fallbackWrites 0` |
+| 인스턴스별 동시 10요청 ×2 | 각 `+10`, 두 인스턴스 카운트 일치 |
+| 4개 클라이언트 병렬 스모크 | 스모크 3/4 완전 통과, 실패 1건은 **테스트 간 간섭**(관리자 파기 대상 0건) — 저장소 결함 아님 |
+| 장애 주입(스텁 kill) | `mode:memory` + `lastError:"fetch failed"` + 페이지 200, `fallbackWrites` 증가 |
+| 복구(스텁 재기동 17초 후) | `mode:remote` 자동 복귀 · 이후 쓰기 정상 |
+| KV → Firestore 승계 | KV 4 users·2 orders → Firestore 로 이전, `importedFrom:"kv"` |
+| KV 백엔드 회귀 / 파일 백엔드 회귀 | 각각 **60/60** |
+
+- 구현 중 잡은 버그(중요): **청크 GC 경합** — 새 스냅샷을 쓴 인스턴스가 이전 청크를 *즉시* 삭제해,
+  그 청크를 읽던 다른 인스턴스가 실패 → 파일(구버전)로 폴백하며 **동시 요청 20건 중 18건의 쓰기가 조용히 유실**됐다.
+  → 삭제에 60초 유예 + 읽기 시 메타 재조회 재시도로 해결(동시 20건 전량 기록 확인).
+  이 과정에서 "폴백 시 조용한 유실" 자체도 `fallbackWrites` 로 표면화하고, 재시도 소진은 503 으로 바꿨다.
+- 한계: 스냅샷 1건 CAS 는 사실상 전역 락 → 쓰기가 매우 많은 워크로드에서는 재시도 비용이 커진다.
+  대규모 전에는 엔티티별 컬렉션(정규화) 권장. Firestore Auth/Storage 는 범위 밖(`docs/FIREBASE.md` §6).
+- 재현: `node scripts/firestore-stub.mjs 4600` + `FIRESTORE_EMULATOR_HOST=127.0.0.1:4600 FIREBASE_PROJECT_ID=emotime-demo npm start`
 
 ## 6. 재현 방법
 
