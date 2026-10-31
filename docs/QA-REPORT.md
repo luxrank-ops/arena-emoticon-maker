@@ -102,27 +102,68 @@
 
 ---
 
-## 4. 남은 리스크 · 권고 (미수정, 판단 필요)
+## 4. 리스크 · 후속 처리 현황
 
 | 우선 | 항목 | 내용 · 권고 |
 | --- | --- | --- |
 | P1 | 브라우저 클릭 플로우 미검증 | 이 샌드박스에는 헤드리스 브라우저가 없어 **Canvas/GIF/JSZip 다운로드는 코드 리뷰 + 서버 렌더 검증**까지만 했다. 실기기에서 `/editor` PNG·GIF, `/studio/pack` ZIP, 사진 업로드 한 번씩 확인 필요 |
-| P1 | 얼굴 파기 미구현 | `purgedAt`(24h) 은 **예약 기록만** 남고 실제 삭제 작업이 없다. 저장 데이터에 원본은 없지만 정책 문구와 동작을 맞추려면 크론/배치가 필요 (S6) |
-| P1 | 카톡 패키저 미구현 | 랜딩 "기능 04"와 Studio 플랜이 "규격 자동 검증"을 약속하지만 2MB·24종 검증·리사이즈 로직은 없다(AGENTS.md 에도 S6 로 표기). 심사/마케팅 문구와 코드 정합 필요 |
-| P2 | 요청 제한 없음 | `/api/reply`·`/api/face/analyze`·`/api/checkout` 에 레이트리밋이 없다. 데모 원가는 0이지만 실서비스에서는 남용/스팸 경로 |
-| P2 | 기본 운영자 코드 | `ADMIN_PASSCODE` 미설정 시 `emotime-demo` 로 동작. 운영 배포에서는 env 필수화 + 미설정 시 로그인 차단 권장 |
+| ✅ 해결 | 얼굴 파기 | 2차에서 크론 + 기회적 스윕으로 실제 구현 (§5-⑥) |
+| ✅ 해결 | 카톡 패키저 | 2차에서 24종·360×360·2MB 검증 + ZIP 패키징 구현 (§5-⑦) |
+| ✅ 해결 | 요청 제한·관리자 인증 | 2차에서 레이트리밋 도입, 쿠키 위조 우회 차단, fail-closed (§5-⑤, ⑧) |
 | P3 | 파일 저장소 단일 프로세스 | `.data/store.json` 은 프로세스 내 직렬화만 보장. 멀티 인스턴스 배포 시 원장 정합성이 깨질 수 있어 Prisma 어댑터 전까지는 단일 인스턴스 전제 |
 | P3 | 사과/축하 의도 가중치 | "미안 늦었어 ㅠㅠ" → 위로 컷, "생일인데 저녁 먹을래" → 식사 컷이 나온다. 룰 기반 한계로, `is-it-okay` 계열 템플릿 추가와 의도 가중치 조정을 권장 |
 
 ---
 
-## 5. 재현 방법
+## 5. 2차 후속 조치 (2026-10-31, 커밋 후속)
+
+1차 리포트의 P1/P2 중 **코드로 해결 가능한 항목을 모두 처리**했다. 새 스모크는 **53/53 통과**.
+
+### ⑤ 관리자 세션 위조 차단 (보안 · 치명)
+`src/lib/session.ts` · `src/app/api/admin/login/route.ts`
+- 증상: 사용자 생성 시 `role: sessionId === 'admin_session' ? 'admin' : 'user'`.
+  미들웨어는 **이미 존재하는 쿠키를 그대로 신뢰**하므로, `Cookie: emotime_sid=admin_session` 한 줄로
+  누구나 운영 콘솔 권한을 얻을 수 있었다.
+- 수정: 관리자 권한은 오직 운영자 코드 검증으로만 부여. `ADMIN_PASSCODE` 미설정 + production → **503 fail-closed**
+  (기본값 `emotime-demo` 는 로컬/데모에서만), 비교는 `timingSafeEqual`, 로그인 시도 5회/분 제한.
+- 검증: 위조 쿠키로 `/api/admin/metrics` → `locked: true` (스모크 고정).
+
+### ⑥ 얼굴 파기 스케줄러 (P1 · 정책)
+`src/lib/purge.ts` · `/api/cron/purge` · `/api/admin/purge` · `vercel.json`(매시 크론) · `src/lib/session.ts`
+- 증상: `purgedAt` 은 **예약 기록만** 있고 실제 삭제가 없어 "24시간 내 파기" 고지가 사실과 달랐다.
+- 구현: 예약 시각 도달분 삭제 + `face_purged` 이벤트(파기 시각·대상·사유) 기록.
+  크론이 없는 환경을 위해 **요청 처리 중 5분 1회 기회적 스윕**(`FACE_PURGE_SWEEP_MS`).
+  운영 콘솔에 파기 현황/예정 확인/즉시 실행 패널 추가.
+- **팩 렌더 유지 설계:** 파기하면 팩이 안 그려지는 문제가 생기므로, 팩 생성 시 `Pack.identity`
+  (팔레트+시그니처+화풍)를 고정한다. 파기 후에도 모든 팩·굿즈·답장·브리핑이 같은 얼굴로 계속 렌더된다.
+- 검증(포트 3001, `FACE_PURGE_HOURS=0`): 예약 파기 1건 실행 → 이벤트 `reason: scheduled` 기록 →
+  시트 재생성 404 · 팩 조회 200(스냅샷) · 시트 페이지는 404 대신 "얼굴 정보가 파기되었습니다" 안내.
+
+### ⑦ 카카오 규격 패키저 (P1 · BM)
+`src/lib/packager.ts` · `/api/packs/[id]/kakao` · `src/lib/export.ts` · `PackViewer`
+- 검증: **24종 · 360×360px · PNG · 개당 2MB 이하 · 투명 배경 · 대사 길이/중복**.
+  서버는 팩 데이터로 판정, 클라이언트는 렌더 결과의 실제 바이트/픽셀을 재검사해 `validation.json` 동봉.
+- 내보내기: 배경을 투명으로 다시 그려 `kakao/01.png…24.png` + 검증 리포트 ZIP (Studio 플랜).
+- 검증: 24컷 팩 → 6개 체크 전부 pass, 23개/2MB 초과 → fail. 실제 PNG 24장(360px) = 13.8~19.3KB로 한도 내.
+
+### ⑧ 레이트리밋 (P2 · 남용 방지)
+`src/lib/ratelimit.ts` → reply 30/분, 얼굴분석 15, 시트 20, 팩 10, 결제 10, 굿즈 10, 브리핑 40, 관리자 로그인 5.
+- 429 + `Retry-After`/`X-RateLimit-*` 헤더. 31번째 요청에서 429 확인. 인메모리(프로세스 단위)이며
+  멀티 인스턴스에서는 Redis 어댑터로 교체 필요(ADR-008 과 동일 전략).
+
+### ⑨ 스모크 하네스 버그
+`scripts/smoke.mjs` — `Set-Cookie` 를 단일 변수로 덮어써 로그인 직후 세션이 사라지던 문제(쿠키 병 도입).
+이 버그 때문에 1차에서는 관리자 로그인 이후 시나리오를 검증할 수 없었다.
+
+---
+
+## 6. 재현 방법
 
 ```bash
 npm install
 cp .env.example .env.local
 npm run build && npm run start
-BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 36 passed
+BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 53 passed
 ```
 
 수동 확인 체크리스트(브라우저)
@@ -132,4 +173,6 @@ BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 36 passed
 3. `/editor/...` → 대사 입력(길게/짧게) → PNG · GIF 내려받기
 4. `/reply` → "미안 늦었어 ㅠㅠ" → 위로 컷이 1순위인지 → 대사 복사 · PNG
 5. `/pricing` → 크레딧 결제 → `/billing` 에서 원장 반영 확인
-6. `/admin` → `emotime-demo` 로그인 → 매출/원가 카드 확인
+6. `/admin` → `emotime-demo` 로그인 → 매출/원가 카드 + **얼굴 파기 패널**(예정 확인/즉시 실행) 확인
+7. Studio 구독 → 24컷 팩 → 팩 페이지의 **카카오 규격 패키저** 패널에서 6개 검사 통과 → ZIP 내려받기
+8. `/editor` 에서 긴 대사(30자) 입력 → 말풍선 안에 들어오는지 확인

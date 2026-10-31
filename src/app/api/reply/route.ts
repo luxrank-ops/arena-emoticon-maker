@@ -4,12 +4,15 @@ import { getCurrentUser } from '@/lib/session';
 import { analyzeConversation } from '@/lib/recommend/engine';
 import { specFor } from '@/lib/spec';
 import { logEvent, withDB } from '@/lib/store';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 const schema = z.object({ text: z.string().min(2).max(1200) });
 
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+    const limited = enforceRateLimit(user.id, 'reply', RATE_LIMITS.reply);
+    if (limited) return limited;
     const { text } = schema.parse(await req.json());
     const result = analyzeConversation(text);
     const seedBase = Date.now() % 100000;

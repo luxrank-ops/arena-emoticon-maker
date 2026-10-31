@@ -3,9 +3,25 @@
 // 사용: BASE_URL=http://localhost:3000 node scripts/smoke.mjs
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
 
-let cookie = '';
+// 쿠키 병: Set-Cookie 는 여러 개일 수 있고, 기존 쿠키를 덮어쓰면 세션이 날아간다
+const jar = new Map();
 let passed = 0;
 let failed = 0;
+
+function cookieHeader() {
+  return [...jar.entries()].map(([k, v]) => `${k}=${v}`).join('; ');
+}
+
+function absorbCookies(res) {
+  const list =
+    typeof res.headers.getSetCookie === 'function' ? res.headers.getSetCookie() : [res.headers.get('set-cookie')].filter(Boolean);
+  for (const raw of list) {
+    const [pair] = raw.split(';');
+    const idx = pair.indexOf('=');
+    if (idx <= 0) continue;
+    jar.set(pair.slice(0, idx).trim(), pair.slice(idx + 1).trim());
+  }
+}
 
 function assert(cond, label) {
   if (cond) {
@@ -18,17 +34,17 @@ function assert(cond, label) {
 }
 
 async function req(path, opts = {}) {
+  const cookies = cookieHeader();
   const res = await fetch(`${BASE}${path}`, {
     ...opts,
     headers: {
       'Content-Type': 'application/json',
-      ...(cookie ? { cookie } : {}),
+      ...(cookies ? { cookie: cookies } : {}),
       ...(opts.headers ?? {}),
     },
     redirect: 'manual',
   });
-  const setCookie = res.headers.get('set-cookie');
-  if (setCookie) cookie = setCookie.split(';')[0];
+  absorbCookies(res);
   const text = await res.text();
   let json = null;
   try {
@@ -149,9 +165,64 @@ const noConsent = await req('/api/face/analyze', {
 });
 assert(noConsent.status === 422, '동의 없이 얼굴 분석 → 422');
 
-console.log('\n[9] 권한');
+console.log('\n[9] 카카오 규격 패키저');
+const kakao12 = await req(`/api/packs/${packId}/kakao`);
+assert(kakao12.json?.validation?.ok === false, '12컷 팩 → 규격 미충족(24종 필요)');
+assert(kakao12.json.validation.checks.find((c) => c.id === 'count')?.blocking === true, '24종 검사는 차단 항목');
+assert(kakao12.json.validation.checks.find((c) => c.id === 'pixel')?.pass === true, '360×360 항목 통과');
+assert(kakao12.json.packaging === false, 'Free 플랜 → 패키징(ZIP) 미제공');
+
+console.log('\n[10] 얼굴 파기 정책');
+const cronNoAuth = await req('/api/cron/purge');
+assert(cronNoAuth.status === 403 || cronNoAuth.status === 401, '크론 시크릿 없으면 파기 실행 거부(fail-closed)');
+const purgeLocked = await req('/api/admin/purge', { method: 'POST', body: JSON.stringify({}) });
+assert(purgeLocked.status === 403, '비관리자 → 파기 실행 403');
+
+console.log('\n[11] 권한 · 관리자 세션 위조');
+const forged = await fetch(`${BASE}/api/admin/metrics`, { headers: { cookie: 'emotime_sid=admin_session' } });
+const forgedJson = await forged.json();
+assert(forgedJson.locked === true, '쿠키 값만으로 관리자 권한 획득 불가');
 const admin = await req('/api/admin/metrics');
 assert(admin.json?.locked === true, '비관리자 → metrics 잠금');
+
+console.log('\n[12] 운영자 로그인 · 무차별 대입 제한');
+// 별도 세션으로 시도 → 본 세션의 로그인은 제한에 걸리지 않는다
+const bruteCookie = `emotime_sid=brute-${Date.now().toString(36)}`;
+let rateLimited = false;
+let attempts = 0;
+for (let i = 0; i < 8; i++) {
+  const res = await fetch(`${BASE}/api/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', cookie: bruteCookie },
+    body: JSON.stringify({ passcode: `wrong-${i}` }),
+  });
+  attempts++;
+  if (res.status === 429) {
+    rateLimited = true;
+    assert(!!res.headers.get('retry-after'), '429 응답에 Retry-After 헤더');
+    break;
+  }
+}
+assert(rateLimited, `연속 오답 ${attempts}회 → 429 요청 제한`);
+
+console.log('\n[13] 관리자 로그인 후 파기 → 팩 렌더 유지');
+const login = await req('/api/admin/login', { method: 'POST', body: JSON.stringify({ passcode: process.env.ADMIN_PASSCODE ?? 'emotime-demo' }) });
+{
+  assert(login.json?.admin === true, '운영자 로그인 성공');
+  const before = await req('/api/admin/purge');
+  assert(typeof before.json?.stats?.stored === 'number', `파기 통계 조회 (status=${before.status}, body=${before.text.slice(0, 120)})`);
+  const purge = await req('/api/admin/purge', { method: 'POST', body: JSON.stringify({ force: true }) });
+  assert(purge.json?.result?.purged >= 1, `강제 파기 실행 (${purge.json?.result?.purged}건)`);
+  const afterPurge = await req(`/api/packs/${packId}`);
+  assert(afterPurge.status === 200, '파기 후에도 팩 조회 200');
+  assert(afterPurge.json?.frames?.length === 12 && !!afterPurge.json.frames[0].spec?.palette, '파기 후에도 스냅샷으로 렌더 가능');
+  const purgedFace = await req('/api/admin/purge');
+  assert(purgedFace.json?.stats?.stored === 0, '보관 중인 얼굴 프로필 0건');
+  const purgedSheetPage = await req(`/studio/sheet/${sheetId}`);
+  assert(purgedSheetPage.status === 200 && purgedSheetPage.text.includes('얼굴 정보가 파기'), '파기된 시트 → 안내 화면(404 아님)');
+  const newSheet = await req('/api/sheets', { method: 'POST', body: JSON.stringify({ faceId: face.json.faceId, tone: '2d-cute' }) });
+  assert(newSheet.status === 404, '파기된 얼굴로 시트 재생성 → 404 안내');
+}
 
 console.log(`\n결과: ${passed} passed, ${failed} failed\n`);
 process.exit(failed > 0 ? 1 : 0);

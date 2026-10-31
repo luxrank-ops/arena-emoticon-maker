@@ -168,6 +168,19 @@ export interface Pack {
   creditsSpent: number;
   createdAt: string;
   frames: Frame[];
+  /**
+   * 비식별 렌더 스냅샷 (팔레트 + 얼굴 시그니처 + 화풍).
+   * 얼굴 프로필은 24시간 뒤 파기되므로, 팩이 그 뒤에도 계속 렌더되려면
+   * "이미 만들어진 팩을 다시 그리는 데 필요한 최소값"을 팩에 고정해 둔다.
+   * (원본 사진·랜드마크는 포함하지 않는다)
+   */
+  identity?: IdentitySnapshot;
+}
+
+export interface IdentitySnapshot {
+  palette: Palette;
+  signature: FaceSignature;
+  tone: Tone;
 }
 
 export interface CreditEntry {
@@ -235,6 +248,7 @@ export interface UsageEvent {
     | 'reply_used'
     | 'brief_opened'
     | 'face_analyzed'
+    | 'face_purged'
     | 'export'
     | 'order_paid'
     | 'error';

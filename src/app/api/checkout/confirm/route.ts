@@ -5,6 +5,7 @@ import { applyCredits } from '@/lib/credits';
 import { logEvent, withDB } from '@/lib/store';
 import { captureServer } from '@/lib/analytics-server';
 import type { Order } from '@/lib/types';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 const schema = z.object({
   orderId: z.string().min(3),
@@ -17,6 +18,8 @@ const schema = z.object({
 export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
+    const limited = enforceRateLimit(user.id, 'confirm', RATE_LIMITS.confirm);
+    if (limited) return limited;
     const body = schema.parse(await req.json());
 
     const order = await withDB((db) => db.orders.find((o) => o.id === body.orderId && o.userId === user.id) ?? null);

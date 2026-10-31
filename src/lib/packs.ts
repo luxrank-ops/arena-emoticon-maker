@@ -3,11 +3,13 @@ import type {
   FaceProfile,
   Frame,
   FrameView,
+  IdentitySnapshot,
   Pack,
   StickerSpec,
   Tone,
 } from '@/lib/types';
-import { signatureFromSeed } from '@/lib/art/sticker';
+import { DEFAULT_PALETTE, DEFAULT_SIGNATURE, signatureFromSeed } from '@/lib/art/sticker';
+import type { DB } from '@/lib/store';
 import { composePackTemplates } from '@/lib/recommend/engine';
 import { TEMPLATES_BY_ID } from '@/lib/recommend/templates';
 import { applyCredits, CreditError } from '@/lib/credits';
@@ -134,6 +136,7 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     throw e;
   }
 
+  const chosen = sheet.variants.find((v) => v.key === sheet.chosenKey) ?? sheet.variants[0];
   const pack: Pack = {
     id: packId,
     userId,
@@ -145,6 +148,12 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     creditsSpent: size,
     createdAt: new Date().toISOString(),
     frames,
+    // 얼굴 프로필이 파기된 뒤에도 이 팩을 계속 그릴 수 있게 비식별 스냅샷을 고정한다
+    identity: {
+      palette: face.palette,
+      signature: chosen?.signature ?? face.signature,
+      tone: sheet.tone,
+    },
   };
 
   await withDB((db) => {
@@ -156,13 +165,13 @@ export async function createPack(userId: string, sheetId: string, size: number, 
   return pack;
 }
 
-export function materializeSpec(face: FaceProfile, sheet: CharacterSheet, frame: Frame): StickerSpec {
-  const variant = sheet.variants.find((v) => v.key === sheet.chosenKey) ?? sheet.variants[0];
+/** 팩에 저장된 비식별 스냅샷으로 스펙을 만든다 (얼굴 프로필 불필요) */
+export function specFromIdentity(identity: IdentitySnapshot, frame: Frame): StickerSpec {
   return {
     seed: frame.seed,
-    tone: sheet.tone,
-    palette: face.palette,
-    signature: variant.signature,
+    tone: identity.tone,
+    palette: identity.palette,
+    signature: identity.signature,
     emotion: frame.emotion,
     intensity: frame.intensity,
     prop: frame.prop,
@@ -170,6 +179,41 @@ export function materializeSpec(face: FaceProfile, sheet: CharacterSheet, frame:
     line: frame.line,
     linePosition: 'bottom',
   };
+}
+
+export function materializeSpec(face: FaceProfile, sheet: CharacterSheet, frame: Frame): StickerSpec {
+  const variant = sheet.variants.find((v) => v.key === sheet.chosenKey) ?? sheet.variants[0];
+  return specFromIdentity(
+    {
+      palette: face.palette,
+      signature: variant?.signature ?? face.signature,
+      tone: sheet.tone,
+    },
+    frame,
+  );
+}
+
+/**
+ * 팩을 그리는 데 필요한 정체성 정보를 찾는다.
+ * 1순위: 팩에 고정된 스냅샷 (얼굴이 파기돼도 영구히 유효)
+ * 2순위: 시트 → 얼굴 (스냅샷 도입 이전에 만들어진 팩)
+ */
+export function identityOf(db: DB, pack: Pack): IdentitySnapshot | null {
+  if (pack.identity) return pack.identity;
+  const sheet = db.sheets.find((s) => s.id === pack.sheetId);
+  if (!sheet) return null;
+  const variant = sheet.variants.find((v) => v.key === sheet.chosenKey) ?? sheet.variants[0];
+  const face = db.faces.find((f) => f.id === sheet.faceId);
+  if (!face) return null;
+  return {
+    palette: face.palette,
+    signature: variant?.signature ?? face.signature,
+    tone: sheet.tone,
+  };
+}
+
+function fallbackIdentity(tone: Tone): IdentitySnapshot {
+  return { palette: DEFAULT_PALETTE, signature: DEFAULT_SIGNATURE, tone };
 }
 
 export function readyCount(pack: Pack, now = Date.now()) {
@@ -184,14 +228,14 @@ export async function getPackView(userId: string, packId: string) {
   return withDB((db) => {
     const pack = db.packs.find((p) => p.id === packId && p.userId === userId);
     if (!pack) throw new PackError('PACK_NOT_FOUND', '팩을 찾을 수 없습니다');
-    const sheet = db.sheets.find((s) => s.id === pack.sheetId)!;
-    const face = db.faces.find((f) => f.id === sheet.faceId)!;
+    // 얼굴이 24h 후 파기돼도 팩은 계속 렌더돼야 한다 → 스냅샷 우선, 없으면 데모 기본값
+    const identity = identityOf(db, pack) ?? fallbackIdentity(pack.tone);
     const now = Date.now();
     const ready = readyCount(pack, now);
     const frames: FrameView[] = pack.frames
       .slice()
       .sort((a, b) => a.index - b.index)
-      .map((f) => ({ ...f, spec: materializeSpec(face, sheet, f), ready: f.readyAt <= now }));
+      .map((f) => ({ ...f, spec: specFromIdentity(identity, f), ready: f.readyAt <= now }));
     return {
       pack: { ...pack, status: (ready >= pack.frames.length ? 'READY' : 'GENERATING') as Pack['status'] },
       frames,
@@ -223,10 +267,9 @@ export async function composeFrame(
     if (typeof patch.intensity === 'number') frame.intensity = Math.max(0, Math.min(100, Math.round(patch.intensity)));
     if (patch.emotion) frame.emotion = patch.emotion;
 
-    const sheet = db.sheets.find((s) => s.id === pack.sheetId)!;
-    const face = db.faces.find((f) => f.id === sheet.faceId)!;
+    const identity = identityOf(db, pack) ?? fallbackIdentity(pack.tone);
     logEvent(db, userId, 'frame_composed', { frameId, packId: pack.id });
-    return { ...frame, spec: materializeSpec(face, sheet, frame), ready: true };
+    return { ...frame, spec: specFromIdentity(identity, frame), ready: true };
   });
 }
 
@@ -234,10 +277,8 @@ export async function framesForReply(userId: string, templateId: string, seedBas
   return withDB((db) => {
     const pack = db.packs.filter((p) => p.userId === userId).sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     if (!pack) return null;
-    const sheet = db.sheets.find((s) => s.id === pack.sheetId);
-    if (!sheet) return null;
-    const face = db.faces.find((f) => f.id === sheet.faceId);
-    if (!face) return null;
+    const identity = identityOf(db, pack);
+    if (!identity) return null;
     const t = TEMPLATES_BY_ID[templateId];
     const virtual: Frame = {
       id: `virtual_${templateId}`,
@@ -254,7 +295,7 @@ export async function framesForReply(userId: string, templateId: string, seedBas
       readyAt: 0,
       usageCount: 0,
     };
-    return { face, sheet, frame: virtual };
+    return { identity, frame: virtual };
   });
 }
 
@@ -277,7 +318,8 @@ export async function getSheetView(userId: string, sheetId: string) {
     const sheet = db.sheets.find((s) => s.id === sheetId && s.userId === userId);
     if (!sheet) throw new PackError('SHEET_NOT_FOUND', '캐릭터 시트를 찾을 수 없습니다');
     const face = db.faces.find((f) => f.id === sheet.faceId);
-    if (!face) throw new PackError('FACE_NOT_FOUND', '얼굴 정보를 찾을 수 없습니다');
+    // 24시간이 지나 파기된 얼굴 → 시트는 다시 만들 수 없으므로 안내 후 새로 만들기로 유도
+    if (!face) throw new PackError('FACE_PURGED', '얼굴 정보가 파기되었습니다. 사진을 다시 올려 주세요');
     return { sheet, face };
   });
 }

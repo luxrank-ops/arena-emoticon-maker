@@ -11,11 +11,37 @@ export const dynamic = 'force-dynamic';
 export default async function SheetPage({ params }: { params: { id: string } }) {
   const user = await getCurrentUser();
   let data: Awaited<ReturnType<typeof getSheetView>> | null = null;
+  let purged = false;
   try {
     data = await getSheetView(user.id, params.id);
-  } catch {
-    notFound();
+  } catch (e) {
+    // 24시간이 지나 얼굴 정보가 파기된 시트 → 404 대신 안내 후 재촬영으로 유도
+    if ((e as { code?: string })?.code === 'FACE_PURGED') purged = true;
+    else notFound();
   }
+
+  if (purged) {
+    return (
+      <div className="wrap max-w-xl py-20 text-center">
+        <p className="text-4xl">🫧</p>
+        <h1 className="h2 mt-4">얼굴 정보가 파기되었습니다</h1>
+        <p className="mt-2 text-sm leading-relaxed text-sub">
+          개인정보 보호를 위해 얼굴 파생 정보는 생성 후 24시간이 지나면 자동 파기됩니다.
+          <br />
+          이미 만든 팩은 그대로 열 수 있고, 새 팩은 사진 한 장으로 다시 만들 수 있어요.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <Link href="/studio/upload" className="btn-primary !px-5 !py-3 text-sm">
+            사진 다시 올리기 →
+          </Link>
+          <Link href="/billing" className="btn-ghost !px-5 !py-3 text-sm">
+            내 팩 보기
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   if (!data) notFound();
 
   const { sheet, face } = data;

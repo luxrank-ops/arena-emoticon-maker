@@ -18,9 +18,10 @@
 | 톡 답장 | `/reply` | 대화 붙여넣기 → 감정/의도 판독 → 내 얼굴 답장 3장 (평균 응답 < 2s, 생성 호출 0) |
 | 오늘의 브리핑 | `/brief` | 요일·시간대 기반 8컷 자동 큐레이션 (원가 0) |
 | 굿즈 | `/goods` | 아크릴·포토카드·머그 주문 (POD 시뮬레이션) |
+| 카카오 패키저 | `/studio/pack/[id]` | 24종 · 360×360 · PNG · 개당 2MB 검증 후 ZIP (Studio) |
 | 요금제/결제 | `/pricing` → `/checkout/[orderId]` | Plus/Studio/크레딧, 청약철회 동의 · 서버 금액 검증 · 원장 지급 |
 | 마이페이지 | `/billing` | 크레딧 원장 · 결제 내역 · 내 팩 |
-| 운영 콘솔 | `/admin` | 매출 · 원가 · 플랜 분포 · 최다 사용 컷 (코드 `emotime-demo`) |
+| 운영 콘솔 | `/admin` | 매출 · 원가 · 플랜 분포 · 최다 사용 컷 · 얼굴 파기 현황/실행 |
 | 정책 | `/terms` `/privacy` `/refund` `/support` | PG 심사 대응 문서 |
 | 관측 | Sentry · PostHog | 에러 추적 + 퍼널 분석(사진·대사 미전송, 키 없으면 no-op) |
 | 점검 | `docs/QA-REPORT.md` | 기능별 실작동 점검 결과 · 수정 이력 · 남은 리스크 |
@@ -32,12 +33,15 @@ npm install
 cp .env.example .env.local     # 값이 없으면 DEMO_MODE 로 동작 (API 키 불필요)
 npm run dev                    # http://localhost:3000
 npm run build && npm run start # 프로덕션 빌드
-BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 34 케이스 스모크
+BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 53 케이스 스모크
 node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
 ```
 
 - **관측/분석은 키를 넣는 순간 켜집니다.** `SENTRY_DSN`·`NEXT_PUBLIC_POSTHOG_KEY` 가 없으면 SDK 는 no-op 이고,
   기존 구조화 로그 + `/admin` 에러 카드만으로 동작합니다. 연동 지점·개인정보 설계는 [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md).
+
+- **얼굴 파기는 실제로 동작합니다.** `/api/cron/purge`(매시, `CRON_SECRET` 필요) + 요청 중 5분 1회 기회적 스윕.
+  파기해도 이미 만든 팩은 `Pack.identity` 스냅샷으로 계속 렌더됩니다. 운영 콘솔에서 수동 파기·통계 확인 가능.
 
 - **API 키 없이 전 플로우가 동작합니다.** 이미지 생성은 절차적 SVG 렌더러가 담당하고, 결제는 Mock Provider가
   실제와 동일한 주문→승인→원장 지급 파이프라인을 수행합니다.

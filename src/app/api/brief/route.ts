@@ -6,12 +6,15 @@ import { specFor } from '@/lib/spec';
 import { PLANS } from '@/lib/pricing';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { kstDateKey } from '@/lib/time';
+import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     const user = await getCurrentUser();
+    const limited = enforceRateLimit(user.id, 'brief', RATE_LIMITS.brief);
+    if (limited) return limited;
     const date = kstDateKey();
 
     const existing = await withDB((db) =>

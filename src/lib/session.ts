@@ -2,6 +2,7 @@ import { cookies } from 'next/headers';
 import { PLANS } from '@/lib/pricing';
 import type { User } from '@/lib/types';
 import { ensureSeed, findUser, uid, withDB } from '@/lib/store';
+import { maybePurgeFaces } from '@/lib/purge';
 
 export const SID_COOKIE = 'emotime_sid';
 const GUEST = 'guest_session';
@@ -21,7 +22,9 @@ async function resolve(sessionId: string): Promise<User> {
       name: '이모티미 사용자',
       plan: 'FREE',
       credits: PLANS.FREE.credits,
-      role: sessionId === 'admin_session' ? 'admin' : 'user',
+      // 관리자 권한은 오직 운영자 코드 검증(/api/admin/login)으로만 부여한다.
+      // (과거: sessionId === 'admin_session' 이면 admin → 쿠키 위조로 권한 탈취 가능)
+      role: 'user',
       createdAt: new Date().toISOString(),
       lastGrantAt: new Date().toISOString(),
     };
@@ -67,6 +70,9 @@ export function sessionIdFromCookies(): string {
 export async function getCurrentUser(): Promise<User> {
   const sid = sessionIdFromCookies();
   const user = await resolve(sid);
+  // 얼굴 파기 기회적 스윕 (5분에 1회, 비동기 fire-and-forget)
+  //  · 크론이 없는 환경에서도 24시간 파기 정책이 실제로 지켜지게 하는 안전망
+  void maybePurgeFaces();
   return { ...user };
 }
 

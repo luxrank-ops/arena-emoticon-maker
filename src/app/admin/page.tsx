@@ -1,8 +1,10 @@
 import { AdminLogin } from './AdminLogin';
+import { PurgePanel } from './PurgePanel';
 import { Stat } from '@/components/ui';
 import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { won } from '@/lib/pricing';
+import { purgeStats } from '@/lib/purge';
 
 export const dynamic = 'force-dynamic';
 
@@ -15,7 +17,10 @@ export default async function AdminPage() {
           <h1 className="h2">운영 콘솔</h1>
           <p className="mt-2 text-sm text-sub">KPI · 모더레이션 · 결제 상태를 확인합니다.</p>
         </div>
-        <AdminLogin />
+        <AdminLogin
+          demoHint={process.env.NODE_ENV !== 'production' || !!process.env.ADMIN_PASSCODE}
+          disabled={process.env.NODE_ENV === 'production' && !process.env.ADMIN_PASSCODE}
+        />
       </div>
     );
   }
@@ -47,6 +52,7 @@ export default async function AdminPage() {
     };
   });
 
+  const purge = await purgeStats();
   const aiCost = m.frames * 54;
   const margin = m.revenue > 0 ? Math.round(((m.revenue - aiCost) / m.revenue) * 100) : 0;
 
@@ -102,10 +108,12 @@ export default async function AdminPage() {
               <li>· 셀피 라이브니스 / 타인 사진 신고 차단: <strong className="text-ink">설계 반영</strong></li>
               <li>· 유명인·정치인 유사도 필터: <strong className="text-ink">Step 3</strong></li>
               <li>· AI 생성 표시(메타데이터·라벨): <strong className="text-ink">적용</strong></li>
-              <li>· 얼굴 원본 24h 파기 예약: <strong className="text-ink">적용</strong></li>
+              <li>· 얼굴 파생 정보 24h 파기: <strong className="text-ink">자동 실행</strong> (크론 + 기회적 스윕)</li>
               <li>· 오류 이벤트: {m.errors}건</li>
             </ul>
           </div>
+
+          <PurgePanel stats={purge} />
 
           <div className="card p-5">
             <p className="text-sm font-black">가장 많이 쓰인 컷</p>

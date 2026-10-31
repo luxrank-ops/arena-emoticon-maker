@@ -3,7 +3,7 @@ import { GoodsShop } from '@/components/commerce/GoodsShop';
 import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { GOODS, PLANS } from '@/lib/pricing';
-import { materializeSpec } from '@/lib/packs';
+import { identityOf, specFromIdentity } from '@/lib/packs';
 
 export const dynamic = 'force-dynamic';
 
@@ -14,14 +14,13 @@ export default async function GoodsPage() {
       .filter((p) => p.userId === user.id)
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
     if (!pack) return null;
-    const sheet = db.sheets.find((s) => s.id === pack.sheetId);
-    const face = sheet ? db.faces.find((f) => f.id === sheet.faceId) : undefined;
-    if (!sheet || !face) return null;
+    const identity = identityOf(db, pack);
+    if (!identity) return null;
     const now = Date.now();
     return pack.frames
       .filter((f) => f.readyAt <= now)
       .slice(0, 12)
-      .map((f) => ({ id: f.id, label: f.label, line: f.line, spec: materializeSpec(face, sheet, f) }));
+      .map((f) => ({ id: f.id, label: f.label, line: f.line, spec: specFromIdentity(identity, f) }));
   });
 
   return (
