@@ -271,6 +271,28 @@
   대규모 전에는 엔티티별 컬렉션(정규화) 권장. Firestore Auth/Storage 는 범위 밖(`docs/FIREBASE.md` §6).
 - 재현: `node scripts/firestore-stub.mjs 4600` + `FIRESTORE_EMULATOR_HOST=127.0.0.1:4600 FIREBASE_PROJECT_ID=emotime-demo npm start`
 
+### ⑰ 6차 재점검 (Firebase 전환 후) — 전 기능 재검증
+
+프로덕션이 KV → Firestore 로 바뀐 뒤 다시 전 기능을 점검했다.
+
+| 구분 | 방법 | 결과 |
+| --- | --- | --- |
+| 읽기 경로(운영) | 라이브 `arena-emoticon-maker.vercel.app` GET 스윕 | `/` `/studio/upload` `/reply` `/brief` `/goods` `/pricing` `/billing` `/terms` `/privacy` `/refund` `/support` `/admin` 전부 정상 렌더 |
+| API 계약(운영) | `GET /api/health`·`/api/brief`·`/api/packs/:id`(없는 id)·`/api/admin/metrics`·`/api/cron/purge` | health `firestore/remote` · brief 8컷 · 404 `PACK_NOT_FOUND` · `{locked:true}` · 401 `UNAUTHORIZED` |
+| 쓰기 경로(로컬 3백엔드) | 동일 빌드로 Firestore·KV·파일 각각 스모크 | **60/60 · 60/60 · 60/60** |
+| 멀티 인스턴스 공유 | A(3100)에서 만든 세션·주문을 B(3103)에서 조회 | 주문·크레딧 동일 → 공유 저장소 정상 |
+| 저장소 동시성 | 세션 20개·60개로 두 인스턴스에 분산 동시 주문 | 20/20, 60/60 성공 · `orders` 정확히 +20 · +60 **유실 0** |
+| 레이트리밋 | 한 세션에서 `/api/reply` 32회 (한도 30/분) | 30회 200 → **31번째부터 429** |
+| 장애 폴백 | Firestore 스텁 down | `mode:memory` + `lastError:"fetch failed"` + 주요 페이지 200 유지, `fallbackWrites` 증가 |
+| 장애 복구 | 스텁 재기동 | `mode:remote` 자동 복귀 · 쓰기 정상 |
+
+**이번에 잡은 결함 1건 — 401(토큰 무효) 시 영구 폴백**
+- 증상: 서비스 계정 키를 교체하거나 토큰이 무효화되면 Firestore 가 401 을 돌려주는데,
+  클라이언트는 **캐시된 토큰을 계속 재사용**해 만료(최대 1시간) 전까지 모든 요청이 실패 →
+  저장소가 파일 폴백으로 내려간 채 굳는다(로컬 재현: 인증 요구 스텁을 재기동하자 `firestore read 401`).
+- 수정: `fsFetch` 가 401 을 받으면 토큰 캐시를 비우고 **한 번 새 토큰으로 재시도**(`src/lib/firestore.ts`).
+- 검증: 스텁 재기동(토큰 무효화) 직후 첫 요청에서 자동 재발급·복구 확인 — `mode:remote`, `lastError:null`.
+
 ## 6. 재현 방법
 
 ```bash

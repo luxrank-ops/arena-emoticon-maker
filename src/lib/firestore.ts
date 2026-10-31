@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { gzipSync, gunzipSync } from 'node:zlib';
-import { getAccessToken } from '@/lib/gcp-token';
+import { getAccessToken, resetTokenCache } from '@/lib/gcp-token';
 
 // ─────────────────────────────────────────────────────────────
 // Firebase Firestore (Native 모드) 원격 저장소 어댑터
@@ -91,7 +91,7 @@ async function authHeaders(): Promise<Record<string, string>> {
   return { authorization: `Bearer ${token}` };
 }
 
-async function fsFetch(path: string, init: RequestInit = {}): Promise<Response> {
+async function fsFetchOnce(path: string, init: RequestInit): Promise<Response> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), TIMEOUT_MS);
   try {
@@ -108,6 +108,20 @@ async function fsFetch(path: string, init: RequestInit = {}): Promise<Response> 
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Firestore 호출.
+ *  · 401 은 "토큰이 더 이상 유효하지 않다"는 뜻(키 교체·권한 회수·시계 오차) →
+ *    캐시를 버리고 **한 번 새 토큰으로 재시도**한다. 이게 없으면 만료 전까지 계속 실패해
+ *    저장소가 영구히 파일 폴백으로 내려간다.
+ */
+async function fsFetch(path: string, init: RequestInit = {}): Promise<Response> {
+  const res = await fsFetchOnce(path, init);
+  if (res.status !== 401 || (EMULATOR && !TOKEN_URL)) return res;
+  await res.body?.cancel().catch(() => undefined);
+  resetTokenCache();
+  return fsFetchOnce(path, init);
 }
 
 async function errorText(res: Response): Promise<string> {
