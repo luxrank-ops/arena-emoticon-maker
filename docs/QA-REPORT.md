@@ -110,8 +110,8 @@
 | ✅ 해결 | 얼굴 파기 | 2차에서 크론 + 기회적 스윕으로 실제 구현 (§5-⑥) |
 | ✅ 해결 | 카톡 패키저 | 2차에서 24종·360×360·2MB 검증 + ZIP 패키징 구현 (§5-⑦) |
 | ✅ 해결 | 요청 제한·관리자 인증 | 2차에서 레이트리밋 도입, 쿠키 위조 우회 차단, fail-closed (§5-⑤, ⑧) |
-| P3 | 파일 저장소 단일 프로세스 | `.data/store.json` 은 프로세스 내 직렬화만 보장. 멀티 인스턴스 배포 시 원장 정합성이 깨질 수 있어 Prisma 어댑터 전까지는 단일 인스턴스 전제 |
-| P3 | 사과/축하 의도 가중치 | "미안 늦었어 ㅠㅠ" → 위로 컷, "생일인데 저녁 먹을래" → 식사 컷이 나온다. 룰 기반 한계로, `is-it-okay` 계열 템플릿 추가와 의도 가중치 조정을 권장 |
+| ✅ 해결 | 파일 저장소 단일 프로세스 | 3차에서 KV(Upstash REST) 어댑터 + CAS 도입 — 멀티 인스턴스에서도 원장 손실 없음 (§5-⑮) |
+| ✅ 해결 | 사과/축하 의도 가중치 | 3차에서 의도별 가중치 도입 — "미안" → 사과 컷, "생일" → 축하 컷 1순위 (§5-⑭) |
 
 ---
 
@@ -172,13 +172,6 @@
 
 ---
 
-### ⑬ 운영 배포 후 라이브 재점검 (수정 반영 확인)
-- `/api/health` → `{"ok":true,"store":{"dir":"/tmp/.data","mode":"ephemeral","lastError":null}}` (프로덕션)
-- `/`, `/pricing`, `/reply`, `/brief`, `/admin` 모두 정상 렌더로 복구 확인.
-- 부수 결함: 운영에 `ADMIN_PASSCODE` 를 설정하자 `/admin` 이 **"데모 코드: emotime-demo"** 를 그대로 노출.
-  `demoHint` 조건이 "운영이 아니거나 코드가 설정됨"이라, 실제 코드가 바뀌어도 데모 값을 안내했다.
-  → 실제 설정값이 `emotime-demo` 일 때만 안내하도록 수정. (운영 코드 사용 시 안내 숨김 확인)
-
 ### ⑫ 프로덕션(서버리스) 저장소 폴백 — 배포는 성공, 앱은 미동작 (P0)
 - 머지 후 실제 도메인(`https://arena-emoticon-maker.vercel.app`)을 열어보니 `/`, `/pricing` 모두
   에러 화면("잠깐 문제가 생겼어요")이 떴다. Vercel 배포 상태는 `READY` 였다.
@@ -201,13 +194,52 @@
   실서비스 전 Vercel KV/Postgres 어댑터로 교체 필요(`docs/ARCHITECTURE.md` §3).
 - 운영 환경변수도 함께 등록: `ADMIN_PASSCODE`(없으면 `/admin` 503), `CRON_SECRET`(없으면 크론 거부).
 
+### ⑬ 운영 배포 후 라이브 재점검 (수정 반영 확인)
+- `/api/health` → `{"ok":true,"store":{"dir":"/tmp/.data","mode":"ephemeral","lastError":null}}` (프로덕션)
+- `/`, `/pricing`, `/reply`, `/brief`, `/admin` 모두 정상 렌더로 복구 확인.
+- 부수 결함: 운영에 `ADMIN_PASSCODE` 를 설정하자 `/admin` 이 **"데모 코드: emotime-demo"** 를 그대로 노출.
+  `demoHint` 조건이 "운영이 아니거나 코드가 설정됨"이라, 실제 코드가 바뀌어도 데모 값을 안내했다.
+  → 실제 설정값이 `emotime-demo` 일 때만 안내하도록 수정. (운영 코드 사용 시 안내 숨김 확인)
+
+### ⑭ 톡 답장 의도 가중치 (P3 → 해결)
+- 기존: "미안 늦었어 ㅠㅠ" → 위로 컷(ㅠㅠ), "내일 생일인데 저녁 먹을래?" → 식사 컷, "ㅋㅋㅋ" 3순위에 생일 컷.
+- 원인: 감정 점수만으로 의도보다 감정을 앞세우는 규칙 + 의도별 가중치 부재 + `laugh` 우선순위에 `t-hbd`(생일) 포함.
+- 수정: `INTENT_RULES` 에 `weight` 도입(사과·축하 3, 감사·부탁·거절 2, 약속·업무 1.5, 식사·안부 1),
+  가중치 합 ≥ 3 이면 **의도를 감정보다 앞세운다**(`STRONG_INTENT`). `laugh` 3순위는 `t-clap` 으로 교체.
+- 검증(스모크 §15 · API 응답):
+
+| 입력 | 1순위 |
+| --- | --- |
+| 미안 늦었어 ㅠㅠ 진짜 미안해 | `t-sorry` (사과) |
+| 내일 생일인데 같이 저녁 먹을래? | `t-hbd` (생일 축하) |
+| 야 너 또 늦었네 ㅋㅋㅋ | `t-lol` (웃김) · 생일 컷 미포함 |
+
+### ⑮ 원격 저장소(KV) 어댑터 — 휘발성 `/tmp` 해소
+- 서버리스에서 `/tmp` 는 인스턴스 로컬이라 세션·주문이 인스턴스 간 공유되지 않는다(⑫ 의 남은 과제).
+- `KV_REST_API_URL`·`KV_REST_API_TOKEN`(Vercel KV / Upstash REST)이 있으면 **원격 KV 우선** 모드로 동작:
+  - 읽기 → 변경 → **CAS(compare-and-set, Lua EVAL)** 저장. 충돌 시 최신본으로 최대 5회 재시도.
+  - KV 장애 시 15초 백오프 후 자동 재시도, 그동안은 파일/메모리로 서비스(페이지는 계속 뜸).
+  - `/api/health` 의 `store.mode` 가 `remote` / `memory`(degraded) 로 표시.
+- 로컬 재현: `node scripts/kv-stub.mjs 4500` + `KV_REST_API_URL=http://127.0.0.1:4500 KV_REST_API_TOKEN=stub npm start`
+- 검증(로컬 KV 스텁으로 E2E):
+  - 인스턴스 A·B를 같은 KV로 띄우고, **A에서 만든 세션이 B에서도 그대로 인증**됨.
+  - 서로 다른 20개 세션으로 A·B에 동시 20요청 → 사용자 수 4 → 24 **손실 없음**(CAS 동작).
+  - KV 프로세스를 죽이면 `mode:memory` + `lastError:"fetch failed"` + 페이지 200 유지, 재기동 15초 후 `mode:remote` 자동 복구.
+- 구현 중 잡은 버그 2건:
+  1. **업무 예외를 저장소 장애로 오인** — `fn` 이 던진 오류(404·한도초과 등)까지 KV 장애로 처리해
+     15초간 파일 스냅샷으로 갈아타며 데이터를 덮어썼다(스모크가 6회 중 1회 실패).
+     → 인프라 오류(KV 통신·파싱·CAS)만 폴백하고, `fn` 예외는 그대로 전파하도록 분리. 8회 연속 스모크 통과.
+  2. 스텁(CAS) 인자 오프셋 — 테스트 도구 버그로, 실제 Upstash 에는 영향 없음.
+- 한계: KV 장애 중 발생한 쓰기는 로컬에만 남고 복구 후 KV 로 재생되지 않는다(마지막 쓰기 승자).
+- 남은 선택지: 대규모 전에는 KV 단일 키 JSON 대신 테이블(Postgres/Prisma)로 이전 권장 — 동시 쓰기가 많아질수록 CAS 재시도 비용이 커진다.
+
 ## 6. 재현 방법
 
 ```bash
 npm install
 cp .env.example .env.local
 npm run build && npm run start
-BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 56 passed
+BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 60 passed
 # ADMIN_PASSCODE 를 비우고 띄우면 관리자 구간은 fail-closed 검증만 수행 → 46 passed
 ```
 
