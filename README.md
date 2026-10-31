@@ -52,8 +52,10 @@ node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
 
 Next.js 14 (App Router) · React 18 · TypeScript strict · Tailwind CSS · Zod · Zustand
 이미지: **절차적 SVG 렌더러**(서버/클라이언트 공용, 0.1초) · 내보내기: Canvas + gifenc + JSZip
-데이터: 파일 저장소(`.data/store.json`) 또는 **원격 KV**(`KV_REST_API_URL`·`KV_REST_API_TOKEN`, CAS 지원) — Prisma/Postgres 어댑터로 교체 가능한 인터페이스.
-서버리스에서는 파일이 `/tmp`(휘발)로 내려가므로 운영에는 KV 설정을 권장합니다. `/api/health` 의 `store.mode` 로 확인하세요.
+데이터: 파일 저장소(`.data/store.json`) 또는 **원격 저장소** — **Firebase Firestore**(`FIREBASE_*`) 또는 **KV**(`KV_REST_API_URL`·`KV_REST_API_TOKEN`).
+우선순위는 Firestore → KV → 파일이며 `STORE_BACKEND` 로 고정할 수 있습니다. 둘 다 CAS(동시 쓰기 보호)를 지원하고, 장애 시 15초 폴백 후 자동 복구합니다.
+서버리스에서는 파일이 `/tmp`(휘발)로 내려가므로 운영에는 원격 저장소 설정을 권장합니다. `/api/health` 의 `store.mode`·`store.backend` 로 확인하세요.
+Firebase 연동 절차는 [`docs/FIREBASE.md`](docs/FIREBASE.md) 참고.
 
 ## 문서
 
