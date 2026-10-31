@@ -16,12 +16,13 @@ export async function POST(req: Request) {
     const limited = enforceRateLimit(user.id, 'adminLogin', RATE_LIMITS.adminLogin);
     if (limited) return limited;
 
-    const { passcode } = schema.parse(await req.json());
     const configured = process.env.ADMIN_PASSCODE;
     // 운영 환경에서 코드 미설정 → fail-closed (기본값으로 열어두지 않는다)
+    //  · 입력 검증보다 먼저 검사해, 어떤 입력이 와도 503 으로만 응답한다
     if (!configured && process.env.NODE_ENV === 'production') {
       return fail('ADMIN_DISABLED', '운영자 코드가 설정되지 않아 로그인할 수 없습니다', 503);
     }
+    const { passcode } = schema.parse(await req.json());
     const expected = configured ?? 'emotime-demo';
     if (!safeEqual(passcode, expected)) return fail('FORBIDDEN', '운영자 코드가 올바르지 않습니다', 401);
 

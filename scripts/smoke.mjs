@@ -206,8 +206,12 @@ for (let i = 0; i < 8; i++) {
 assert(rateLimited, `연속 오답 ${attempts}회 → 429 요청 제한`);
 
 console.log('\n[13] 관리자 로그인 후 파기 → 팩 렌더 유지');
-const login = await req('/api/admin/login', { method: 'POST', body: JSON.stringify({ passcode: process.env.ADMIN_PASSCODE ?? 'emotime-demo' }) });
-{
+const login = await req('/api/admin/login', { method: 'POST', body: JSON.stringify({ passcode: process.env.ADMIN_PASSCODE || 'emotime-demo' }) });
+if (login.status === 503) {
+  // 운영 환경 + ADMIN_PASSCODE 미설정 → fail-closed 가 정상 동작
+  assert(login.json?.error?.code === 'ADMIN_DISABLED', '운영자 코드 미설정 → 로그인 차단(503 fail-closed)');
+  console.log('  ! ADMIN_PASSCODE 미설정 환경이라 파기 후 렌더 시나리오는 건너뜀 (CI 는 값을 주입해 실행)');
+} else {
   assert(login.json?.admin === true, '운영자 로그인 성공');
   const before = await req('/api/admin/purge');
   assert(typeof before.json?.stats?.stored === 'number', `파기 통계 조회 (status=${before.status}, body=${before.text.slice(0, 120)})`);

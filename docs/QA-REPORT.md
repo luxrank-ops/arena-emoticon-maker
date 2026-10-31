@@ -151,13 +151,22 @@
 - 429 + `Retry-After`/`X-RateLimit-*` 헤더. 31번째 요청에서 429 확인. 인메모리(프로세스 단위)이며
   멀티 인스턴스에서는 Redis 어댑터로 교체 필요(ADR-008 과 동일 전략).
 
-### ⑨ 배포 게이트: Vercel Hobby 크론 제한
+### ⑨ 운영자 코드 미설정 환경의 fail-closed / CI 스모크
+- 운영에서 `ADMIN_PASSCODE` 가 비어 있으면 **입력값과 무관하게 503 `ADMIN_DISABLED`** 로 응답하도록
+  검사 순서를 입력 검증 **앞**으로 옮겼다(빈 코드 422 → 503). `/admin` 화면도 `데모 코드` 대신
+  "로그인이 차단되었습니다" 안내를 노출한다.
+- 그동안 스모크 §13 은 관리자 로그인을 전제로 해서 CI(코드 미주입)에서 실패했다.
+  → CI 워크플로에서 `ADMIN_PASSCODE`/`CRON_SECRET` 을 주입하고, 스모크는 503 을 만나면
+  fail-closed 자체를 검증하고 파기 시나리오만 건너뛰도록 수정(`46 passed, 0 failed`).
+  정상 주입 시 `53 passed, 0 failed`.
+
+### ⑩ 배포 게이트: Vercel Hobby 크론 제한
 - 1차 구현은 `vercel.json` 에 매시 크론(`0 * * * *`)을 넣었지만, **Hobby 플랜은 1일 1회만 허용**해
   배포가 `ERROR` 로 막혔다(`Hobby accounts are limited to daily cron jobs`).
 - 수정: 크론은 일 1회(03:00 KST)로 내리고, **24h 이내 파기 보장은 요청 중 5분 1회 기회적 스윕**이 담당.
   Pro 플랜에서는 매시로 올리는 것을 권장(주석·README 에 명시).
 
-### ⑩ 스모크 하네스 버그
+### ⑪ 스모크 하네스 버그
 `scripts/smoke.mjs` — `Set-Cookie` 를 단일 변수로 덮어써 로그인 직후 세션이 사라지던 문제(쿠키 병 도입).
 이 버그 때문에 1차에서는 관리자 로그인 이후 시나리오를 검증할 수 없었다.
 
@@ -170,6 +179,7 @@ npm install
 cp .env.example .env.local
 npm run build && npm run start
 BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 53 passed
+# ADMIN_PASSCODE 를 비우고 띄우면 관리자 구간은 fail-closed 검증만 수행 → 46 passed
 ```
 
 수동 확인 체크리스트(브라우저)
