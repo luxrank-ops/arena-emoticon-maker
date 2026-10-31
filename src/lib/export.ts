@@ -37,7 +37,20 @@ function drawWatermark(ctx: CanvasRenderingContext2D, size: number) {
   const h = size * 0.055;
   ctx.fillStyle = 'rgba(25,21,18,0.72)';
   ctx.beginPath();
-  ctx.roundRect(size - w - pad, size - h - pad, w, h, h / 2);
+  const x = size - w - pad;
+  const y = size - h - pad;
+  // roundRect 는 Safari 16.4+ / Chrome 99+ 에서만 지원 → 구형 WebView(앱인토스)에서는 직접 그린다
+  if (typeof ctx.roundRect === 'function') {
+    ctx.roundRect(x, y, w, h, h / 2);
+  } else {
+    const r = h / 2;
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
+  }
   ctx.fill();
   ctx.fillStyle = '#FFFDFA';
   ctx.textAlign = 'center';
@@ -120,20 +133,23 @@ export async function renderGifBlob(spec: StickerSpec, opts: { frames?: number; 
 
 export async function exportPackZip(
   items: { spec: StickerSpec; filename: string }[],
-  opts: { watermark?: boolean } = {},
+  opts: { watermark?: boolean; size?: number } = {},
 ) {
+  const size = opts.size ?? 360; // 카카오 제안 규격(360×360) 기본값
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   for (const it of items) {
-    const blob = await renderPngBlob(it.spec, { watermark: opts.watermark });
+    const blob = await renderPngBlob(it.spec, { watermark: opts.watermark, size });
     zip.file(`${it.filename}.png`, blob);
   }
+  const tooBig = items.length > 0 ? `총 ${items.length}컷` : '0컷';
   zip.file(
     'README.txt',
     [
       '이모티미(EmotiMe) 팩 내보내기',
       '',
-      '· 파일: 360px 규격은 카카오 이모티콘 스튜디오 제안 기준(360×360, 2MB 이하)에 맞춰 제작되었습니다.',
+      `· 파일: ${size}×${size}px 투명 PNG · ${tooBig}`,
+      '· 카카오 이모티콘 스튜디오 제안 규격은 360×360 · 개당 2MB 이하입니다 (자동 검증은 Studio 플랜 패키저).',
       '· AI 생성 결과물이며, 본인 사용 목적으로 제공됩니다.',
       '· 상업적 사용은 Studio 플랜 라이선스가 필요합니다.',
     ].join('\n'),

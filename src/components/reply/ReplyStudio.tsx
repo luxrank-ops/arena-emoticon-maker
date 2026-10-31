@@ -17,7 +17,7 @@ const SAMPLES = [
   '미안 늦었어 ㅠㅠ 진짜 미안해',
 ];
 
-export function ReplyStudio({ hasFace }: { hasFace: boolean }) {
+export function ReplyStudio({ hasFace, watermark }: { hasFace: boolean; watermark: boolean }) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReplyPayload | null>(null);
@@ -63,7 +63,7 @@ export function ReplyStudio({ hasFace }: { hasFace: boolean }) {
   }
 
   async function savePng(c: Candidate) {
-    const blob = await renderPngBlob(c.spec, { watermark: false, size: 720 });
+    const blob = await renderPngBlob(c.spec, { watermark, size: 720 });
     downloadBlob(blob, `reply-${c.templateId}.png`);
   }
 

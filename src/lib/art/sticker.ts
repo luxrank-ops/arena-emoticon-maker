@@ -714,15 +714,35 @@ function renderProp(prop: PropKey, cx: number, cy: number, rx: number, ry: numbe
   }
 }
 
+/** 글자 폭 추정치 (한글·이모지 = 1em, 그 외 = 0.5em). 웹픈트가 아니라 보수적 추정. */
+function estimatedTextWidth(text: string, size: number) {
+  let em = 0;
+  for (const ch of text) {
+    em += /[\u1100-\u11FF\u2E80-\uA4CF\uA960-\uA97F\uAC00-\uD7FF\uF900-\uFAFF\uFF00-\uFF60]/.test(ch) || /[\u{1F000}-\u{1FAFF}]/u.test(ch)
+      ? 1
+      : 0.52;
+  }
+  return em * size;
+}
+
 function renderLine(spec: StickerSpec, t: ToneStyle) {
   const text = spec.line.trim().slice(0, 34);
   const chars = [...text].length;
   const size = chars <= 7 ? 66 : chars <= 11 ? 58 : chars <= 16 ? 48 : chars <= 22 ? 40 : 34;
-  const bandW = Math.min(860, Math.max(280, chars * size * 1.06 + 84));
+  // 말풍선(band)은 항상 텍스트보다 넓게. 여백(24px)을 확보해도 1024px 를 넘지 않도록 폭을 캡업.
+  const textW = estimatedTextWidth(text, size);
+  const bandW = Math.min(940, Math.max(280, textW + 96));
+  // 캡업된 폭에 맞춰 글자 크기를 한 번 더 줄인다 (텍스트가 band 밖으로 삐져나가지 않게)
+  const fittedSize = textW > bandW - 56 ? Math.floor((size * (bandW - 56)) / Math.max(1, textW)) : size;
   const y = spec.linePosition === 'top' ? 40 : 866;
-  const band = `<rect x="${512 - bandW / 2}" y="${y}" width="${bandW}" height="${size + 50}" rx="${(size + 50) / 2.6}" fill="${spec.linePosition === 'top' ? '#FFFDFA' : '#FFFDFA'}" stroke="${t.ink}" stroke-width="${Math.max(6, t.sw * 0.7)}" opacity="0.97"/>`;
-  const baseline = y + (size + 50) / 2 + size * 0.36;
-  const textEl = `<text x="512" y="${baseline}" text-anchor="middle" font-family="${FONT}" font-size="${size}" font-weight="800" fill="${INK}" letter-spacing="-0.5">${escapeXml(text)}</text>`;
+  const h = fittedSize + 50;
+  const band = `<rect x="${512 - bandW / 2}" y="${y}" width="${bandW}" height="${h}" rx="${h / 2.6}" fill="#FFFDFA" stroke="${t.ink}" stroke-width="${Math.max(6, t.sw * 0.7)}" opacity="0.97"/>`;
+  const baseline = y + h / 2 + fittedSize * 0.36;
+  // 폰트가 달라도(폰트 누락·대체 글꼴) 밴드 밖으로 넘치지 않도록, 넘칠 때만 textLength 로 폭을 강제한다.
+  const avail = bandW - 56;
+  const fittedW = estimatedTextWidth(text, fittedSize);
+  const lenAttr = fittedW > avail ? ` textLength="${Math.round(avail)}" lengthAdjust="spacingAndGlyphs"` : '';
+  const textEl = `<text x="512" y="${baseline}" text-anchor="middle" font-family="${FONT}" font-size="${fittedSize}" font-weight="800" fill="${INK}" letter-spacing="-0.5"${lenAttr}>${escapeXml(text)}</text>`;
   return band + textEl;
 }
 

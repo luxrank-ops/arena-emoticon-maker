@@ -4,6 +4,7 @@ import { SheetPicker } from '@/components/studio/SheetPicker';
 import { getCurrentUser } from '@/lib/session';
 import { getSheetView } from '@/lib/packs';
 import { TONES } from '@/lib/art/sticker';
+import { formatKstDate } from '@/lib/time';
 
 export const dynamic = 'force-dynamic';
 
@@ -48,7 +49,7 @@ export default async function SheetPage({ params }: { params: { id: string } }) 
       />
 
       <p className="mt-8 text-center text-[11px] text-sub">
-        얼굴 특징점은 <strong className="text-ink">{new Date(face.purgedAt).toLocaleDateString('ko-KR')}</strong>까지
+        얼굴 특징점은 <strong className="text-ink">{formatKstDate(face.purgedAt)}</strong>까지
         보관된 뒤 파기 예약되어 있습니다 · 원본 사진은 보관하지 않습니다
       </p>
     </div>

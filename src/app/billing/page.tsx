@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/session';
 import { creditHistory } from '@/lib/credits';
 import { withDB } from '@/lib/store';
 import { PLANS, won } from '@/lib/pricing';
+import { formatKstDate, formatKstDateTime } from '@/lib/time';
 
 export const dynamic = 'force-dynamic';
 
@@ -62,7 +63,7 @@ export default async function BillingPage() {
                 <li key={h.id} className="flex items-center justify-between py-2">
                   <div>
                     <p className="text-[13px] font-bold">{REASON_LABEL[h.reason] ?? h.reason}</p>
-                    <p className="text-[10px] text-sub">{new Date(h.createdAt).toLocaleString('ko-KR')}</p>
+                    <p className="text-[10px] text-sub">{formatKstDateTime(h.createdAt)}</p>
                   </div>
                   <span className={`text-sm font-black ${h.delta > 0 ? 'text-mint' : 'text-coralink'}`}>
                     {h.delta > 0 ? '+' : ''}
@@ -87,7 +88,7 @@ export default async function BillingPage() {
                   <div>
                     <p className="text-[13px] font-bold">{o.title}</p>
                     <p className="text-[10px] text-sub">
-                      {new Date(o.createdAt).toLocaleDateString('ko-KR')} · {o.status}
+                      {formatKstDate(o.createdAt)} · {o.status}
                     </p>
                   </div>
                   <span className="text-sm font-black">{won(o.amount)}원</span>
@@ -112,7 +113,7 @@ export default async function BillingPage() {
                     {p.title}
                   </Link>
                   <span className="text-[11px] text-sub">
-                    {p.size}컷 · {new Date(p.createdAt).toLocaleDateString('ko-KR')}
+                    {p.size}컷 · {formatKstDate(p.createdAt)}
                   </span>
                 </li>
               ))}

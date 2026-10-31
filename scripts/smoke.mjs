@@ -94,6 +94,14 @@ assert(!!reply.json?.result?.candidates?.[0]?.spec, 'candidate.spec 포함');
 const brief = await req('/api/brief');
 assert(brief.json?.items?.length === 8, 'GET /api/brief → 8 items');
 
+const sadReply = await req('/api/reply', { method: 'POST', body: JSON.stringify({ text: '오늘 야근 확정… 나 집에 언제 가냐 ㅠㅠ' }) });
+assert(
+  ['t-cryy', 't-hug', 't-cheer'].includes(sadReply.json?.result?.candidates?.[0]?.templateId),
+  '슬픔 대화 → 위로/울음 컷이 1순위 (배고파 컷 오답 방지)',
+);
+const laughReply = await req('/api/reply', { method: 'POST', body: JSON.stringify({ text: '야 너 또 늦었네 ㅋㅋㅋ 개웃기네' }) });
+assert(laughReply.json?.result?.mood === 'laugh', 'ㅋㅋ 대화 → 웃김 감정 판독');
+
 console.log('\n[5] 결제 · 크레딧');
 const order = await req('/api/checkout', { method: 'POST', body: JSON.stringify({ sku: 'credits-20' }) });
 assert(order.json?.order?.amount === 4900, '서버가 금액 산정 (4900)');
@@ -122,7 +130,26 @@ const goods = await req('/api/goods/orders', {
 });
 assert(!!goods.json?.order?.id, 'POST /api/goods/orders → order');
 
-console.log('\n[7] 권한');
+console.log('\n[7] 브리핑 정합성');
+const briefAgain = await req('/api/brief');
+const briefIds = briefAgain.json.items.map((i) => i.templateId);
+assert(new Set(briefIds).size === briefIds.length, '브리핑 8컷 템플릿 중복 없음');
+assert(briefAgain.json.items.every((i) => typeof i.line === 'string' && i.line.length > 0), '모든 항목에 대사 포함');
+const kstWeekday = new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul', weekday: 'short' }).format(new Date());
+assert(briefAgain.json.headline.includes(kstWeekday), `헤드라인 요일 = KST 요일(${kstWeekday})`);
+
+console.log('\n[8] 입력 검증');
+const longLine = await req(`/api/frames/${frameId}`, { method: 'PATCH', body: JSON.stringify({ line: 'ㄱ'.repeat(60) }) });
+assert(longLine.status === 422, '34자 초과 대사 → 422');
+const badSize = await req('/api/packs', { method: 'POST', body: JSON.stringify({ sheetId, size: 13 }) });
+assert(badSize.status === 422, '허용되지 않은 팩 사이즈 → 422');
+const noConsent = await req('/api/face/analyze', {
+  method: 'POST',
+  body: JSON.stringify({ palette: PALETTE, signature: SIGNATURE, metrics: { coverage: 0.1, centering: 0.1, brightness: 120, sharpness: 12, faceDetected: true } }),
+});
+assert(noConsent.status === 422, '동의 없이 얼굴 분석 → 422');
+
+console.log('\n[9] 권한');
 const admin = await req('/api/admin/metrics');
 assert(admin.json?.locked === true, '비관리자 → metrics 잠금');
 

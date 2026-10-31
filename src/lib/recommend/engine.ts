@@ -1,5 +1,6 @@
 import type { Emotion } from '@/lib/types';
 import { rng } from '@/lib/art/sticker';
+import { kstHour, kstParts, kstWeekdayLabel } from '@/lib/time';
 import { TEMPLATES, TEMPLATES_BY_ID, type SituationTemplate, type Slot } from './templates';
 
 // ─────────────────────────────────────────────────────────────
@@ -8,7 +9,8 @@ import { TEMPLATES, TEMPLATES_BY_ID, type SituationTemplate, type Slot } from '.
 // ─────────────────────────────────────────────────────────────
 
 export function slotOf(d: Date): Slot {
-  const h = d.getHours();
+  // 서버가 UTC 로 돌아도 KST 기준 시간대를 쓴다 (아침/한낮/저녁/밤)
+  const h = kstHour(d);
   if (h >= 5 && h < 11) return 'morning';
   if (h >= 11 && h < 18) return 'work';
   if (h >= 18 && h < 22) return 'evening';
@@ -102,6 +104,22 @@ const MOOD_RULES: { mood: Emotion; label: string; words: string[] }[] = [
   { mood: 'smug', label: '뿌듯/칭찬', words: ['잘했', '멋지', '대단', '칭찬', '고생했'] },
 ];
 
+/** 감정별 1순위 템플릿 — 룰 기반 추천의 정확도를 지탱하는 손으로 고른 매핑 */
+const MOOD_PREFERRED: Record<string, string[]> = {
+  king: ['t-king', 't-why', 't-hmph'],
+  angry: ['t-why', 't-king', 't-hmph'],
+  sad: ['t-cryy', 't-hug', 't-cheer'],
+  cry: ['t-cryy', 't-hug', 't-cheer'],
+  love: ['t-loveyou', 't-miss', 't-thumb'],
+  laugh: ['t-lol', 't-omg', 't-hbd'],
+  sulk: ['t-sulk2', 't-sorry', 't-hmph'],
+  tired: ['t-sigh', 't-zzz', 't-quit'],
+  surprised: ['t-wow', 't-gasp', 't-deadline'],
+  joy: ['t-ok', 't-good', 't-thx'],
+  smug: ['t-thumb', 't-clap', 't-tsun'],
+  blank: ['t-hmm', 't-no', 't-done'],
+};
+
 const INTENT_RULES: { intent: string; words: string[]; templateIds: string[] }[] = [
   { intent: '사과', words: ['미안', '사과', '잘못', 'sorry'], templateIds: ['t-sorry', 't-please', 't-sulk2'] },
   { intent: '감사', words: ['고마', '감사', '땡큐'], templateIds: ['t-thx', 't-hug', 't-thumb'] },
@@ -139,14 +157,21 @@ export function analyzeConversation(raw: string): ReplyResult {
   }
 
   // 감정이 강하게 잡히면 그 감정을 먼저 보여준다 (사용자는 '상황'보다 '감정'에 반응한다)
-  const moodTemplates = TEMPLATES.filter((t) => t.emotion === bestMood.mood).sort((a, b) => b.weight - a.weight);
+  //  · emotion 만으로 고르면 'ㅠㅠ' → '배고파아'(t-hungry·emotion=sad) 같은 오답이 나온다.
+  //    감정별 우선 템플릿(MOOD_PREFERRED)을 먼저 쓰고, 부족하면 같은 emotion 으로 채운다.
+  const preferred = (MOOD_PREFERRED[bestMood.mood] ?? [])
+    .map((id) => TEMPLATES_BY_ID[id])
+    .filter(Boolean);
+  const sameEmotion = TEMPLATES.filter((t) => t.emotion === bestMood.mood).sort((a, b) => b.weight - a.weight);
+  const moodTemplates = [...preferred, ...sameEmotion.filter((t) => !preferred.some((p) => p.id === t.id))];
   const pool: SituationTemplate[] =
     bestMood.score >= 1 ? [...moodTemplates.slice(0, 3), ...intentPool] : [...intentPool, ...moodTemplates];
   const deduped = pool.filter((t, i) => pool.findIndex((x) => x.id === t.id) === i);
   pool.length = 0;
   pool.push(...deduped);
 
-  const candidates: ReplyCandidate[] = pool.slice(0, 3).map((t, i) => ({
+  const uniquePool = pool.filter((t, i) => pool.findIndex((x) => x.id === t.id) === i);
+  const candidates: ReplyCandidate[] = uniquePool.slice(0, 3).map((t, i) => ({
     templateId: t.id,
     emotion: t.emotion,
     line: t.line,
@@ -196,11 +221,10 @@ export interface BriefPlan {
   items: { templateId: string; label: string; reason: string; emotion: Emotion; line: string }[];
 }
 
-const WEEKDAY = ['일', '월', '화', '수', '목', '금', '토'];
-
 export function planBrief(now = new Date(), recentIds: string[] = []): BriefPlan {
   const slot = slotOf(now);
-  const wd = WEEKDAY[now.getDay()];
+  const wd = kstWeekdayLabel(now);
+  const wdIndex = kstParts(now).weekday;
   const picked = composePackTemplates(8, now, recentIds);
   const reasons: Record<Slot, string[]> = {
     morning: ['출근길에 바로 쓰는 컷', '아침 인사용', '커피 타임'],
@@ -211,9 +235,9 @@ export function planBrief(now = new Date(), recentIds: string[] = []): BriefPlan
   };
   const pool = reasons[slot];
   const headline =
-    now.getDay() === 5
+    wdIndex === 5
       ? `${wd}요일 ${SLOT_LABEL[slot]} — 퇴근 컷 먼저 챙겼어요`
-      : now.getDay() === 1
+      : wdIndex === 1
         ? `${wd}요일 ${SLOT_LABEL[slot]} — 월요일 생존 세트`
         : `${wd}요일 ${SLOT_LABEL[slot]} — 오늘 쓸 8컷`;
   return {
