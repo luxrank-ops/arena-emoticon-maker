@@ -77,9 +77,15 @@ vercel env add FIRESTORE_STORE_PATH preview     # 예: emotime-preview/store
 
 등록 후 **재배포**해야 반영됩니다 (`git` push 또는 `vercel --prod`).
 
-> 프리뷰 분리: `FIRESTORE_STORE_PATH=emotime-preview/store`,
-> `FIRESTORE_CHUNK_COLLECTION=emotime_preview_chunks` 처럼 프리뷰 전용 경로를 쓰면
-> 운영 데이터와 섞이지 않습니다.
+> ⚠️ **프리뷰 분리 변수는 반드시 `preview` 타깃에만 넣으세요.**
+> `FIRESTORE_STORE_PATH=emotime-preview/store` 를 production 에도 걸면 **운영이 프리뷰 저장소에 씁니다**
+> (실제로 발생했던 설정 실수 — `/api/health` 의 `store.dir` 에 `firestore:emotime-preview/store` 가 찍혀 발견).
+> production 은 값을 비워 기본값 `emotime/store` 를 쓰게 두는 것이 정답입니다.
+>
+> ```bash
+> vercel env add FIRESTORE_STORE_PATH preview   # 프리뷰에만
+> # production 에는 넣지 않는다 (기본값 emotime/store)
+> ```
 
 ### 2-3. 보안 규칙 (클라이언트 접근 전면 차단)
 
@@ -147,6 +153,12 @@ curl -s https://<도메인>/api/health | jq .store
 | `lastError` | 마지막 저장소 오류 메시지 |
 | `fallbackWrites` | **원격 장애로 로컬에만 기록된 건수** — 0 이 아니면 유실 위험 신호 |
 | `importedFrom` | `kv` 이면 최초 1회 KV 스냅샷을 Firestore 로 승계했다는 뜻 |
+| `dir` | 실제 저장 경로. `firestore:emotime/store`(운영) / `firestore:emotime-preview/store`(프리뷰) 인지 확인 |
+
+> `importedFrom` 은 **승계를 수행한 인스턴스에서만** 보입니다(인스턴스 로컬 상태).
+> 다른 인스턴스는 이미 채워진 저장소를 읽기만 하므로 `null` 로 보입니다.
+> 승계는 **Firestore 가 비어 있을 때만** 동작합니다 — 그 전에 프리뷰 배포 등이 기본 경로(`emotime/store`)에
+> 데이터를 써 두었다면 승계는 건너뛰고 KV 스냅샷은 그대로 보존됩니다(필요하면 `STORE_BACKEND=kv` 로 확인).
 
 ---
 
