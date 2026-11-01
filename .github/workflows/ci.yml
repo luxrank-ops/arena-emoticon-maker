@@ -1,0 +1,80 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ── Step 1: 문서 무결성 (코드 이전에도 항상 실행) ─────────────
+  docs:
+    name: Docs integrity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Required docs exist
+        run: |
+          set -e
+          for f in README.md AGENTS.md docs/STEP1-REPORT.md docs/ARCHITECTURE.md docs/COMPLIANCE.md; do
+            test -s "$f" || { echo "::error file=$f::missing or empty"; exit 1; }
+            echo "ok: $f"
+          done
+
+      - name: No secrets committed
+        run: |
+          if git ls-files | grep -E '(^|/)\.env$|(^|/)\.env\.local$'; then
+            echo "::error::.env files must not be committed (use .env.example)"
+            exit 1
+          fi
+          echo "ok: no env files tracked"
+
+  # ── Step 2 이후: 앱이 존재할 때만 실행 ───────────────────────
+  app:
+    name: Typecheck · Lint · Test · Build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Prisma generate
+        run: npx prisma generate
+        continue-on-error: true
+
+      - name: Typecheck
+        run: npm run typecheck --if-present
+
+      - name: Lint
+        run: npm run lint --if-present
+
+      - name: Unit tests
+        run: npm test --if-present
+
+      - name: Build
+        env:
+          DEMO_MODE: '1'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: npm run build
+
+  # ── 보안: 의존성 취약점 (앱 존재 시) ─────────────────────────
+  audit:
+    name: Dependency audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm audit --audit-level=high || true
