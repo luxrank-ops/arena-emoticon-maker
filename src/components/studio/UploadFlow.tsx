@@ -51,8 +51,15 @@ export function UploadFlow({
 
   const previewSpec: StickerSpec | null = useMemo(() => {
     if (!analysis) return null;
+    // 이미지 팔레트에서 파생된 시드: 사용자마다 다른 랜덤 헤어 변형 적용
+    const seed = analysis.palette.skin
+      ? analysis.palette.skin
+          .slice(1)
+          .split('')
+          .reduce((acc, ch) => acc + ch.charCodeAt(0), 4211)
+      : 4211;
     return {
-      seed: 4211,
+      seed,
       tone,
       palette: analysis.palette,
       signature: analysis.signature,
