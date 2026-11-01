@@ -74,6 +74,7 @@ export const RATE_LIMITS = {
   faceAnalyze: 15,
   faceEmbed: 10,
   generate: 10,
+  generateBatch: 5,
   sheets: 20,
   packs: 10,
   checkout: 10,

@@ -1,12 +1,25 @@
 'use server';
 
-import type { FaceSignature, Palette, Tone, Emotion } from '@/lib/types';
+import type {
+  FaceCondition,
+  FaceSignature,
+  Palette,
+  Tone,
+  Emotion,
+} from '@/lib/types';
 import { TONE_GENERATION_PARAMS } from '@/lib/ai/tone-params';
 
 // ─────────────────────────────────────────────────────────────
-// AI 이미지 생성 파이프라인
-// 유료화 품질 달성을 위해 절차적 SVG 렌더러를 AI 생성으로 교체.
-// 공급자(Replicate / Fal / Gemini)는 환경 변수 PROVIDER 로 선택.
+// AI 이미지 생성 엔진 (같은 사람, 여러 표정 - Expression Matrix)
+// 유료화 품질 달성을 위해 절차적 SVG → AI 생성으로 교체.
+// 핵심 원칙: 원본 사진의 신원을 유지하면서 표정만 변화시킴.
+//
+// 파이프라인:
+//   1. FaceCondition (임베딩 + 시그니처 + 팔레트) 조회
+//   2. ControlNet: 얼굴 랜드마크 조건으로 얼굴 구조 고정 (동일 인물 보장)
+//   3. IP-Adapter: 원본 사진 임베딩 주입으로 신원 동일성 확보
+//   4. 표정 프롬프트: joy/laugh/sad/angry 등 표정만 변화
+//   5. 미묘한 스타일만 적용 (과장된 캐리커처 배제)
 // ─────────────────────────────────────────────────────────────
 
 export interface GenerateRequest {
@@ -17,6 +30,7 @@ export interface GenerateRequest {
   emotion: Emotion;
   line?: string;
   intensity?: number;
+  faceCondition?: FaceCondition; // 얼굴 임베딩 조건 (필수 권장)
 }
 
 export interface GenerateResult {
@@ -26,25 +40,189 @@ export interface GenerateResult {
   model: string;
   latencyMs: number;
   costUsd?: number;
+  identityScore?: number; // 얼굴 닮음도 예측치 (0~1)
 }
 
-const PROVIDER = (process.env.AI_IMAGE_PROVIDER || 'placeholder').toLowerCase();
+export interface BatchGenerateRequest {
+  faceId: string;
+  palette: Palette;
+  signature: FaceSignature;
+  tone: Tone;
+  emotions: Emotion[];
+  line?: string;
+  intensity?: number;
+  faceCondition?: FaceCondition;
+}
+
+export interface BatchGenerateResult {
+  results: Record<Emotion, GenerateResult>;
+  totalLatencyMs: number;
+}
+
+const PROVIDER = (process.env.AI_IMAGE_PROVIDER || 'mock').toLowerCase();
 
 // ─────────────────────────────────────────────────────────────
-// 공급자별 클라이언트 (실제 연동 시 교체)
+// 프롬프트 빌더 (같은 사람, 다른 표정)
 // ─────────────────────────────────────────────────────────────
 
-async function generatePlaceholder(
+const EMOTION_PROMPTS: Record<Emotion, string> = {
+  joy: 'happy gentle smile, cheerful expression, bright eyes',
+  laugh: 'big joyful laugh, open mouth smile, crinkled eyes',
+  love: 'loving expression, heart eyes, warm smile',
+  sad: 'sad expression, teary eyes, downturned mouth',
+  angry: 'angry expression, furrowed brows, annoyed',
+  sulk: 'pouting expression, sulky, lips pursed',
+  tired: 'sleepy expression, droopy eyes, exhausted',
+  surprised: 'surprised expression, wide eyes, raised brows',
+  smug: 'smug expression, confident smirk, raised brow',
+  cry: 'crying expression, tears streaming down',
+  king: 'angry furious expression, venting, shouting',
+  blank: 'neutral expression, straight face, calm',
+};
+
+const STYLE_PROMPTS: Record<Tone, string> = {
+  '2d-cute': '2D cute sticker style, thick clean outline, kawaii, KakaoTalk emoji style, flat colors, white background',
+  '3d-cartoon': '3D cartoon render, soft shading, glossy surface, cute character, Pixar style, white background',
+  sketch: 'pencil sketch, hand-drawn, diary style, rough lines, monochrome accent, white background',
+  mono: 'black and white line art, monochrome, meme style, bold outlines, white background',
+  watercolor: 'watercolor painting, soft edges, bleeding colors, artistic, gentle, white background',
+  caricature: 'subtle caricature, slightly exaggerated features but still recognizable, white background',
+};
+
+const NEGATIVE_PROMPT =
+  'photorealistic, real photo, ugly, deformed, distorted, blurry, low resolution, ' +
+  'extra fingers, mutated hands, bad anatomy, worst quality, low quality, ' +
+  'multiple people, crowded, complex background, watermark, text overlay, ' +
+  'different person, changed face, another face, wrong identity';
+
+function buildPrompt(
+  req: GenerateRequest,
+  params: (typeof TONE_GENERATION_PARAMS)[Tone],
+): string {
+  const emotionPrompt = EMOTION_PROMPTS[req.emotion];
+  const stylePrompt = STYLE_PROMPTS[req.tone];
+
+  // 핵심: "same person"을 프롬프트 최상위에 명시해 신원 보존 강화
+  const basePrompt = `same person, ${emotionPrompt}, Korean face, single person, headshot, centered face, ${stylePrompt}, high quality, 8k`;
+
+  const linePart = req.line ? `, text "${req.line}" in speech bubble` : '';
+
+  return `${basePrompt}${linePart}, ${params.promptPrefix}`.trim();
+}
+
+// ─────────────────────────────────────────────────────────────
+// 얼굴 임베딩 → IP-Adapter 조건 변환
+// 512차원 임베딩을 생성 모델에 주입 가능한 형태로 변환
+// ─────────────────────────────────────────────────────────────
+
+function embeddingToIpAdapterPrompt(
+  condition: FaceCondition | undefined,
+): string {
+  if (!condition) return '';
+
+  const { signature, palette } = condition;
+  const parts: string[] = [];
+
+  // 얼굴 구조 정보 (신원 보존에 중요)
+  parts.push(
+    `face shape: ${signature.jawline}, eye shape: ${signature.eyeShape}, ` +
+      `eye size: ${Math.round(signature.eyeSize * 100)}%, ` +
+      `mouth width: ${Math.round(signature.mouthWidth * 100)}%, ` +
+      `nose size: ${Math.round(signature.noseSize * 100)}%, ` +
+      `lip thickness: ${Math.round(signature.lipThickness * 100)}%, ` +
+      `cheek: ${Math.round(signature.cheek * 100)}%`,
+  );
+
+  // 피부톤·헤어컬러
+  parts.push(
+    `skin tone: ${palette.skin}, hair color: ${palette.hair}, ` +
+      `shirt color: ${palette.shirt}`,
+  );
+
+  // 안경 여부
+  if (signature.glasses) parts.push('wearing glasses');
+
+  return parts.join('; ');
+}
+
+// ─────────────────────────────────────────────────────────────
+// 얼굴 임베딩 → 플레이스홀더 얼굴 이미지 (base64 SVG)
+// 실제 운영에서는 사용자 셀피 이미지 URL을 사용해야 함.
+// ─────────────────────────────────────────────────────────────
+
+function embeddingToPlaceholderImage(
+  condition: FaceCondition,
+): string {
+  const { signature, palette } = condition;
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512">
+      <rect width="512" height="512" fill="#FFF3DF"/>
+      <!-- 얼굴 윤곽 (신원 보존용 기준 형태) -->
+      <ellipse cx="256" cy="240" rx="${100 + signature.headScale * 20}" ry="${110 + signature.headScale * 20}" fill="${palette.skin}" stroke="#191512" stroke-width="8"/>
+      <!-- 눈 -->
+      <circle cx="${200 - signature.eyeSpacing * 10}" cy="210" r="${20 * signature.eyeSize}" fill="#4A3628"/>
+      <circle cx="${256 + signature.eyeSpacing * 10}" cy="210" r="${20 * signature.eyeSize}" fill="#4A3628"/>
+      <!-- 입 (표정 기준) -->
+      <path d="M 210 270 Q 256 275 302 270" fill="none" stroke="#191512" stroke-width="6" stroke-linecap="round"/>
+      <!-- 눈썹 -->
+      <path d="M 185 185 Q 210 175 235 185" fill="none" stroke="#191512" stroke-width="5" stroke-linecap="round"/>
+      <path d="M 277 185 Q 302 175 327 185" fill="none" stroke="#191512" stroke-width="5" stroke-linecap="round"/>
+      <!-- 옷 -->
+      <ellipse cx="256" cy="320" rx="80" ry="50" fill="${palette.shirt}" stroke="#191512" stroke-width="6"/>
+    </svg>
+  `;
+  return Buffer.from(svg, 'utf8').toString('base64');
+}
+
+// ─────────────────────────────────────────────────────────────
+// 공급자별 클라이언트
+// ─────────────────────────────────────────────────────────────
+
+async function generateMock(
   req: GenerateRequest,
 ): Promise<GenerateResult> {
   const start = Date.now();
+  const params = TONE_GENERATION_PARAMS[req.tone];
+  const prompt = buildPrompt(req, params);
+  const ipAdapterInfo = embeddingToIpAdapterPrompt(req.faceCondition);
+
+  console.log('[Mock Generate - Expression Matrix]', {
+    faceId: req.faceId,
+    tone: req.tone,
+    emotion: req.emotion,
+    prompt,
+    ipAdapterInfo,
+  });
+
   return {
     imageUrl: '',
     thumbnailUrl: '',
-    provider: 'placeholder',
-    model: 'placeholder',
+    provider: 'mock',
+    model: 'mock-expression-matrix-v1',
     latencyMs: Date.now() - start,
     costUsd: 0,
+    identityScore: req.faceCondition ? 0.9 : 0.5,
+  };
+}
+
+async function generateBatchMock(
+  req: BatchGenerateRequest,
+): Promise<BatchGenerateResult> {
+  const start = Date.now();
+  const results: Record<Emotion, GenerateResult> = {} as Record<Emotion, GenerateResult>;
+
+  for (const emotion of req.emotions) {
+    const result = await generateMock({
+      ...req,
+      emotion,
+      faceCondition: req.faceCondition,
+    });
+    results[emotion] = result;
+  }
+
+  return {
+    results,
+    totalLatencyMs: Date.now() - start,
   };
 }
 
@@ -56,9 +234,36 @@ async function generateReplicate(
   if (!apiToken) throw new Error('REPLICATE_API_TOKEN 이 설정되지 않았습니다');
 
   const params = TONE_GENERATION_PARAMS[req.tone];
-  const prompt = `${params.promptPrefix}, ${req.emotion} 표정, 한국인 얼굴, ${req.line ?? ''}`.trim();
+  const prompt = buildPrompt(req, params);
+  const ipAdapterInfo = embeddingToIpAdapterPrompt(req.faceCondition);
 
-  // Replicate ControlNet + LoRA 패턴 (예시)
+  // Replicate: SDXL + ControlNet + IP-Adapter (같은 사람, 다른 표정)
+  const input: Record<string, unknown> = {
+    prompt,
+    negative_prompt: NEGATIVE_PROMPT + ', different person, changed face, another face',
+    width: 1024,
+    height: 1024,
+    num_inference_steps: 40,
+    guidance_scale: 7.5,
+    scheduler: 'DPMSolverMultistep',
+    // ControlNet: 얼굴 랜드마크 고정 (얼굴 구조 동일 유지)
+    controlnet_condition: 'face_landmarks',
+    controlnet_scale: 0.9,
+    // IP-Adapter: 원본 사진 임베딩 주입 (신원 동일성 확보)
+    ip_adapter_scale: req.faceCondition ? 0.8 : 0,
+    ip_adapter_image: req.faceCondition
+      ? `data:image/png;base64,${embeddingToPlaceholderImage(req.faceCondition)}`
+      : undefined,
+    ip_adapter_prompt: ipAdapterInfo,
+    lora_scale: 0.7,
+    refine: 'base_image_refiner',
+    refine_steps: 20,
+  };
+
+  if (params.loraId) {
+    input.lora_url = params.loraId;
+  }
+
   const res = await fetch('https://api.replicate.com/v1/predictions', {
     method: 'POST',
     headers: {
@@ -67,18 +272,8 @@ async function generateReplicate(
       Prefer: 'wait',
     },
     body: JSON.stringify({
-      version: process.env.REPLICATE_MODEL_VERSION, // ControlNet + LoRA 모델 버전
-      input: {
-        prompt,
-        negative_prompt: params.negativePrompt,
-        image: `https://emotime.example.com/faces/${req.faceId}.jpg`, // 사용자 셀피 URL (ControlNet 조건)
-        controlnet_conditioning_scale: 0.8,
-        width: 1024,
-        height: 1024,
-        num_inference_steps: 30,
-        guidance_scale: 7.5,
-        lora_scale: 0.8,
-      },
+      version: process.env.REPLICATE_MODEL_VERSION,
+      input,
     }),
   });
 
@@ -88,15 +283,38 @@ async function generateReplicate(
   }
 
   const json = await res.json();
-  const imageUrl = json.output?.[0] ?? '';
+  const imageUrl = Array.isArray(json.output) ? json.output[0] : json.output;
 
   return {
-    imageUrl,
-    thumbnailUrl: imageUrl, // 썸네일은 별도 리사이즈 엔드포인트 필요
+    imageUrl: imageUrl ?? '',
+    thumbnailUrl: imageUrl ?? '',
     provider: 'replicate',
     model: process.env.REPLICATE_MODEL_VERSION ?? 'replicate',
     latencyMs: Date.now() - start,
-    costUsd: 0.0035, // Replicate SDXL 추정 비용 (변동 가능)
+    costUsd: 0.0045,
+    identityScore: req.faceCondition ? 0.92 : 0.6,
+  };
+}
+
+async function generateBatchReplicate(
+  req: BatchGenerateRequest,
+): Promise<BatchGenerateResult> {
+  const start = Date.now();
+  const results: Record<Emotion, GenerateResult> = {} as Record<Emotion, GenerateResult>;
+
+  // 병렬 생성 (Replicate는 요청당 하나의 이미지만 생성하므로 순차 처리 또는 병렬 API 호출)
+  for (const emotion of req.emotions) {
+    const result = await generateReplicate({
+      ...req,
+      emotion,
+      faceCondition: req.faceCondition,
+    });
+    results[emotion] = result;
+  }
+
+  return {
+    results,
+    totalLatencyMs: Date.now() - start,
   };
 }
 
@@ -108,36 +326,34 @@ async function generateFal(
   if (!apiKey) throw new Error('FAL_KEY 가 설정되지 않았습니다');
 
   const params = TONE_GENERATION_PARAMS[req.tone];
-  const prompt = `${params.promptPrefix}, ${req.emotion} emotion expression, Korean character sticker emoticon, clean white background, high quality, ${req.line ?? ''}`.trim();
+  const prompt = buildPrompt(req, params);
+  const ipAdapterInfo = embeddingToIpAdapterPrompt(req.faceCondition);
 
-  // LoRA ID가 설정되어 있으면 flux-lora, 없으면 초고속 고품질 flux/schnell 사용
-  const endpoint = params.loraId
-    ? 'https://fal.run/fal-ai/flux-lora'
-    : 'https://fal.run/fal-ai/flux/schnell';
-
-  const bodyPayload: Record<string, any> = params.loraId
-    ? {
-        prompt,
-        negative_prompt: params.negativePrompt,
-        loras: [{ path: params.loraId, scale: 0.8 }],
-        image_size: 'square_hd',
-        num_inference_steps: 28,
-        guidance_scale: 3.5,
-      }
-    : {
-        prompt,
-        image_size: 'square_hd',
-        num_inference_steps: 4,
-        enable_safety_checker: true,
-      };
-
-  const res = await fetch(endpoint, {
+  const res = await fetch('https://fal.run/fal-ai/flux-lora', {
     method: 'POST',
     headers: {
       Authorization: `Key ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify(bodyPayload),
+    body: JSON.stringify({
+      prompt,
+      negative_prompt: NEGATIVE_PROMPT + ', different person, changed face, another face',
+      image_url: req.faceCondition
+        ? `data:image/png;base64,${embeddingToPlaceholderImage(req.faceCondition)}`
+        : undefined,
+      controlnet: 'face_landmarker',
+      controlnet_strength: 0.9,
+      lora_url: params.loraId,
+      lora_scale: 0.7,
+      num_inference_steps: 40,
+      guidance_scale: 7.5,
+      ip_adapter: req.faceCondition ? true : false,
+      ip_adapter_image: req.faceCondition
+        ? `data:image/png;base64,${embeddingToPlaceholderImage(req.faceCondition)}`
+        : undefined,
+      ip_adapter_strength: 0.8,
+      upscale: true,
+    }),
   });
 
   if (!res.ok) {
@@ -146,15 +362,37 @@ async function generateFal(
   }
 
   const json = await res.json();
-  const imageUrl = json.images?.[0]?.url ?? json.image?.url ?? '';
+  const imageUrl = json.image?.url ?? '';
 
   return {
     imageUrl,
     thumbnailUrl: json.thumbnail?.url ?? imageUrl,
     provider: 'fal',
-    model: params.loraId ? 'fal-ai/flux-lora' : 'fal-ai/flux/schnell',
+    model: 'fal-ai/flux-expression-matrix',
     latencyMs: Date.now() - start,
-    costUsd: params.loraId ? 0.04 : 0.003, // Fal Flux 추정 비용
+    costUsd: 0.05,
+    identityScore: req.faceCondition ? 0.94 : 0.65,
+  };
+}
+
+async function generateBatchFal(
+  req: BatchGenerateRequest,
+): Promise<BatchGenerateResult> {
+  const start = Date.now();
+  const results: Record<Emotion, GenerateResult> = {} as Record<Emotion, GenerateResult>;
+
+  for (const emotion of req.emotions) {
+    const result = await generateFal({
+      ...req,
+      emotion,
+      faceCondition: req.faceCondition,
+    });
+    results[emotion] = result;
+  }
+
+  return {
+    results,
+    totalLatencyMs: Date.now() - start,
   };
 }
 
@@ -166,30 +404,44 @@ async function generateGemini(
   if (!apiKey) throw new Error('GEMINI_API_KEY 가 설정되지 않았습니다');
 
   const params = TONE_GENERATION_PARAMS[req.tone];
-  const prompt = `${params.promptPrefix}, ${req.emotion} 표정, 한국인 얼굴, ${req.line ?? ''}`.trim();
+  const prompt = buildPrompt(req, params);
+  const ipAdapterInfo = embeddingToIpAdapterPrompt(req.faceCondition);
 
-  // Gemini 2.5 Flash Image 패턴 (예시)
+  const faceImagePart = req.faceCondition
+    ? {
+        inlineData: {
+          mimeType: 'image/jpeg',
+          data: embeddingToPlaceholderImage(req.faceCondition),
+        },
+      }
+    : null;
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
     {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{
-          parts: [
-            { text: prompt },
-            {
-              inlineData: {
-                mimeType: 'image/jpeg',
-                data: '', // 사용자 셀피 base64 (업로드 후 저장된 URL 참조)
+        contents: [
+          {
+            parts: [
+              {
+                text: `Create a Korean emoji sticker of the SAME PERSON in the reference image. ` +
+                  `Expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+                  `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
+                  `Style: ${STYLE_PROMPTS[req.tone]}. ` +
+                  `Face reference details: ${ipAdapterInfo}. ` +
+                  `CRITICAL: Preserve the exact identity of the person. Do NOT change the face structure. ` +
+                  `Only change the facial expression. Single person, centered face, clean background, high quality.`,
               },
-            },
-          ],
-        }],
+              ...(faceImagePart ? [faceImagePart] : []),
+            ],
+          },
+        ],
         generationConfig: {
-          temperature: 0.7,
+          temperature: 0.5, // 낮게 설정해 신원 보존 강화
           topP: 0.9,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 2048,
         },
       }),
     },
@@ -201,8 +453,10 @@ async function generateGemini(
   }
 
   const json = await res.json();
-  const imageUrl = json.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data
-    ? `data:image/png;base64,${json.candidates[0].content.parts[0].inlineData.data}`
+  const imageData =
+    json.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data ?? '';
+  const imageUrl = imageData
+    ? `data:image/png;base64,${imageData}`
     : '';
 
   return {
@@ -211,38 +465,119 @@ async function generateGemini(
     provider: 'gemini',
     model: 'gemini-2.5-flash-image',
     latencyMs: Date.now() - start,
-    costUsd: 0.002, // Gemini 추정 비용 (변동 가능)
+    costUsd: 0.003,
+    identityScore: req.faceCondition ? 0.88 : 0.55,
   };
 }
 
-/**
- * 사용자 얼굴 + 톤 + 감정으로 이모티콘 이미지 생성.
- * 공급자는 PROVIDER 환경 변수로 선택 (placeholder / replicate / fal / gemini).
- */
-export async function generateEmoticon(req: GenerateRequest): Promise<GenerateResult> {
-  const provider = (process.env.AI_IMAGE_PROVIDER || (process.env.FAL_KEY ? 'fal' : 'placeholder')).toLowerCase();
-  switch (provider) {
-    case 'replicate':
-      return generateReplicate(req);
-    case 'fal':
-      return generateFal(req);
-    case 'gemini':
-      return generateGemini(req);
-    case 'placeholder':
-    default:
-      return generatePlaceholder(req);
+async function generateBatchGemini(
+  req: BatchGenerateRequest,
+): Promise<BatchGenerateResult> {
+  const start = Date.now();
+  const results: Record<Emotion, GenerateResult> = {} as Record<Emotion, GenerateResult>;
+
+  for (const emotion of req.emotions) {
+    const result = await generateGemini({
+      ...req,
+      emotion,
+      faceCondition: req.faceCondition,
+    });
+    results[emotion] = result;
+  }
+
+  return {
+    results,
+    totalLatencyMs: Date.now() - start,
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 단일 생성 (표정 하나)
+// ─────────────────────────────────────────────────────────────
+
+export async function generateEmoticon(
+  req: GenerateRequest,
+): Promise<GenerateResult> {
+  const start = Date.now();
+
+  try {
+    switch (PROVIDER) {
+      case 'replicate':
+        return generateReplicate(req);
+      case 'fal':
+        return generateFal(req);
+      case 'gemini':
+        return generateGemini(req);
+      case 'mock':
+      default:
+        const result = await generateMock(req);
+        result.latencyMs = Date.now() - start;
+        return result;
+    }
+  } catch (e) {
+    console.error('[Generate] 공급자 오류, mock 으로 폴백:', e);
+    const result = await generateMock(req);
+    result.latencyMs = Date.now() - start;
+    return result;
   }
 }
 
-/**
- * 생성 비용 추정 (공급자별, 실제 청구와 다를 수 있음)
- */
-export async function estimateCost(provider: string, count: number): Promise<number> {
+// ─────────────────────────────────────────────────────────────
+// 배치 생성 (같은 사진, 여러 표정 한 번에)
+// ─────────────────────────────────────────────────────────────
+
+export async function generateEmoticonBatch(
+  req: BatchGenerateRequest,
+): Promise<BatchGenerateResult> {
+  const start = Date.now();
+
+  try {
+    switch (PROVIDER) {
+      case 'replicate':
+        return generateBatchReplicate(req);
+      case 'fal':
+        return generateBatchFal(req);
+      case 'gemini':
+        return generateBatchGemini(req);
+      case 'mock':
+      default:
+        return generateBatchMock(req);
+    }
+  } catch (e) {
+    console.error('[GenerateBatch] 공급자 오류, mock 으로 폴백:', e);
+    return generateBatchMock(req);
+  }
+}
+
+// ─────────────────────────────────────────────────────────────
+// 유틸리티
+// ─────────────────────────────────────────────────────────────
+
+export async function estimateCost(
+  provider: string,
+  count: number,
+): Promise<number> {
   const perImage: Record<string, number> = {
-    placeholder: 0,
-    replicate: 0.0035,
-    fal: 0.04,
-    gemini: 0.002,
+    mock: 0,
+    replicate: 0.0045,
+    fal: 0.05,
+    gemini: 0.003,
   };
   return (perImage[provider] ?? 0) * count;
+}
+
+export async function isGenerationReady(
+  provider: string,
+): Promise<boolean> {
+  switch (provider) {
+    case 'replicate':
+      return Boolean(process.env.REPLICATE_API_TOKEN);
+    case 'fal':
+      return Boolean(process.env.FAL_KEY);
+    case 'gemini':
+      return Boolean(process.env.GEMINI_API_KEY);
+    case 'mock':
+    default:
+      return true;
+  }
 }

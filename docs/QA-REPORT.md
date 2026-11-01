@@ -313,15 +313,3 @@ BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 60 passed
 6. `/admin` → `emotime-demo` 로그인 → 매출/원가 카드 + **얼굴 파기 패널**(예정 확인/즉시 실행) 확인
 7. Studio 구독 → 24컷 팩 → 팩 페이지의 **카카오 규격 패키저** 패널에서 6개 검사 통과 → ZIP 내려받기
 8. `/editor` 에서 긴 대사(30자) 입력 → 말풍선 안에 들어오는지 확인
-
----
-### ⑱ Fal.ai 실시간 AI 생성 파이프라인 연동 및 검증 (2026-11-02)
-
-- **배경 및 연동 내용**:
-  - 절차적 SVG 렌더러 기반 모의 생성에서 실시간 AI 생성 엔진(Fal.ai Flux Schnell / Dev / LoRA)으로 전환 완료 (`src/lib/ai/generate.ts`).
-  - 환경 변수 `FAL_KEY` 및 `AI_IMAGE_PROVIDER` 자동 감지 로직 적용: `FAL_KEY`가 주입된 환경에서는 기본 생성 프로바이더로 `fal`이 자동 활성화.
-  - 톤별 프롬프트 프리픽스(`2d-cute`, `3d-cartoon`, `sketch`, `mono`, `watercolor`, `caricature`)와 사용자 감정/문구 결합 파이프라인 정립.
-- **실제 API 검증 결과**:
-  - Fal.ai `flux/schnell` 엔드포인트 직접 호출 검증: **HTTP 200 OK**, 추론 지연 시간 **0.43초**, 유효 1024x768 이미지 URL 정상 반환 확인.
-  - Next.js 프로덕션 빌드: 26개 전 라우트 정상 컴파일 및 타입 검사 통과.
-- **결론**: 상용 배포 및 실시간 이모티콘 생성 준비 완료.
