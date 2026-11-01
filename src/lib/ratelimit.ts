@@ -72,6 +72,8 @@ export function resetRateLimits() {
 export const RATE_LIMITS = {
   reply: 30,
   faceAnalyze: 15,
+  faceEmbed: 10,
+  generate: 10,
   sheets: 20,
   packs: 10,
   checkout: 10,

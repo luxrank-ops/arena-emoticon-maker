@@ -1,12 +1,12 @@
 'use server';
 
 import type { FaceSignature, Palette, Tone, Emotion } from '@/lib/types';
+import { TONE_GENERATION_PARAMS } from '@/lib/ai/tone-params';
 
 // ─────────────────────────────────────────────────────────────
-// AI 이미지 생성 PoC (Proof of Concept)
-// 유료화 품질 달성을 위해 절차적 SVG 렌더러를 AI 생성으로 교체하는 단계.
-// 현재는 구조 정의만 포함. 실제 공급자(Replicate / Fal / Gemini)는
-// 이후 비용·속도·품질 비교 후 결정할 예정.
+// AI 이미지 생성 파이프라인
+// 유료화 품질 달성을 위해 절차적 SVG 렌더러를 AI 생성으로 교체.
+// 공급자(Replicate / Fal / Gemini)는 환경 변수 PROVIDER 로 선택.
 // ─────────────────────────────────────────────────────────────
 
 export interface GenerateRequest {
@@ -28,33 +28,16 @@ export interface GenerateResult {
   costUsd?: number;
 }
 
-/**
- * PoC: 사용자 얼굴 + 톤 + 감정으로 이모티콘 이미지 생성.
- *
- * 구현 시 고려 사항:
- * - ControlNet: 사용자 얼굴 랜드마크를 조건부로 주입해 정체성 보존
- * - LoRA: 톤별 스타일 모델 (2D 귀여움, 3D 카툰, 캐리커처 등)
- * - 임베딩: 사용자별 얼굴 임베딩 (FaceNet/ArcFace) 저장·재사용
- * - 캐싱: 동일한 (faceId, tone, emotion) 조합은 재사용
- */
-export async function generateEmoticon(req: GenerateRequest): Promise<GenerateResult> {
+const PROVIDER = (process.env.AI_IMAGE_PROVIDER || 'placeholder').toLowerCase();
+
+// ─────────────────────────────────────────────────────────────
+// 공급자별 클라이언트 (실제 연동 시 교체)
+// ─────────────────────────────────────────────────────────────
+
+async function generatePlaceholder(
+  req: GenerateRequest,
+): Promise<GenerateResult> {
   const start = Date.now();
-
-  // TODO: 실제 공급자 API 호출로 대체
-  // 예: Replicate - stability-ai/sdxl 또는 google/gemini-2.5-flash-image
-  // 예: Fal - fal-ai/flux/realism 또는 커스텀 LoRA 엔드포인트
-  //
-  // 요청 페이로드 예시:
-  // {
-  //   prompt: `${req.tone} 스타일 이모티콘, ${req.emotion} 표정, 한국인 얼굴`,
-  //   image: 사용자 셀피 URL (ControlNet 조건),
-  //   controlnet: 'face_landmarker',
-  //   lora: 톤별 LoRA ID,
-  //   width: 2048,
-  //   height: 2048,
-  // }
-
-  // PoC 단계에서는 플레이스홀더 반환 (실제 이미지 미생성)
   return {
     imageUrl: '',
     thumbnailUrl: '',
@@ -65,38 +48,190 @@ export async function generateEmoticon(req: GenerateRequest): Promise<GenerateRe
   };
 }
 
+async function generateReplicate(
+  req: GenerateRequest,
+): Promise<GenerateResult> {
+  const start = Date.now();
+  const apiToken = process.env.REPLICATE_API_TOKEN;
+  if (!apiToken) throw new Error('REPLICATE_API_TOKEN 이 설정되지 않았습니다');
+
+  const params = TONE_GENERATION_PARAMS[req.tone];
+  const prompt = `${params.promptPrefix}, ${req.emotion} 표정, 한국인 얼굴, ${req.line ?? ''}`.trim();
+
+  // Replicate ControlNet + LoRA 패턴 (예시)
+  const res = await fetch('https://api.replicate.com/v1/predictions', {
+    method: 'POST',
+    headers: {
+      Authorization: `Token ${apiToken}`,
+      'Content-Type': 'application/json',
+      Prefer: 'wait',
+    },
+    body: JSON.stringify({
+      version: process.env.REPLICATE_MODEL_VERSION, // ControlNet + LoRA 모델 버전
+      input: {
+        prompt,
+        negative_prompt: params.negativePrompt,
+        image: `https://emotime.example.com/faces/${req.faceId}.jpg`, // 사용자 셀피 URL (ControlNet 조건)
+        controlnet_conditioning_scale: 0.8,
+        width: 1024,
+        height: 1024,
+        num_inference_steps: 30,
+        guidance_scale: 7.5,
+        lora_scale: 0.8,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Replicate API 오류 (${res.status}): ${text}`);
+  }
+
+  const json = await res.json();
+  const imageUrl = json.output?.[0] ?? '';
+
+  return {
+    imageUrl,
+    thumbnailUrl: imageUrl, // 썸네일은 별도 리사이즈 엔드포인트 필요
+    provider: 'replicate',
+    model: process.env.REPLICATE_MODEL_VERSION ?? 'replicate',
+    latencyMs: Date.now() - start,
+    costUsd: 0.0035, // Replicate SDXL 추정 비용 (변동 가능)
+  };
+}
+
+async function generateFal(
+  req: GenerateRequest,
+): Promise<GenerateResult> {
+  const start = Date.now();
+  const apiKey = process.env.FAL_KEY;
+  if (!apiKey) throw new Error('FAL_KEY 가 설정되지 않았습니다');
+
+  const params = TONE_GENERATION_PARAMS[req.tone];
+  const prompt = `${params.promptPrefix}, ${req.emotion} 표정, 한국인 얼굴, ${req.line ?? ''}`.trim();
+
+  // Fal.ai LoRA 엔드포인트 패턴 (예시)
+  const res = await fetch('https://fal.run/fal-ai/flux-lora', {
+    method: 'POST',
+    headers: {
+      Authorization: `Key ${apiKey}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      prompt,
+        negative_prompt: params.negativePrompt,
+        image_url: `https://emotime.example.com/faces/${req.faceId}.jpg`,
+        controlnet: 'face_landmarker',
+        lora_url: params.loraId,
+        width: 1024,
+        height: 1024,
+        num_inference_steps: 30,
+        guidance_scale: 7.5,
+    }),
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Fal API 오류 (${res.status}): ${text}`);
+  }
+
+  const json = await res.json();
+  const imageUrl = json.image?.url ?? '';
+
+  return {
+    imageUrl,
+    thumbnailUrl: json.thumbnail?.url ?? imageUrl,
+    provider: 'fal',
+    model: 'fal-ai/flux-lora',
+    latencyMs: Date.now() - start,
+    costUsd: 0.04, // Fal Flux 추정 비용 (변동 가능)
+  };
+}
+
+async function generateGemini(
+  req: GenerateRequest,
+): Promise<GenerateResult> {
+  const start = Date.now();
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) throw new Error('GEMINI_API_KEY 가 설정되지 않았습니다');
+
+  const params = TONE_GENERATION_PARAMS[req.tone];
+  const prompt = `${params.promptPrefix}, ${req.emotion} 표정, 한국인 얼굴, ${req.line ?? ''}`.trim();
+
+  // Gemini 2.5 Flash Image 패턴 (예시)
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{
+          parts: [
+            { text: prompt },
+            {
+              inlineData: {
+                mimeType: 'image/jpeg',
+                data: '', // 사용자 셀피 base64 (업로드 후 저장된 URL 참조)
+              },
+            },
+          ],
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.9,
+          maxOutputTokens: 1024,
+        },
+      }),
+    },
+  );
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Gemini API 오류 (${res.status}): ${text}`);
+  }
+
+  const json = await res.json();
+  const imageUrl = json.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data
+    ? `data:image/png;base64,${json.candidates[0].content.parts[0].inlineData.data}`
+    : '';
+
+  return {
+    imageUrl,
+    thumbnailUrl: imageUrl,
+    provider: 'gemini',
+    model: 'gemini-2.5-flash-image',
+    latencyMs: Date.now() - start,
+    costUsd: 0.002, // Gemini 추정 비용 (변동 가능)
+  };
+}
+
 /**
- * 톤별 추천 생성 파라미터 (향후 LoRA ID 매핑에 사용)
+ * 사용자 얼굴 + 톤 + 감정으로 이모티콘 이미지 생성.
+ * 공급자는 PROVIDER 환경 변수로 선택 (placeholder / replicate / fal / gemini).
  */
-export const TONE_GENERATION_PARAMS: Record<Tone, { loraId?: string; promptPrefix: string; negativePrompt?: string }> = {
-  '2d-cute': {
-    loraId: undefined, // 추후 학습 완료 후 할당
-    promptPrefix: '2d cute sticker, thick outline, kawaii, kakao emoji style',
-    negativePrompt: 'photorealistic, 3d, blurry, low resolution',
-  },
-  '3d-cartoon': {
-    loraId: undefined,
-    promptPrefix: '3d cartoon render, soft shading, glossy, cute character',
-    negativePrompt: 'flat, 2d, line art, noisy',
-  },
-  sketch: {
-    loraId: undefined,
-    promptPrefix: 'pencil sketch, hand-drawn, diary style, rough lines',
-    negativePrompt: 'colorful, smooth, photorealistic',
-  },
-  mono: {
-    loraId: undefined,
-    promptPrefix: 'black and white line art, monochrome, meme style',
-    negativePrompt: 'color, gradient, shading',
-  },
-  watercolor: {
-    loraId: undefined,
-    promptPrefix: 'watercolor painting, soft edges, bleeding colors, artistic',
-    negativePrompt: 'sharp lines, vector, flat color',
-  },
-  caricature: {
-    loraId: undefined,
-    promptPrefix: 'caricature, exaggerated features, funny, comedy style',
-    negativePrompt: 'realistic portrait, subtle features',
-  },
-};
+export async function generateEmoticon(req: GenerateRequest): Promise<GenerateResult> {
+  switch (PROVIDER) {
+    case 'replicate':
+      return generateReplicate(req);
+    case 'fal':
+      return generateFal(req);
+    case 'gemini':
+      return generateGemini(req);
+    case 'placeholder':
+    default:
+      return generatePlaceholder(req);
+  }
+}
+
+/**
+ * 생성 비용 추정 (공급자별, 실제 청구와 다를 수 있음)
+ */
+export async function estimateCost(provider: string, count: number): Promise<number> {
+  const perImage: Record<string, number> = {
+    placeholder: 0,
+    replicate: 0.0035,
+    fal: 0.04,
+    gemini: 0.002,
+  };
+  return (perImage[provider] ?? 0) * count;
+}
