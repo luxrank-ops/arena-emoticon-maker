@@ -21,7 +21,8 @@ export function UploadFlow({
   planName: string;
 }) {
   const router = useRouter();
-  const inputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [analysis, setAnalysis] = useState<FaceAnalysis | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [busy, setBusy] = useState(false);
@@ -120,8 +121,20 @@ export function UploadFlow({
             dragging && 'bg-lemon/20',
           )}
         >
+          {/* 사진첩에서 선택: capture 속성 없음 → 갤러리/파일 선택 열림 */}
           <input
-            ref={inputRef}
+            ref={galleryInputRef}
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) void onFile(f);
+            }}
+          />
+          {/* 카메라로 찍기: capture="user" → 전면 카메라 바로 열림 */}
+          <input
+            ref={cameraInputRef}
             type="file"
             accept="image/*"
             capture="user"
@@ -142,10 +155,10 @@ export function UploadFlow({
                 <strong className="text-ink"> 브라우저 밖으로 나가지 않습니다</strong>.
               </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
-                <button className="btn-primary" onClick={() => inputRef.current?.click()} disabled={busy}>
+                <button className="btn-primary" onClick={() => galleryInputRef.current?.click()} disabled={busy}>
                   {busy ? '분석 중…' : '사진 선택'}
                 </button>
-                <button className="btn-ghost" onClick={() => inputRef.current?.click()} disabled={busy}>
+                <button className="btn-ghost" onClick={() => cameraInputRef.current?.click()} disabled={busy}>
                   카메라로 찍기
                 </button>
               </div>
@@ -162,7 +175,7 @@ export function UploadFlow({
                     {(analysis.metrics.coverage * 100).toFixed(1)}%
                   </p>
                 </div>
-                <button className="chip hover:border-ink" onClick={() => inputRef.current?.click()}>
+                <button className="chip hover:border-ink" onClick={() => galleryInputRef.current?.click()}>
                   다시 선택
                 </button>
               </div>
