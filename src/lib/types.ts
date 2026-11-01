@@ -54,6 +54,9 @@ export interface Palette {
   accent: string;
 }
 
+export type EyeShape = 'almond' | 'round' | 'narrow';
+export type Jawline = 'square' | 'round' | 'pointed';
+
 export interface FaceSignature {
   /** 머리 크기 배율 (캐리커처일수록 큼) */
   headScale: number;
@@ -63,14 +66,22 @@ export interface FaceSignature {
   eyeSpacing: number;
   /** 눈 크기 배율 */
   eyeSize: number;
+  /** 눈 모양 */
+  eyeShape: EyeShape;
   /** 눈썹 두께 */
   browWeight: number;
   /** 입 폭 */
   mouthWidth: number;
+  /** 입술 두께 배율 */
+  lipThickness: number;
+  /** 콧구멍 크기 배율 */
+  noseSize: number;
   /** 헤어 스타일 0~4 */
   hairStyle: number;
   /** 볼 터치 강도 0~1 */
   cheek: number;
+  /** 턱선 형태 */
+  jawline: Jawline;
   /** 안경 여부 */
   glasses: boolean;
 }
