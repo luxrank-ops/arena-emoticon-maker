@@ -128,6 +128,18 @@ export interface FaceProfile {
   consent: { at: string; version: string; ip: string; overseas: boolean };
   createdAt: string;
   purgedAt: string;
+  /** 얼굴 임베딩 벡터 (Identity Lock 용, FaceNet/ArcFace 512차원) */
+  embedding?: number[];
+  /** 임베딩 모델 버전 (추적 가능성) */
+  embeddingModel?: string;
+}
+
+/** 생성 요청 시 사용자 얼굴 조건부 주입 정보 */
+export interface FaceCondition {
+  faceId: string;
+  embedding: number[];
+  signature: FaceSignature;
+  palette: Palette;
 }
 
 export interface SheetVariant {
@@ -259,7 +271,9 @@ export interface UsageEvent {
     | 'reply_used'
     | 'brief_opened'
     | 'face_analyzed'
+    | 'face_embed'
     | 'face_purged'
+    | 'generate'
     | 'export'
     | 'order_paid'
     | 'error';
