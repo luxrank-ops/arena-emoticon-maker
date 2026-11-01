@@ -12,6 +12,7 @@
     "store:reset": "node -e \"require('fs').rmSync('.data',{recursive:true,force:true})\""
   },
   "dependencies": {
+    "@mediapipe/tasks-vision": "^1.2.0",
     "@sentry/nextjs": "8.55.2",
     "clsx": "2.1.1",
     "gifenc": "1.0.3",
