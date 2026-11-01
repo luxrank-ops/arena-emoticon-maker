@@ -4,7 +4,10 @@ import { getCurrentUser } from '@/lib/session';
 import { logEvent, withDB } from '@/lib/store';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 import type { Tone, Emotion } from '@/lib/types';
-import { generateEmoticon } from '@/lib/ai/generate';
+import {
+  generateEmoticon,
+  estimateCost,
+} from '@/lib/ai/generate';
 import { TONE_GENERATION_PARAMS } from '@/lib/ai/tone-params';
 import { buildFaceCondition } from '@/lib/ai/face-embedding';
 
@@ -23,12 +26,12 @@ const schema = z.object({
 
 /**
  * POST /api/generate
- * 사용자 얼굴 조건부로 이모티콘 이미지 생성.
+ * 사용자 얼굴 조건부로 이모티콘 이미지 생성 (표정 하나).
  *
  * 흐름:
  * 1. faceId 로 FaceProfile 조회 → 임베딩 확인
  * 2. 임베딩이 없으면 400 (사전 얼굴 분석 필요)
- * 3. AI 생성 공급자 호출 (ControlNet + LoRA 조건부)
+ * 3. AI 생성 공급자 호출 (ControlNet + IP-Adapter, 동일 인물 보존)
  * 4. 결과 이미지 URL 반환 + 이벤트 로깅
  */
 export async function POST(req: Request) {
@@ -58,10 +61,7 @@ export async function POST(req: Request) {
       return fail('EMBEDDING_INVALID', '얼굴 임베딩이 유효하지 않습니다.', 400);
     }
 
-    // 톤별 생성 파라미터
-    const toneParams = TONE_GENERATION_PARAMS[body.tone];
-
-    // AI 생성 호출 (Identity Lock: 얼굴 임베딩 주입)
+    // AI 생성 호출 (Identity Lock: 얼굴 임베딩 주입, 같은 사람 다른 표정)
     const result = await generateEmoticon({
       faceId: body.faceId,
       palette: profile.palette,
@@ -93,7 +93,7 @@ export async function POST(req: Request) {
       model: result.model,
       latencyMs: result.latencyMs,
       costUsd: result.costUsd,
-      toneParams,
+      toneParams: TONE_GENERATION_PARAMS[body.tone],
     });
   } catch (e) {
     return handleError(e);
