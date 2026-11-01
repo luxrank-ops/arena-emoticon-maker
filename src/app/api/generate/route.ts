@@ -52,7 +52,7 @@ export async function POST(req: Request) {
       return fail('EMBEDDING_MISSING', '얼굴 임베딩이 없습니다. 얼굴 분석을 다시 완료해 주세요.', 400);
     }
 
-    // FaceCondition 구성
+    // FaceCondition 구성 (얼굴 임베딩 → 생성 조건 변환)
     const condition = buildFaceCondition(profile as any);
     if (!condition) {
       return fail('EMBEDDING_INVALID', '얼굴 임베딩이 유효하지 않습니다.', 400);
@@ -61,7 +61,7 @@ export async function POST(req: Request) {
     // 톤별 생성 파라미터
     const toneParams = TONE_GENERATION_PARAMS[body.tone];
 
-    // AI 생성 호출
+    // AI 생성 호출 (Identity Lock: 얼굴 임베딩 주입)
     const result = await generateEmoticon({
       faceId: body.faceId,
       palette: profile.palette,
@@ -70,6 +70,7 @@ export async function POST(req: Request) {
       emotion: body.emotion,
       line: body.line,
       intensity: body.intensity ?? 80,
+      faceCondition: condition,
     });
 
     // 생성 이벤트 로깅
