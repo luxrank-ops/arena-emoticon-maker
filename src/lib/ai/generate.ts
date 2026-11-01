@@ -86,11 +86,11 @@ const STYLE_PROMPTS: Record<Tone, string> = {
   sketch: 'pencil sketch, hand-drawn, diary style, rough lines, monochrome accent, white background',
   mono: 'black and white line art, monochrome, meme style, bold outlines, white background',
   watercolor: 'watercolor painting, soft edges, bleeding colors, artistic, gentle, white background',
-  caricature: 'subtle caricature, slightly exaggerated features but still recognizable, white background',
+  caricature: 'photorealistic real human portrait cutout, natural real skin texture, authentic lifelike photo sticker, clean white background',
 };
 
 const NEGATIVE_PROMPT =
-  'photorealistic, real photo, ugly, deformed, distorted, blurry, low resolution, ' +
+  'cartoon, anime, 3d render, plastic skin, drawing, painting, caricature, bobble head, ugly, deformed, distorted, blurry, low resolution, ' +
   'extra fingers, mutated hands, bad anatomy, worst quality, low quality, ' +
   'multiple people, crowded, complex background, watermark, text overlay, ' +
   'different person, changed face, another face, wrong identity';
@@ -426,15 +426,16 @@ async function generateGemini(
           {
             parts: [
               {
-                text: `Based on the EXACT person in the attached reference photo, create a Korean sticker emoticon showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+                text: `A photorealistic real human portrait cutout sticker of the EXACT person in the attached reference photo, showing a realistic ${req.emotion} facial expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
                   `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
                   `Style: ${STYLE_PROMPTS[req.tone]}. ` +
                   `Face reference details: ${ipAdapterInfo}. ` +
-                  `CRITICAL RULES: ` +
-                  `1. DO NOT create an exaggerated caricature (NO oversized bobble head, NO distorted grotesque facial features). ` +
-                  `2. PRESERVE the exact identity, facial structure, skin tone, haircut, and recognizable features of the person in the photo. ` +
-                  `3. ONLY change the facial expression (eyes, mouth, smile/emotions) to show ${req.emotion}. ` +
-                  `Single person, centered face, clean background, neat sticker border, high quality.`,
+                  `CRITICAL REQUIREMENTS FOR MAXIMUM REALISM: ` +
+                  `1. PHOTO-REALISTIC REAL HUMAN: Must look like an authentic real photograph of the actual person, NOT a cartoon, NOT an illustration, NOT a 3D model, NOT an anime drawing, NOT a painting. ` +
+                  `2. EXACT IDENTITY & SKIN: Retain the exact real skin texture, real facial geometry, genuine eyes, nose, lips, natural hairstyle, and recognizable identity of the person in the reference photo. ` +
+                  `3. EXPRESSION: Show a vivid, natural, lifelike ${req.emotion} expression on the real face. ` +
+                  `4. EMOTICON STICKER PRESENTATION: The realistic person cutout is centered on a clean white background with a subtle clean sticker outline, ideal for high-end photo emoticons. ` +
+                  `5. NO CARICATURE, NO DISTORTION: Crisp high-resolution photography, natural studio lighting.`,
               },
               ...(faceImagePart ? [faceImagePart] : []),
             ],
