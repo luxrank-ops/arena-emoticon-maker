@@ -108,26 +108,36 @@ async function generateFal(
   if (!apiKey) throw new Error('FAL_KEY 가 설정되지 않았습니다');
 
   const params = TONE_GENERATION_PARAMS[req.tone];
-  const prompt = `${params.promptPrefix}, ${req.emotion} 표정, 한국인 얼굴, ${req.line ?? ''}`.trim();
+  const prompt = `${params.promptPrefix}, ${req.emotion} emotion expression, Korean character sticker emoticon, clean white background, high quality, ${req.line ?? ''}`.trim();
 
-  // Fal.ai LoRA 엔드포인트 패턴 (예시)
-  const res = await fetch('https://fal.run/fal-ai/flux-lora', {
+  // LoRA ID가 설정되어 있으면 flux-lora, 없으면 초고속 고품질 flux/schnell 사용
+  const endpoint = params.loraId
+    ? 'https://fal.run/fal-ai/flux-lora'
+    : 'https://fal.run/fal-ai/flux/schnell';
+
+  const bodyPayload: Record<string, any> = params.loraId
+    ? {
+        prompt,
+        negative_prompt: params.negativePrompt,
+        loras: [{ path: params.loraId, scale: 0.8 }],
+        image_size: 'square_hd',
+        num_inference_steps: 28,
+        guidance_scale: 3.5,
+      }
+    : {
+        prompt,
+        image_size: 'square_hd',
+        num_inference_steps: 4,
+        enable_safety_checker: true,
+      };
+
+  const res = await fetch(endpoint, {
     method: 'POST',
     headers: {
       Authorization: `Key ${apiKey}`,
       'Content-Type': 'application/json',
     },
-    body: JSON.stringify({
-      prompt,
-        negative_prompt: params.negativePrompt,
-        image_url: `https://emotime.example.com/faces/${req.faceId}.jpg`,
-        controlnet: 'face_landmarker',
-        lora_url: params.loraId,
-        width: 1024,
-        height: 1024,
-        num_inference_steps: 30,
-        guidance_scale: 7.5,
-    }),
+    body: JSON.stringify(bodyPayload),
   });
 
   if (!res.ok) {
@@ -136,15 +146,15 @@ async function generateFal(
   }
 
   const json = await res.json();
-  const imageUrl = json.image?.url ?? '';
+  const imageUrl = json.images?.[0]?.url ?? json.image?.url ?? '';
 
   return {
     imageUrl,
     thumbnailUrl: json.thumbnail?.url ?? imageUrl,
     provider: 'fal',
-    model: 'fal-ai/flux-lora',
+    model: params.loraId ? 'fal-ai/flux-lora' : 'fal-ai/flux/schnell',
     latencyMs: Date.now() - start,
-    costUsd: 0.04, // Fal Flux 추정 비용 (변동 가능)
+    costUsd: params.loraId ? 0.04 : 0.003, // Fal Flux 추정 비용
   };
 }
 
@@ -210,7 +220,8 @@ async function generateGemini(
  * 공급자는 PROVIDER 환경 변수로 선택 (placeholder / replicate / fal / gemini).
  */
 export async function generateEmoticon(req: GenerateRequest): Promise<GenerateResult> {
-  switch (PROVIDER) {
+  const provider = (process.env.AI_IMAGE_PROVIDER || (process.env.FAL_KEY ? 'fal' : 'placeholder')).toLowerCase();
+  switch (provider) {
     case 'replicate':
       return generateReplicate(req);
     case 'fal':
