@@ -35,7 +35,7 @@ export const TONES: Record<Tone, { label: string; desc: string; badge: string }>
   sketch: { label: '손그림 스케치', desc: '연필 질감, 다이어리 감성', badge: '' },
   mono: { label: '흑백 라인', desc: '유행하는 밈 스타일, 대사가 주인공', badge: 'MZ' },
   watercolor: { label: '수채화', desc: '번지는 색감, 감성 시즌 한정', badge: '' },
-  caricature: { label: '개그 캐리커처', desc: '과장된 이목구비, 웃음 보장', badge: '추천' },
+  caricature: { label: '실사 표정 스티커', desc: '원본 얼굴 그대로 12가지 감정 표정', badge: '인기' },
 };
 
 export const BACKGROUNDS: Record<BackgroundKey, { label: string; color: string }> = {

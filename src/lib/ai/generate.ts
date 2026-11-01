@@ -426,13 +426,15 @@ async function generateGemini(
           {
             parts: [
               {
-                text: `Create a Korean emoji sticker of the SAME PERSON in the reference image. ` +
-                  `Expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+                text: `Based on the EXACT person in the attached reference photo, create a Korean sticker emoticon showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
                   `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
                   `Style: ${STYLE_PROMPTS[req.tone]}. ` +
                   `Face reference details: ${ipAdapterInfo}. ` +
-                  `CRITICAL: Preserve the exact identity of the person. Do NOT change the face structure. ` +
-                  `Only change the facial expression. Single person, centered face, clean background, high quality.`,
+                  `CRITICAL RULES: ` +
+                  `1. DO NOT create an exaggerated caricature (NO oversized bobble head, NO distorted grotesque facial features). ` +
+                  `2. PRESERVE the exact identity, facial structure, skin tone, haircut, and recognizable features of the person in the photo. ` +
+                  `3. ONLY change the facial expression (eyes, mouth, smile/emotions) to show ${req.emotion}. ` +
+                  `Single person, centered face, clean background, neat sticker border, high quality.`,
               },
               ...(faceImagePart ? [faceImagePart] : []),
             ],

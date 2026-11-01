@@ -37,7 +37,7 @@ export const TONE_GENERATION_PARAMS: Record<Tone, { loraId?: string; promptPrefi
   },
   caricature: {
     loraId: undefined,
-    promptPrefix: 'subtle caricature, slightly exaggerated expression but still recognizable as same person, white background',
-    negativePrompt: 'big head small body, distorted face, unrecognizable, different person, extreme exaggeration',
+    promptPrefix: 'same person in photo, realistic sticker emoticon, exact facial identity, rich emotional expressions, clean background',
+    negativePrompt: 'caricature, bobble head, distorted face, ugly, grotesque, exaggerated features, different person',
   },
 };
