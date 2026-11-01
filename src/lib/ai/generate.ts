@@ -453,11 +453,11 @@ async function generateGemini(
   }
 
   const json = await res.json();
-  const imageData =
-    json.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data ?? '';
-  const imageUrl = imageData
-    ? `data:image/png;base64,${imageData}`
-    : '';
+  const parts = json.candidates?.[0]?.content?.parts ?? [];
+  const imagePart = parts.find((p: any) => p.inlineData?.data);
+  const mimeType = imagePart?.inlineData?.mimeType ?? 'image/png';
+  const imageData = imagePart?.inlineData?.data ?? '';
+  const imageUrl = imageData ? `data:${mimeType};base64,${imageData}` : '';
 
   return {
     imageUrl,
@@ -491,6 +491,10 @@ async function generateBatchGemini(
   };
 }
 
+function getProvider(): string {
+  return (process.env.AI_IMAGE_PROVIDER || (process.env.GEMINI_API_KEY ? 'gemini' : process.env.FAL_KEY ? 'fal' : 'mock')).toLowerCase();
+}
+
 // ─────────────────────────────────────────────────────────────
 // 단일 생성 (표정 하나)
 // ─────────────────────────────────────────────────────────────
@@ -499,9 +503,10 @@ export async function generateEmoticon(
   req: GenerateRequest,
 ): Promise<GenerateResult> {
   const start = Date.now();
+  const provider = getProvider();
 
   try {
-    switch (PROVIDER) {
+    switch (provider) {
       case 'replicate':
         return generateReplicate(req);
       case 'fal':
@@ -530,9 +535,10 @@ export async function generateEmoticonBatch(
   req: BatchGenerateRequest,
 ): Promise<BatchGenerateResult> {
   const start = Date.now();
+  const provider = getProvider();
 
   try {
-    switch (PROVIDER) {
+    switch (provider) {
       case 'replicate':
         return generateBatchReplicate(req);
       case 'fal':

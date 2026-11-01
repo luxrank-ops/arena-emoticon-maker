@@ -313,3 +313,16 @@ BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 60 passed
 6. `/admin` → `emotime-demo` 로그인 → 매출/원가 카드 + **얼굴 파기 패널**(예정 확인/즉시 실행) 확인
 7. Studio 구독 → 24컷 팩 → 팩 페이지의 **카카오 규격 패키저** 패널에서 6개 검사 통과 → ZIP 내려받기
 8. `/editor` 에서 긴 대사(30자) 입력 → 말풍선 안에 들어오는지 확인
+
+---
+
+### ⑲ Google Gemini 2.5 Flash Image 기반 '동일 인물 다표정 매트릭스' 연동 (2026-11-02)
+
+- **배경 및 방식 개편**:
+  - 기존 과장된 캐리커처(머리 크고 몸 작은 왜곡) 스타일을 배제하고, 첨부된 실제 사진의 고유 신원(Identity)을 일관되게 유지하면서 다양한 감정 표현(Joy, Laugh, Love, Sad, Angry, Sulk, Tired, Surprised, Smug, Cry, King, Blank)을 생성하는 '동일 인물 다표정 매트릭스' 구조로 개편.
+  - 단일 이미지 생성(`POST /api/generate`) 및 일괄 배치 생성(`POST /api/generate/batch`) 파이프라인 구비.
+- **Google Gemini 2.5 Flash Image 엔진 검증**:
+  - 모델: `gemini-2.5-flash-image`
+  - 인증: `GEMINI_API_KEY` (Google AI Studio)
+  - 검증: Google Generative Language API 실호출 성공 (HTTP 200 OK, PNG 이미지 인라인 데이터 1,125,840 bytes 정상 추출 완료).
+  - Next.js 프로덕션 빌드: 27개 전 라우트 컴파일 완료.
