@@ -286,7 +286,7 @@ export function UploadFlow({
 
         <div className="card p-5">
           <div className="flex items-center justify-between">
-            <p className="text-sm font-black">화풍 선택</p>
+            <p className="text-sm font-black">버전 선택 (캐릭터 vs 실사포토)</p>
             <span className="chip !bg-cream">{planName} · {allowedTones.length}종</span>
           </div>
           <div className="mt-3 grid grid-cols-2 gap-2">

@@ -30,12 +30,12 @@ export const EMOTIONS: Record<Emotion, { label: string; hint: string; emoji: str
 };
 
 export const TONES: Record<Tone, { label: string; desc: string; badge: string }> = {
-  '2d-cute': { label: '2D 귀여움', desc: '또렷한 외곽선, 카톡에서 잘 보이는 기본형', badge: '인기' },
-  '3d-cartoon': { label: '3D 카툰', desc: '부드러운 음영과 광택, 캐릭터 굿즈 느낌', badge: '' },
+  '2d-cute': { label: '2D 캐릭터 버전', desc: '귀여운 외곽선, 카톡 인기 캐릭터 스타일', badge: '캐릭터' },
+  caricature: { label: '실사 포토 버전', desc: '실제 인물 사진 그대로 12가지 감정 표정', badge: '실사포토' },
+  '3d-cartoon': { label: '3D 카툰 버전', desc: '부드러운 음영과 입체 캐릭터 질감', badge: '입체' },
   sketch: { label: '손그림 스케치', desc: '연필 질감, 다이어리 감성', badge: '' },
   mono: { label: '흑백 라인', desc: '유행하는 밈 스타일, 대사가 주인공', badge: 'MZ' },
   watercolor: { label: '수채화', desc: '번지는 색감, 감성 시즌 한정', badge: '' },
-  caricature: { label: '실사 표정 스티커', desc: '원본 얼굴 그대로 12가지 감정 표정', badge: '인기' },
 };
 
 export const BACKGROUNDS: Record<BackgroundKey, { label: string; color: string }> = {

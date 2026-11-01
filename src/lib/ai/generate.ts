@@ -416,6 +416,29 @@ async function generateGemini(
       }
     : null;
 
+  const isPhotoReal = req.tone === 'caricature';
+
+  const promptText = isPhotoReal
+    ? `A photorealistic real human portrait cutout sticker of the EXACT person in the attached reference photo, showing a realistic ${req.emotion} facial expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+      `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
+      `Face reference details: ${ipAdapterInfo}. ` +
+      `CRITICAL REQUIREMENTS FOR MAXIMUM REALISM: ` +
+      `1. PHOTO-REALISTIC REAL HUMAN: Must look like an authentic real photograph of the actual person, NOT a cartoon, NOT an illustration, NOT a 3D model, NOT an anime drawing, NOT a painting. ` +
+      `2. EXACT IDENTITY & SKIN: Retain the exact real skin texture, real facial geometry, genuine eyes, nose, lips, natural hairstyle, and recognizable identity of the person in the reference photo. ` +
+      `3. EXPRESSION: Show a vivid, natural, lifelike ${req.emotion} expression on the real face. ` +
+      `4. EMOTICON STICKER PRESENTATION: The realistic person cutout is centered on a clean white background with a subtle clean sticker outline, ideal for high-end photo emoticons. ` +
+      `5. NO CARICATURE, NO DISTORTION: Crisp high-resolution photography, natural studio lighting.`
+    : `Create a charming Korean sticker emoticon character of the EXACT person in the attached reference photo, showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+      `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
+      `Style: ${STYLE_PROMPTS[req.tone]}. ` +
+      `Face reference details: ${ipAdapterInfo}. ` +
+      `CRITICAL RULES FOR CHARACTER STICKER: ` +
+      `1. CUTE CHARACTER STICKER: Stylized into a clean, charming Korean emoticon sticker with cute outlines and attractive sticker styling. ` +
+      `2. PRESERVE RECOGNIZABILITY: Retain the person's signature face shape, hairstyle, eyes, and recognizable identity from the photo so friends can instantly tell it's them. ` +
+      `3. EXPRESSION: Change the facial expression to express ${req.emotion} with vivid charm. ` +
+      `4. NO CARICATURE DISTORTION: Do NOT create ugly bobble heads or grotesquely exaggerated features. ` +
+      `Clean white background, neat sticker border, high quality.`;
+
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,
     {
@@ -425,25 +448,14 @@ async function generateGemini(
         contents: [
           {
             parts: [
-              {
-                text: `A photorealistic real human portrait cutout sticker of the EXACT person in the attached reference photo, showing a realistic ${req.emotion} facial expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
-                  `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
-                  `Style: ${STYLE_PROMPTS[req.tone]}. ` +
-                  `Face reference details: ${ipAdapterInfo}. ` +
-                  `CRITICAL REQUIREMENTS FOR MAXIMUM REALISM: ` +
-                  `1. PHOTO-REALISTIC REAL HUMAN: Must look like an authentic real photograph of the actual person, NOT a cartoon, NOT an illustration, NOT a 3D model, NOT an anime drawing, NOT a painting. ` +
-                  `2. EXACT IDENTITY & SKIN: Retain the exact real skin texture, real facial geometry, genuine eyes, nose, lips, natural hairstyle, and recognizable identity of the person in the reference photo. ` +
-                  `3. EXPRESSION: Show a vivid, natural, lifelike ${req.emotion} expression on the real face. ` +
-                  `4. EMOTICON STICKER PRESENTATION: The realistic person cutout is centered on a clean white background with a subtle clean sticker outline, ideal for high-end photo emoticons. ` +
-                  `5. NO CARICATURE, NO DISTORTION: Crisp high-resolution photography, natural studio lighting.`,
-              },
+              { text: promptText },
               ...(faceImagePart ? [faceImagePart] : []),
             ],
           },
         ],
         generationConfig: {
-          temperature: 0.5, // 낮게 설정해 신원 보존 강화
-          topP: 0.9,
+          temperature: isPhotoReal ? 0.3 : 0.45,
+          topP: 0.85,
           maxOutputTokens: 2048,
         },
       }),
