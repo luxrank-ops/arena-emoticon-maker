@@ -14,7 +14,11 @@ const schema = z.object({
   }),
   signature: z.object({
     headScale: z.number(), faceWidth: z.number(), eyeSpacing: z.number(), eyeSize: z.number(),
-    browWeight: z.number(), mouthWidth: z.number(), hairStyle: z.number(), cheek: z.number(), glasses: z.boolean(),
+    eyeShape: z.enum(['almond', 'round', 'narrow']),
+    browWeight: z.number(), mouthWidth: z.number(), lipThickness: z.number(), noseSize: z.number(),
+    hairStyle: z.number(), cheek: z.number(),
+    jawline: z.enum(['square', 'round', 'pointed']),
+    glasses: z.boolean(),
   }),
   metrics: z.object({
     coverage: z.number(), centering: z.number(), brightness: z.number(), sharpness: z.number(), faceDetected: z.boolean(),

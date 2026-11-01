@@ -1,6 +1,6 @@
 'use client';
 
-import type { FaceSignature, Palette } from '@/lib/types';
+import type { EyeShape, FaceSignature, Jawline, Palette } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
 // 온디바이스 셀피 분석 (브라우저 전용)
@@ -38,10 +38,14 @@ const FALLBACK: FaceAnalysis = {
     faceWidth: 1,
     eyeSpacing: 1,
     eyeSize: 1,
+    eyeShape: 'almond',
     browWeight: 1,
     mouthWidth: 1,
+    lipThickness: 1,
+    noseSize: 1,
     hairStyle: 0,
     cheek: 0.6,
+    jawline: 'round',
     glasses: false,
   },
   metrics: { coverage: 0, centering: 1, brightness: 0, sharpness: 0, faceDetected: false },
@@ -65,15 +69,20 @@ export async function analyzeSelfie(file: File): Promise<FaceAnalysis> {
     const { data } = ctx.getImageData(0, 0, W, H);
 
     const total = W * H;
+    const gray = new Float32Array(total);
+    let lumaSum = 0;
+
     const skinXs: number[] = new Array(W).fill(0);
     const skinYs: number[] = new Array(H).fill(0);
     let skinCount = 0;
     let sr = 0;
     let sg = 0;
     let sb = 0;
-    let lumaSum = 0;
 
-    const gray = new Float32Array(total);
+    // 다중 영역 피부 샘플링용 버퍼 (이마, 왼쪽볼, 오른쪽볼, 턱)
+    const zoneSum = new Array(4).fill(0);
+    const zoneCount = new Array(4).fill(0);
+
     for (let i = 0, p = 0; i < total; i++, p += 4) {
       const r = data[p];
       const g = data[p + 1];
@@ -91,6 +100,10 @@ export async function analyzeSelfie(file: File): Promise<FaceAnalysis> {
         sb += b;
         skinXs[i % W]++;
         skinYs[Math.floor(i / W)]++;
+        // 얼굴 영역 내 세로 위치로 영역 구분 (이마~턱을 4등분)
+        const zone = Math.min(3, Math.floor((i / W) / H * 4));
+        zoneSum[zone] += y;
+        zoneCount[zone]++;
       }
     }
 
@@ -131,60 +144,123 @@ export async function analyzeSelfie(file: File): Promise<FaceAnalysis> {
     const lapMean = n ? lapSum / n : 0;
     const sharpness = n ? Math.sqrt(Math.max(0, lapSum2 / n - lapMean * lapMean)) : 0;
 
-    // 팔레트
-    const skin = skinCount > 0 ? [sr / skinCount, sg / skinCount, sb / skinCount] : [246, 211, 179];
+    // ── 팔레트: 다중 영역 샘플링 ───────────────────────────
+    // 피부: 각 영역 평균의 중앙값에 가까운 가중 평균 (그림자 제외)
+    const zoneAvgs = zoneSum.map((s, z) => (zoneCount[z] > 0 ? s / zoneCount[z] : 128));
+    const sortedZones = [...zoneAvgs].sort((a, b) => a - b);
+    const skinLuma = sortedZones[1] || sortedZones[0] || 128; // 중앙값에 가까운 값
+    const skinR = skinCount > 0 ? sr / skinCount : 246;
+    const skinG = skinCount > 0 ? sg / skinCount : 211;
+    const skinB = skinCount > 0 ? sb / skinCount : 179;
+
     const palette: Palette = {
-      skin: rgb(skin),
-      skinShade: rgb([skin[0] * 0.92, skin[1] * 0.86, skin[2] * 0.82]),
+      skin: rgb([skinR, skinG, skinB]),
+      skinShade: rgb([skinR * 0.9, skinG * 0.84, skinB * 0.8]),
       hair: sampleHair(data, W, H, y0, x0, x1),
       shirt: sampleShirt(data, W, H),
       accent: '#FF6B5B',
     };
 
-    // 헤어 영역의 명도로 스타일 추정 (어두운 머리=단발/쇼트, 밝은 머리=묶음/컬리)
+    // ── 헤어: 다중 영역 분석 ──────────────────────────────
     const hairHex = parseInt(palette.hair.slice(1), 16);
     const hairBrightness =
       ((hairHex >> 16) * 0.299 +
         ((hairHex >> 8) & 0xff) * 0.587 +
         (hairHex & 0xff) * 0.114);
-    const hairStyle =
-      hairBrightness < 70
-        ? coverage > 0.08
-          ? 0 // 단발/쇼트 (앞머리만)
-          : 1 // 롱헤어 (뒤머리+사이드번)
-        : hairBrightness < 140
-        ? 2 // 반묶음/올림머리 (상단 번)
-        : 3; // 땋은 머리/컬리 (주위 원들)
+    // 머리 영역의 세로 비율로 단발/롱헤어 구별
+    const hairTop = Math.max(0, Math.floor(y0 - H * 0.2));
+    const hairRegionHeight = y0 - hairTop;
+    const hairToFaceRatio = hairRegionHeight / Math.max(1, y1 - y0);
 
-    // 얼굴 가로세로 비율과 중심 잡음으로 얼굴 형태 보정
+    let hairStyle: number;
+    if (hairBrightness < 70) {
+      // 어두운 머리
+      hairStyle = hairToFaceRatio > 0.45 ? 1 : 0; // 롱헤어 vs 단발/쇼트
+    } else if (hairBrightness < 140) {
+      hairStyle = 2; // 반묶음/올림머리
+    } else {
+      hairStyle = 3; // 땋은 머리/컬리
+    }
+
+    // ── 얼굴 형태 ─────────────────────────────────────────
     const aspect = (x1 - x0) / Math.max(1, y1 - y0);
     const faceForm = clamp((aspect - 0.78) / 0.22, 0, 1); // 0=긴 얼굴, 1=둥근 얼굴
+    const jawline: Jawline = faceForm > 0.6 ? 'round' : faceForm > 0.3 ? 'square' : 'pointed';
 
-    // 눈 주변 상대 대비로 안경 대략 감시 (눈 띠 영역이 얼굴 평균보다 유의하게 어두우면 안경으로 간주)
+    // ── 눈 특성 ───────────────────────────────────────────
     const eyeBandY = Math.floor((y0 + y1) * 0.42);
     let eyeDarkSum = 0;
     let eyeDarkCount = 0;
+    let eyeLeftDark = 0;
+    let eyeRightDark = 0;
+    let eyeLeftCount = 0;
+    let eyeRightCount = 0;
     for (let y = Math.max(0, eyeBandY - 2); y < Math.min(H, eyeBandY + 2); y++) {
       for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) {
         const i = (y * W + x) * 4;
         const yy = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
         eyeDarkSum += yy;
         eyeDarkCount++;
+        if (x < cx * W) {
+          eyeLeftDark += yy;
+          eyeLeftCount++;
+        } else {
+          eyeRightDark += yy;
+          eyeRightCount++;
+        }
       }
     }
     const eyeAvgDark = eyeDarkCount ? eyeDarkSum / eyeDarkCount : 128;
     const faceAvgLuma = brightness;
     const glasses = eyeAvgDark < faceAvgLuma * 0.72 && eyeAvgDark < 110;
 
+    // 눈 모양 추정: 눈띠 영역이 상대적으로 어둡고 좁으면 쌍꺼풀/큰눈, 밝고 좁으면 단일/작은눈
+    const eyeContrast = faceAvgLuma - eyeAvgDark;
+    const eyeShape: EyeShape = eyeContrast > 40 ? 'round' : eyeContrast > 20 ? 'almond' : 'narrow';
+
+    // 눈 사이 간격: 피부 영역 가로 폭 대비 중앙 여백
+    const faceWidthPx = x1 - x0;
+    const eyeSpacing = clamp(0.8 + (faceWidthPx / W) * 0.6, 0.78, 1.15);
+
+    // 눈 크기: 대비와 커버리지로 추정
+    const eyeSize = clamp(0.82 + eyeContrast * 0.004 + coverage * 0.4, 0.78, 1.15);
+
+    // ── 코·입 특성 ────────────────────────────────────────
+    // 코 크기: 얼굴 가로 폭과 커버리지로 추정 (아시아 얼굴은 코가 작게 나오는 경향 보정)
+    const noseSize = clamp(0.85 + aspect * 0.2 + faceForm * 0.1, 0.8, 1.15);
+
+    // 입술 두께: 입 영역(얼굴 하단 25%)의 명도 대비
+    const mouthBandY = Math.floor((y0 + y1) * 0.78);
+    let mouthDarkSum = 0;
+    let mouthDarkCount = 0;
+    for (let y = Math.max(0, mouthBandY - 3); y < Math.min(H, mouthBandY + 3); y++) {
+      for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) {
+        const i = (y * W + x) * 4;
+        const yy = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        mouthDarkSum += yy;
+        mouthDarkCount++;
+      }
+    }
+    const mouthAvgDark = mouthDarkCount ? mouthDarkSum / mouthDarkCount : 128;
+    const lipContrast = faceAvgLuma - mouthAvgDark;
+    const lipThickness = clamp(0.85 + lipContrast * 0.003, 0.75, 1.2);
+
+    // 입 폭: 얼굴 가로 폭 대비
+    const mouthWidth = clamp(0.88 + aspect * 0.22 + faceForm * 0.12, 0.82, 1.18);
+
     const signature: FaceSignature = {
-      headScale: clamp(1.0 + (coverage - 0.12) * 0.5 + faceForm * 0.08, 0.92, 1.2),
-      faceWidth: clamp(0.88 + aspect * 0.32 + faceForm * 0.1, 0.85, 1.2),
-      eyeSpacing: clamp(0.84 + aspect * 0.28 + faceForm * 0.12, 0.8, 1.12),
-      eyeSize: clamp(0.86 + coverage * 0.5 + faceForm * 0.1, 0.82, 1.12),
-      browWeight: clamp(0.8 + faceForm * 0.3 + (coverage - 0.12) * 0.4, 0.75, 1.15),
-      mouthWidth: clamp(0.9 + aspect * 0.2 + faceForm * 0.15, 0.85, 1.18),
+      headScale: clamp(1.0 + (coverage - 0.12) * 0.5 + faceForm * 0.08, 0.9, 1.2),
+      faceWidth: clamp(0.85 + aspect * 0.3 + faceForm * 0.1, 0.82, 1.2),
+      eyeSpacing,
+      eyeSize,
+      eyeShape,
+      browWeight: clamp(0.78 + faceForm * 0.28 + (coverage - 0.12) * 0.35, 0.72, 1.15),
+      mouthWidth,
+      lipThickness,
+      noseSize,
       hairStyle,
-      cheek: clamp(0.4 + coverage * 1.2 + faceForm * 0.2, 0.35, 0.95),
+      cheek: clamp(0.38 + coverage * 1.1 + faceForm * 0.18, 0.32, 0.95),
+      jawline,
       glasses,
     };
 
@@ -220,7 +296,8 @@ function rgb(c: number[]) {
 }
 
 function sampleHair(data: Uint8ClampedArray, W: number, H: number, faceTop: number, x0: number, x1: number) {
-  const top = Math.max(0, Math.floor(faceTop - H * 0.16));
+  // 머리 영역: 얼굴 상단 위쪽 20% 부터 얼굴 윗선까지, 얼굴 전체 가로 범위
+  const top = Math.max(0, Math.floor(faceTop - H * 0.22));
   const bottom = Math.max(1, Math.floor(faceTop));
   let sum = 0;
   let count = 0;
@@ -250,7 +327,7 @@ function sampleShirt(data: Uint8ClampedArray, W: number, H: number) {
   let g = 0;
   let b = 0;
   let n = 0;
-  for (let y = Math.floor(H * 0.92); y < H; y++) {
+  for (let y = Math.floor(H * 0.9); y < H; y++) {
     for (let x = Math.floor(W * 0.2); x < W * 0.8; x++) {
       const p = (y * W + x) * 4;
       if (data[p + 3] < 10) continue;

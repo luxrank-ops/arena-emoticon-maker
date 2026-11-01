@@ -76,10 +76,14 @@ export const DEFAULT_SIGNATURE: FaceSignature = {
   faceWidth: 1,
   eyeSpacing: 1,
   eyeSize: 1,
+  eyeShape: 'almond',
   browWeight: 1,
   mouthWidth: 1,
+  lipThickness: 1,
+  noseSize: 1,
   hairStyle: 0,
   cheek: 0.6,
+  jawline: 'round',
   glasses: false,
 };
 
@@ -101,10 +105,14 @@ export function signatureFromSeed(seed: number): FaceSignature {
     faceWidth: 0.94 + rand() * 0.12,
     eyeSpacing: 0.92 + rand() * 0.18,
     eyeSize: 0.9 + rand() * 0.22,
+    eyeShape: pick(['almond', 'round', 'narrow']),
     browWeight: 0.85 + rand() * 0.35,
     mouthWidth: 0.9 + rand() * 0.2,
+    lipThickness: 0.85 + rand() * 0.3,
+    noseSize: 0.85 + rand() * 0.3,
     hairStyle: pick([0, 1, 2, 3, 4]),
     cheek: 0.4 + rand() * 0.5,
+    jawline: pick(['square', 'round', 'pointed']),
     glasses: rand() > 0.86,
   };
 }
@@ -237,10 +245,22 @@ export function renderSticker(spec: StickerSpec): string {
     `<ellipse cx="${cx + rx - 6}" cy="${cy + 34}" rx="40" ry="58" fill="${p.skin}" stroke="${t.ink}" stroke-width="${t.sw}"/>`,
   );
 
-  // 얼굴
-  parts.push(
-    `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${t.useGradient ? 'url(#faceGrad)' : p.skin}" stroke="${t.ink}" stroke-width="${t.sw * 1.15}"/>`,
-  );
+  // 얼굴 (턱선 형태 반영)
+  let facePath: string;
+  if (sg.jawline === 'square') {
+    facePath =
+      `<rect x="${cx - rx}" y="${cy - ry}" width="${rx * 2}" height="${ry * 1.9}" rx="${Math.min(rx, ry) * 0.35}" ` +
+      `fill="${t.useGradient ? 'url(#faceGrad)' : p.skin}" stroke="${t.ink}" stroke-width="${t.sw * 1.15}"/>`;
+  } else if (sg.jawline === 'pointed') {
+    facePath =
+      `<path d="M ${cx - rx} ${cy} Q ${cx - rx * 0.7} ${cy - ry} ${cx} ${cy - ry * 1.05} Q ${cx + rx * 0.7} ${cy - ry} ${cx + rx} ${cy} ` +
+      `Q ${cx + rx * 0.7} ${cy + ry * 0.9} ${cx} ${cy + ry * 1.0} Q ${cx - rx * 0.7} ${cy + ry * 0.9} ${cx - rx} ${cy} Z" ` +
+      `fill="${t.useGradient ? 'url(#faceGrad)' : p.skin}" stroke="${t.ink}" stroke-width="${t.sw * 1.15}"/>`;
+  } else {
+    facePath =
+      `<ellipse cx="${cx}" cy="${cy}" rx="${rx}" ry="${ry}" fill="${t.useGradient ? 'url(#faceGrad)' : p.skin}" stroke="${t.ink}" stroke-width="${t.sw * 1.15}"/>`;
+  }
+  parts.push(facePath);
 
   // 앞머리
   parts.push(renderHairFront(cx, cy, rx, ry, p, sg, t, rand));
@@ -283,11 +303,11 @@ export function renderSticker(spec: StickerSpec): string {
   }
 
   // 코
-  const noseScale = tone === 'caricature' ? 1.9 : 1;
+  const noseScale = tone === 'caricature' ? 1.9 * sg.noseSize : 1 * sg.noseSize;
   parts.push(
     tone === 'caricature'
       ? `<ellipse cx="${cx + 8}" cy="${mouthY - 44}" rx="${26 * noseScale}" ry="${20 * noseScale}" fill="${p.skinShade}" stroke="${t.ink}" stroke-width="${t.sw * 0.8}"/>`
-      : `<path d="M ${cx - 14} ${mouthY - 62} Q ${cx} ${mouthY - 44} ${cx + 14} ${mouthY - 64}" fill="none" stroke="${t.ink}" stroke-width="${t.sw * 0.8}" stroke-linecap="round" opacity="0.75"/>`,
+      : `<path d="M ${cx - 14 * noseScale} ${mouthY - 62 * noseScale} Q ${cx} ${mouthY - 44 * noseScale} ${cx + 14 * noseScale} ${mouthY - 64 * noseScale}" fill="none" stroke="${t.ink}" stroke-width="${t.sw * 0.8 * noseScale}" stroke-linecap="round" opacity="0.75"/>`,
   );
 
   // 입
@@ -467,7 +487,12 @@ function renderEye(
   side: number,
 ) {
   const ex = 46 * sg.eyeSize;
-  const ey = 40 * sg.eyeSize;
+  const ey =
+    sg.eyeShape === 'round'
+      ? 46 * sg.eyeSize
+      : sg.eyeShape === 'narrow'
+      ? 30 * sg.eyeSize
+      : 40 * sg.eyeSize;
   const iris = '#4A3628';
   const white = '#FFFDFA';
 
@@ -526,7 +551,7 @@ function renderMouth(
   p: Palette,
 ) {
   const w = 168 * sg.mouthWidth;
-  const h = 52 * (0.6 + k * 0.8);
+  const h = 52 * (0.6 + k * 0.8) * sg.lipThickness;
   const half = w / 2;
   const dark = '#48211F';
   const tongue = '#F0726A';
