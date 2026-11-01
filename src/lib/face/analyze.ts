@@ -141,16 +141,51 @@ export async function analyzeSelfie(file: File): Promise<FaceAnalysis> {
       accent: '#FF6B5B',
     };
 
+    // 헤어 영역의 명도로 스타일 추정 (어두운 머리=단발/쇼트, 밝은 머리=묶음/컬리)
+    const hairHex = parseInt(palette.hair.slice(1), 16);
+    const hairBrightness =
+      ((hairHex >> 16) * 0.299 +
+        ((hairHex >> 8) & 0xff) * 0.587 +
+        (hairHex & 0xff) * 0.114);
+    const hairStyle =
+      hairBrightness < 70
+        ? coverage > 0.08
+          ? 0 // 단발/쇼트 (앞머리만)
+          : 1 // 롱헤어 (뒤머리+사이드번)
+        : hairBrightness < 140
+        ? 2 // 반묶음/올림머리 (상단 번)
+        : 3; // 땋은 머리/컬리 (주위 원들)
+
+    // 얼굴 가로세로 비율과 중심 잡음으로 얼굴 형태 보정
+    const aspect = (x1 - x0) / Math.max(1, y1 - y0);
+    const faceForm = clamp((aspect - 0.78) / 0.22, 0, 1); // 0=긴 얼굴, 1=둥근 얼굴
+
+    // 눈 주변 상대 대비로 안경 대략 감시 (눈 띠 영역이 얼굴 평균보다 유의하게 어두우면 안경으로 간주)
+    const eyeBandY = Math.floor((y0 + y1) * 0.42);
+    let eyeDarkSum = 0;
+    let eyeDarkCount = 0;
+    for (let y = Math.max(0, eyeBandY - 2); y < Math.min(H, eyeBandY + 2); y++) {
+      for (let x = Math.max(0, x0); x < Math.min(W, x1); x++) {
+        const i = (y * W + x) * 4;
+        const yy = 0.299 * data[i] + 0.587 * data[i + 1] + 0.114 * data[i + 2];
+        eyeDarkSum += yy;
+        eyeDarkCount++;
+      }
+    }
+    const eyeAvgDark = eyeDarkCount ? eyeDarkSum / eyeDarkCount : 128;
+    const faceAvgLuma = brightness;
+    const glasses = eyeAvgDark < faceAvgLuma * 0.72 && eyeAvgDark < 110;
+
     const signature: FaceSignature = {
-      headScale: clamp(1.02 + (coverage - 0.12) * 0.6, 0.94, 1.16),
-      faceWidth: clamp(0.92 + ((x1 - x0) / Math.max(1, y1 - y0)) * 0.28, 0.9, 1.16),
-      eyeSpacing: clamp(0.86 + coverage * 1.3, 0.86, 1.08),
-      eyeSize: clamp(0.9 + coverage * 0.7, 0.9, 1.1),
-      browWeight: 0.9,
-      mouthWidth: clamp(0.95 + coverage * 0.6, 0.9, 1.15),
-      hairStyle: Math.floor((palette.hair.charCodeAt(1) + palette.hair.charCodeAt(3)) % 5),
-      cheek: clamp(0.45 + coverage * 1.4, 0.4, 0.95),
-      glasses: false,
+      headScale: clamp(1.0 + (coverage - 0.12) * 0.5 + faceForm * 0.08, 0.92, 1.2),
+      faceWidth: clamp(0.88 + aspect * 0.32 + faceForm * 0.1, 0.85, 1.2),
+      eyeSpacing: clamp(0.84 + aspect * 0.28 + faceForm * 0.12, 0.8, 1.12),
+      eyeSize: clamp(0.86 + coverage * 0.5 + faceForm * 0.1, 0.82, 1.12),
+      browWeight: clamp(0.8 + faceForm * 0.3 + (coverage - 0.12) * 0.4, 0.75, 1.15),
+      mouthWidth: clamp(0.9 + aspect * 0.2 + faceForm * 0.15, 0.85, 1.18),
+      hairStyle,
+      cheek: clamp(0.4 + coverage * 1.2 + faceForm * 0.2, 0.35, 0.95),
+      glasses,
     };
 
     const issues: FaceIssue[] = [];
