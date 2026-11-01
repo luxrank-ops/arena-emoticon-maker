@@ -82,11 +82,15 @@ const EMOTION_PROMPTS: Record<Emotion, string> = {
 
 const STYLE_PROMPTS: Record<Tone, string> = {
   '2d-cute': '2D cute sticker style, thick clean outline, kawaii, KakaoTalk emoji style, flat colors, white background',
+  caricature: 'photorealistic real human portrait cutout, natural real skin texture, authentic lifelike photo sticker, clean white background',
+  doodle: 'charming wobbly crayon doodle sticker style like Choi Gosim, hand-drawn naive pop art, colorful primary accent colors, white background',
+  'office-meme': 'humorous Korean office worker survival meme sticker, relatable funny office life comic style, clear speech bubble, witty expression, white background',
+  'clay-3d': 'charming 3D handcrafted polymer clay miniature figurine, soft glossy clay texture, cute collectible toy sticker style, white background',
+  'pixel-art': 'authentic 16-bit pixel art character sticker, nostalgic Y2K retro game aesthetic, sharp pixel clusters, clean white border',
   '3d-cartoon': '3D cartoon render, soft shading, glossy surface, cute character, Pixar style, white background',
   sketch: 'pencil sketch, hand-drawn, diary style, rough lines, monochrome accent, white background',
   mono: 'black and white line art, monochrome, meme style, bold outlines, white background',
   watercolor: 'watercolor painting, soft edges, bleeding colors, artistic, gentle, white background',
-  caricature: 'photorealistic real human portrait cutout, natural real skin texture, authentic lifelike photo sticker, clean white background',
 };
 
 const NEGATIVE_PROMPT =
@@ -418,8 +422,9 @@ async function generateGemini(
 
   const isPhotoReal = req.tone === 'caricature';
 
-  const promptText = isPhotoReal
-    ? `A photorealistic real human portrait cutout sticker of the EXACT person in the attached reference photo, showing a realistic ${req.emotion} facial expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+  let promptText = '';
+  if (req.tone === 'caricature') {
+    promptText = `A photorealistic real human portrait cutout sticker of the EXACT person in the attached reference photo, showing a realistic ${req.emotion} facial expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
       `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
       `Face reference details: ${ipAdapterInfo}. ` +
       `CRITICAL REQUIREMENTS FOR MAXIMUM REALISM: ` +
@@ -427,8 +432,29 @@ async function generateGemini(
       `2. EXACT IDENTITY & SKIN: Retain the exact real skin texture, real facial geometry, genuine eyes, nose, lips, natural hairstyle, and recognizable identity of the person in the reference photo. ` +
       `3. EXPRESSION: Show a vivid, natural, lifelike ${req.emotion} expression on the real face. ` +
       `4. EMOTICON STICKER PRESENTATION: The realistic person cutout is centered on a clean white background with a subtle clean sticker outline, ideal for high-end photo emoticons. ` +
-      `5. NO CARICATURE, NO DISTORTION: Crisp high-resolution photography, natural studio lighting.`
-    : `Create a charming Korean sticker emoticon character of the EXACT person in the attached reference photo, showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+      `5. NO CARICATURE, NO DISTORTION: Crisp high-resolution photography, natural studio lighting.`;
+  } else if (req.tone === 'doodle') {
+    promptText = `Create a bold wobbly crayon doodle sticker of the EXACT person in the reference photo in the style of Choi Gosim, showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+      `${req.line ? `Text: "${req.line}" in colorful handwritten Korean speech bubble. ` : ''}` +
+      `Style: Naive charming crayon doodle, wobbly lines, bright cheerful primary colors, white sticker outline, clean white background. ` +
+      `Keep the person's signature face shape, haircut, and features recognizable in a cute, empowering doodle style.`;
+  } else if (req.tone === 'office-meme') {
+    promptText = `Create a humorous Korean office worker survival meme sticker of the person in the reference photo, showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+      `${req.line ? `Text: "${req.line}" in prominent speech bubble. ` : ''}` +
+      `Style: Relatable comic meme style like Gwak-cheol or Zanmang Loopy, humorous witty mood, office worker context (coffee cup or laptop or badge), centered face, clean white background. ` +
+      `Preserve the recognizable face and hairstyle of the person with subtle comedic expression.`;
+  } else if (req.tone === 'clay-3d') {
+    promptText = `Create a handcrafted 3D polymer clay miniature figurine sticker of the person in the reference photo, showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+      `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
+      `Style: Tactile claymation, soft glossy modeling clay texture, gentle studio highlights, cute collectible toy figurine sticker, clean white background. ` +
+      `Faithfully preserve the person's facial features, haircut, and identity in charming clay sculpture form.`;
+  } else if (req.tone === 'pixel-art') {
+    promptText = `Create an authentic 16-bit retro pixel art character sticker of the person in the reference photo, showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
+      `${req.line ? `Text: "${req.line}" in pixel font bubble. ` : ''}` +
+      `Style: Nostalgic Y2K Tamagotchi / retro game pixel art, clean sharp pixels, vibrant palette, clean white sticker border, white background. ` +
+      `Keep the person's recognizable features, hair, and face shape clearly readable in pixel clusters.`;
+  } else {
+    promptText = `Create a charming Korean sticker emoticon character of the EXACT person in the attached reference photo, showing a ${req.emotion} expression: ${EMOTION_PROMPTS[req.emotion]}. ` +
       `${req.line ? `Text: "${req.line}" in speech bubble. ` : ''}` +
       `Style: ${STYLE_PROMPTS[req.tone]}. ` +
       `Face reference details: ${ipAdapterInfo}. ` +
@@ -438,6 +464,7 @@ async function generateGemini(
       `3. EXPRESSION: Change the facial expression to express ${req.emotion} with vivid charm. ` +
       `4. NO CARICATURE DISTORTION: Do NOT create ugly bobble heads or grotesquely exaggerated features. ` +
       `Clean white background, neat sticker border, high quality.`;
+  }
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${apiKey}`,

@@ -26,10 +26,23 @@ export class PackError extends Error {
   }
 }
 
-export const FREE_TONES: Tone[] = ['2d-cute', 'caricature'];
+export const FREE_TONES: Tone[] = ['2d-cute', 'caricature', 'doodle', 'office-meme', 'clay-3d', 'pixel-art'];
 
 export function tonesForPlan(plan: 'FREE' | 'PLUS' | 'STUDIO'): Tone[] {
-  return plan === 'FREE' ? FREE_TONES : ['2d-cute', '3d-cartoon', 'sketch', 'mono', 'watercolor', 'caricature'];
+  return plan === 'FREE'
+    ? FREE_TONES
+    : [
+        '2d-cute',
+        'caricature',
+        'doodle',
+        'office-meme',
+        'clay-3d',
+        'pixel-art',
+        '3d-cartoon',
+        'sketch',
+        'mono',
+        'watercolor',
+      ];
 }
 
 export async function createSheet(userId: string, faceId: string, tone: Tone) {

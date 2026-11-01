@@ -15,6 +15,7 @@ const schema = z.object({
   faceId: z.string().min(1),
   tone: z.enum([
     '2d-cute', '3d-cartoon', 'sketch', 'mono', 'watercolor', 'caricature',
+    'doodle', 'office-meme', 'clay-3d', 'pixel-art',
   ]),
   emotion: z.enum([
     'joy', 'laugh', 'love', 'sad', 'angry', 'sulk', 'tired',

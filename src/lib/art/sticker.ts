@@ -32,6 +32,10 @@ export const EMOTIONS: Record<Emotion, { label: string; hint: string; emoji: str
 export const TONES: Record<Tone, { label: string; desc: string; badge: string }> = {
   '2d-cute': { label: '2D 캐릭터 버전', desc: '귀여운 외곽선, 카톡 인기 캐릭터 스타일', badge: '캐릭터' },
   caricature: { label: '실사 포토 버전', desc: '실제 인물 사진 그대로 12가지 감정 표정', badge: '실사포토' },
+  doodle: { label: '힐링 낙서 버전', desc: '최고심풍 삐뚤빼뚤 손그림, 긍정 자존감 대사', badge: 'MZ원픽' },
+  'office-meme': { label: '직장인 밈 버전', desc: '곽철이·루피풍 은은한 광기, 퇴근/넵 필수짤', badge: '대세' },
+  'clay-3d': { label: '말랑 3D 클레이', desc: '수제 찰흙 피규어 질감, 실물 굿즈 최적화', badge: '굿즈추천' },
+  'pixel-art': { label: '레트로 픽셀 버전', desc: '16비트 Y2K 다마고치 감성 도트 그래픽', badge: '레트로' },
   '3d-cartoon': { label: '3D 카툰 버전', desc: '부드러운 음영과 입체 캐릭터 질감', badge: '입체' },
   sketch: { label: '손그림 스케치', desc: '연필 질감, 다이어리 감성', badge: '' },
   mono: { label: '흑백 라인', desc: '유행하는 밈 스타일, 대사가 주인공', badge: 'MZ' },
@@ -389,6 +393,10 @@ const TONE_STYLE: Record<Tone, ToneStyle> = {
   mono: { sw: 18, ink: '#141414', stroke: `stroke="#141414"`, highlight: '#FFFFFF', useGradient: false, filter: false, flatten: false },
   watercolor: { sw: 0, ink: '#6B5B4F', stroke: 'stroke="none"', highlight: '#FFFFFF', useGradient: true, filter: false, flatten: true },
   caricature: { sw: 18, ink: INK, stroke: `stroke="${INK}"`, highlight: '#FFFFFF', useGradient: false, filter: false, flatten: false },
+  doodle: { sw: 20, ink: '#111111', stroke: `stroke="#111111"`, highlight: '#FFFD82', useGradient: false, filter: false, flatten: false },
+  'office-meme': { sw: 16, ink: '#222222', stroke: `stroke="#222222"`, highlight: '#FFFFFF', useGradient: false, filter: false, flatten: false },
+  'clay-3d': { sw: 10, ink: '#3E2F26', stroke: `stroke="#3E2F26"`, highlight: '#FFFFFF', useGradient: true, filter: false, flatten: false },
+  'pixel-art': { sw: 14, ink: '#000000', stroke: `stroke="#000000"`, highlight: '#FFFFFF', useGradient: false, filter: false, flatten: true },
 };
 
 function defs(tone: Tone, p: Palette) {

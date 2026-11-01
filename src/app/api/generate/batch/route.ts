@@ -14,6 +14,7 @@ const batchSchema = z.object({
   faceId: z.string().min(1),
   tone: z.enum([
     '2d-cute', '3d-cartoon', 'sketch', 'mono', 'watercolor', 'caricature',
+    'doodle', 'office-meme', 'clay-3d', 'pixel-art',
   ]),
   emotions: z.array(
     z.enum([

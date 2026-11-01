@@ -6,11 +6,15 @@ export type Plan = 'FREE' | 'PLUS' | 'STUDIO';
 
 export type Tone =
   | '2d-cute'
+  | 'caricature'
+  | 'doodle'
+  | 'office-meme'
+  | 'clay-3d'
+  | 'pixel-art'
   | '3d-cartoon'
   | 'sketch'
   | 'mono'
-  | 'watercolor'
-  | 'caricature';
+  | 'watercolor';
 
 export type Emotion =
   | 'joy'

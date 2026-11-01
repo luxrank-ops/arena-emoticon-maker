@@ -40,4 +40,24 @@ export const TONE_GENERATION_PARAMS: Record<Tone, { loraId?: string; promptPrefi
     promptPrefix: 'same person in photo, realistic sticker emoticon, exact facial identity, rich emotional expressions, clean background',
     negativePrompt: 'caricature, bobble head, distorted face, ugly, grotesque, exaggerated features, different person',
   },
+  doodle: {
+    loraId: undefined,
+    promptPrefix: 'bold wobbly crayon doodle sticker like Choi Gosim, hand-drawn naive pop art, colorful primary accent colors, charming expressive emoticon',
+    negativePrompt: 'photorealistic, detailed 3d, realistic photo, dark, gloomy',
+  },
+  'office-meme': {
+    loraId: undefined,
+    promptPrefix: 'humorous Korean office worker survival meme sticker, tired subtle smirk or stressed funny expression, relatable office life comic style',
+    negativePrompt: 'boring, corporate stock photo, serious, high fantasy',
+  },
+  'clay-3d': {
+    loraId: undefined,
+    promptPrefix: 'handcrafted 3D polymer clay miniature figurine sticker, soft glossy studio lighting, cute claymation toy aesthetic',
+    negativePrompt: 'flat 2d, rough sketch, paper drawing, photorealistic human',
+  },
+  'pixel-art': {
+    loraId: undefined,
+    promptPrefix: 'authentic 16-bit retro pixel art character sticker, nostalgic Y2K game aesthetic, distinct pixel clusters, clean outline',
+    negativePrompt: 'smooth vector, photorealistic, 3d render, blurry',
+  },
 };
