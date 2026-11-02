@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { SKUS } from '@/lib/pricing';
@@ -13,6 +14,7 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'checkout', RATE_LIMITS.checkout);
     if (limited) return limited;
+    if (paymentsUnavailable()) return paymentsUnavailableResponse();
     const { sku } = schema.parse(await req.json());
     const item = SKUS[sku];
     if (!item) return fail('SKU_NOT_FOUND', '존재하지 않는 상품입니다');

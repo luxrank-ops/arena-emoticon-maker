@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { applyCredits } from '@/lib/credits';
@@ -20,6 +21,7 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'confirm', RATE_LIMITS.confirm);
     if (limited) return limited;
+    if (paymentsUnavailable()) return paymentsUnavailableResponse();
     const body = schema.parse(await req.json());
 
     const order = await withDB((db) => db.orders.find((o) => o.id === body.orderId && o.userId === user.id) ?? null);
