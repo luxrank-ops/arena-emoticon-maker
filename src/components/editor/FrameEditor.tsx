@@ -8,6 +8,7 @@ import { BACKGROUNDS, EMOTIONS, PROPS } from '@/lib/art/sticker';
 import { downloadBlob, renderGifBlob, renderPngBlob } from '@/lib/export';
 import { track } from '@/lib/analytics';
 import { formatKstTime } from '@/lib/time';
+import { compressPhotoFile, loadPhoto, renderImage, savePhoto } from '@/lib/studio/photo';
 import type { BackgroundKey, Emotion, FrameView, PropKey, StickerSpec } from '@/lib/types';
 
 const QUICK_LINES = ['ㅇㅋ', '킹받네', '출근합니다', '퇴근!!', '고마워!', '배고파아', 'ㅋㅋㅋㅋ', 'ㅠㅠ'];
@@ -18,23 +19,32 @@ export function FrameEditor({
   watermark,
   index,
   total,
+  aiPack,
 }: {
   frame: FrameView;
   packId: string;
   watermark: boolean;
   index: number;
   total: number;
+  /** AI 생성 팩이면 대사·표정 변경 시 컷을 다시 그린다 */
+  aiPack: boolean;
 }) {
   const [frame, setFrame] = useState(initial);
-  const [busy, setBusy] = useState(false);
   const [exporting, setExporting] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [emotion, setEmotion] = useState<Emotion>(initial.emotion);
+  // 마지막으로 그려진(또는 처음 받은) 대사·표정 — 이와 다르면 "다시 그리기" 를 연다
+  const [drawn, setDrawn] = useState({ line: initial.line, emotion: initial.emotion });
+  const [redrawing, setRedrawing] = useState(false);
+  const [redrawError, setRedrawError] = useState<string | null>(null);
+  const [needPhoto, setNeedPhoto] = useState(false);
 
   const spec: StickerSpec = useMemo(
     () => ({ ...frame.spec, emotion, line: frame.line, prop: frame.prop, background: frame.background, intensity: frame.intensity }),
     [frame, emotion],
   );
+
+  const dirty = aiPack && (frame.line !== drawn.line || emotion !== drawn.emotion);
 
   async function patch(next: { line?: string; prop?: PropKey; background?: BackgroundKey; intensity?: number; emotion?: Emotion }) {
     const { emotion: e, ...rest } = next;
@@ -49,11 +59,45 @@ export function FrameEditor({
       });
       const json = await res.json();
       if (json.ok) {
-        setFrame(json.frame);
+        // 서버 값으로 맞추되, 이미 그려진 이미지 URL 은 유지한다
+        setFrame((prev) => ({ ...json.frame, spec: { ...json.frame.spec, imageUrl: prev.spec.imageUrl } }));
         setSavedAt(formatKstTime(new Date()));
       }
     } catch {
       /* 오프라인 편집 유지 */
+    }
+  }
+
+  // 대사·표정을 저장한 뒤 같은 사진으로 컷을 다시 그린다
+  async function redraw() {
+    setRedrawError(null);
+    const photo = loadPhoto();
+    if (!photo) {
+      setNeedPhoto(true);
+      setRedrawError('이 탭에 사진이 없어요. 같은 셀카를 다시 올려 주세요.');
+      return;
+    }
+    setRedrawing(true);
+    try {
+      await patch({ line: frame.line, emotion });
+      const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true }, photo);
+      setFrame((prev) => ({ ...prev, spec: { ...prev.spec, imageUrl: url } }));
+      setDrawn({ line: frame.line, emotion });
+      track('frame_redraw', { emotion });
+    } catch (e) {
+      setRedrawError((e as Error).message);
+    } finally {
+      setRedrawing(false);
+    }
+  }
+
+  async function onPickPhoto(file: File) {
+    try {
+      savePhoto(await compressPhotoFile(file));
+      setNeedPhoto(false);
+      setRedrawError(null);
+    } catch (e) {
+      setRedrawError((e as Error).message);
     }
   }
 
@@ -88,7 +132,9 @@ export function FrameEditor({
             <span className="text-xs font-black">
               {index + 1} / {total} · {EMOTIONS[emotion].label}
             </span>
-            <span className="chip !bg-cream">{savedAt ? `저장됨 ${savedAt}` : '자동 저장'}</span>
+            <span className="chip !bg-cream">
+              {redrawing ? 'AI가 그리는 중…' : dirty ? '변경됨 · 다시 그리기 필요' : savedAt ? `저장됨 ${savedAt}` : '자동 저장'}
+            </span>
           </div>
           <div className="bg-cream p-4">
             <div className="mx-auto max-w-[340px]">
@@ -117,6 +163,41 @@ export function FrameEditor({
 
       {/* 편집 패널 */}
       <div className="space-y-4">
+        {aiPack ? (
+          <div className="card p-5">
+            <p className="text-sm font-black">AI로 다시 그리기</p>
+            <p className="mt-1 text-[12px] leading-relaxed text-sub">
+              대사나 표정을 바꾼 뒤 다시 그리면, 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸려요.
+            </p>
+            <button
+              className="btn-primary mt-3 w-full !py-3 text-sm"
+              disabled={redrawing || (!dirty && !needPhoto)}
+              onClick={redraw}
+            >
+              {redrawing ? 'AI가 그리는 중…' : dirty ? '바뀐 내용으로 다시 그리기' : '대사나 표정을 바꾸면 활성화돼요'}
+            </button>
+            {needPhoto ? (
+              <label className="btn-ghost mt-2 w-full cursor-pointer !py-2 text-center text-xs">
+                셀카 다시 올리기
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onPickPhoto(f);
+                  }}
+                />
+              </label>
+            ) : null}
+            {redrawError ? (
+              <p className="mt-2 rounded-lg border-2 border-coral/50 bg-coral/10 px-3 py-2 text-xs font-bold text-coralink">
+                {redrawError}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
+
         <div className="card p-5">
           <label className="text-sm font-black" htmlFor="line">
             대사
@@ -144,30 +225,34 @@ export function FrameEditor({
         </div>
 
         <div className="card p-5">
-          <div className="flex items-center justify-between">
-            <label className="text-sm font-black" htmlFor="intensity">
-              감정선
-            </label>
-            <span className="chip !bg-cream">{frame.intensity}</span>
-          </div>
-          <input
-            id="intensity"
-            type="range"
-            min={0}
-            max={100}
-            value={frame.intensity}
-            onChange={(e) => setFrame({ ...frame, intensity: Number(e.target.value) })}
-            onMouseUp={() => patch({ intensity: frame.intensity })}
-            onTouchEnd={() => patch({ intensity: frame.intensity })}
-            className="mt-3 w-full accent-coral"
-          />
-          <div className="mt-1 flex justify-between text-[10px] font-bold text-sub">
-            <span>차분</span>
-            <span>보통</span>
-            <span>과장</span>
-          </div>
+          {!aiPack ? (
+            <>
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-black" htmlFor="intensity">
+                  감정선
+                </label>
+                <span className="chip !bg-cream">{frame.intensity}</span>
+              </div>
+              <input
+                id="intensity"
+                type="range"
+                min={0}
+                max={100}
+                value={frame.intensity}
+                onChange={(e) => setFrame({ ...frame, intensity: Number(e.target.value) })}
+                onMouseUp={() => patch({ intensity: frame.intensity })}
+                onTouchEnd={() => patch({ intensity: frame.intensity })}
+                className="mt-3 w-full accent-coral"
+              />
+              <div className="mt-1 flex justify-between text-[10px] font-bold text-sub">
+                <span>차분</span>
+                <span>보통</span>
+                <span>과장</span>
+              </div>
+            </>
+          ) : null}
 
-          <p className="mt-4 text-sm font-black">표정</p>
+          <p className={clsx('text-sm font-black', !aiPack && 'mt-4')}>표정</p>
           <div className="mt-2 grid grid-cols-4 gap-1.5">
             {(Object.keys(EMOTIONS) as Emotion[]).map((e) => (
               <button
@@ -184,48 +269,59 @@ export function FrameEditor({
           </div>
         </div>
 
-        <div className="card p-5">
-          <p className="text-sm font-black">소품</p>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {PROPS.map((p) => (
-              <button
-                key={p.key}
-                onClick={() => patch({ prop: p.key })}
-                className={clsx(
-                  'rounded-full border-2 px-3 py-1.5 text-[11px] font-bold transition',
-                  frame.prop === p.key ? 'border-ink bg-lemon/50' : 'border-line bg-paper text-sub hover:border-ink',
-                )}
-              >
-                {p.label}
-              </button>
-            ))}
-          </div>
+        {!aiPack ? (
+          <div className="card p-5">
+            <p className="text-sm font-black">소품</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {PROPS.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => patch({ prop: p.key })}
+                  className={clsx(
+                    'rounded-full border-2 px-3 py-1.5 text-[11px] font-bold transition',
+                    frame.prop === p.key ? 'border-ink bg-lemon/50' : 'border-line bg-paper text-sub hover:border-ink',
+                  )}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
 
-          <p className="mt-4 text-sm font-black">배경</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {(Object.keys(BACKGROUNDS) as BackgroundKey[]).map((b) => (
-              <button
-                key={b}
-                onClick={() => patch({ background: b })}
-                title={BACKGROUNDS[b].label}
-                className={clsx(
-                  'h-9 w-9 rounded-full border-2 transition',
-                  frame.background === b ? 'border-ink ring-2 ring-coral/50' : 'border-line',
-                )}
-                style={{
-                  background:
-                    b === 'transparent'
-                      ? 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 10px 10px'
-                      : BACKGROUNDS[b].color,
-                }}
-              />
-            ))}
+            <p className="mt-4 text-sm font-black">배경</p>
+            <div className="mt-2 flex flex-wrap gap-2">
+              {(Object.keys(BACKGROUNDS) as BackgroundKey[]).map((b) => (
+                <button
+                  key={b}
+                  onClick={() => patch({ background: b })}
+                  title={BACKGROUNDS[b].label}
+                  className={clsx(
+                    'h-9 w-9 rounded-full border-2 transition',
+                    frame.background === b ? 'border-ink ring-2 ring-coral/50' : 'border-line',
+                  )}
+                  style={{
+                    background:
+                      b === 'transparent'
+                        ? 'repeating-conic-gradient(#eee 0% 25%, #fff 0% 50%) 50% / 10px 10px'
+                        : BACKGROUNDS[b].color,
+                  }}
+                />
+              ))}
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="rounded-2xl border-2 border-dashed border-line p-4 text-[11px] leading-relaxed text-sub">
-          편집은 서버에 저장됩니다. <strong className="text-ink">같은 대사·소품·배경</strong>은 캐시되어
-          다음부터 생성 없이 즉시 열립니다 (원가 0).
+          {aiPack ? (
+            <>
+              대사와 표정은 <strong className="text-ink">AI가 그린 컷 안에</strong> 반영됩니다. 바꾼 뒤 다시 그리기를 눌러 주세요.
+              소품·배경 편집은 AI 컷에서는 지원하지 않습니다.
+            </>
+          ) : (
+            <>
+              편집은 서버에 저장됩니다. <strong className="text-ink">같은 대사·소품·배경</strong>은 캐시되어
+              다음부터 생성 없이 즉시 열립니다 (원가 0).
+            </>
+          )}
         </div>
       </div>
     </div>

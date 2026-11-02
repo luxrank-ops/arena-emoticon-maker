@@ -1,14 +1,16 @@
 import type { Emotion, Tone } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
-// 사진 → 이모티콘 컷 (Gemini 2.5 Flash Image, 서버 전용)
+// 사진 → 이모티콘 컷 (Gemini 이미지 모델, 서버 전용)
 //  · 사용자의 실제 셀피를 참조 이미지로 직접 넣는다 (SVG 자리표시자 없음).
 //  · 원본 사진은 요청 본문으로만 받고, 응답 후 버린다. 저장하지 않는다.
-//  · 신원 유지: 같은 사람, 표정만 변경. 과한 캐리커처(대두·기형) 금지.
+//  · 실사 포토 버전: 최상위 모델(gemini-3-pro-image-preview) 로 실물 사진 같은 질감.
+//  · 캐릭터 버전: 빠른 모델(gemini-3.1-flash-image-preview) 로 화풍 변환.
 // ─────────────────────────────────────────────────────────────
 
-const MODEL = process.env.GEMINI_IMAGE_MODEL || 'gemini-2.5-flash-image';
-const TIMEOUT_MS = 50_000;
+const PHOTO_MODEL = process.env.GEMINI_PHOTO_MODEL || 'gemini-3-pro-image-preview';
+const STYLE_MODEL = process.env.GEMINI_STYLE_MODEL || 'gemini-3.1-flash-image-preview';
+const TIMEOUT_MS = 55_000;
 
 export const EMOTION_PROMPTS: Record<Emotion, string> = {
   joy: 'a gentle happy smile, bright eyes',
@@ -25,12 +27,12 @@ export const EMOTION_PROMPTS: Record<Emotion, string> = {
   blank: 'a flat, neutral, deadpan expression',
 };
 
-/** 화풍 지시. 얼굴 신원 규칙은 별도로 항상 붙는다. */
+/** 화풍 지시. 얼굴 신원 규칙과 구도 규칙은 별도로 항상 붙는다. */
 export const STYLE_DIRECTIONS: Record<Tone, string> = {
   '2d-cute':
     'a cute 2D character sticker in the style of popular KakaoTalk emoticons: thick clean black outline, flat soft colors, simple shading, a stylized but clearly recognizable version of the person',
   caricature:
-    'a photorealistic portrait cutout sticker: the real person exactly as in the photo with natural skin texture and realistic lighting, not a cartoon or illustration, with a thin white sticker border',
+    'a photorealistic studio portrait photograph of the real person, shot like a real camera photo: natural skin texture with visible pores, soft realistic studio lighting, true colors, real depth of field. It must NOT look like an illustration, painting, CGI or cartoon. Keep the same clothing as the reference photo',
   doodle:
     'a wobbly hand-drawn crayon doodle sticker in the style of Choi Gosim: naive bold crayon lines, bright primary accent colors, cheerful and charming',
   'office-meme':
@@ -50,10 +52,10 @@ export const STYLE_DIRECTIONS: Record<Tone, string> = {
 };
 
 const IDENTITY_RULES =
-  'Use the attached photo as the ONLY reference for who this is. Keep the same person: identical face shape, eyes, nose, lips, eyebrows, skin tone, hairstyle and hair color, and glasses if worn. Do not change age, gender or ethnicity. Do not turn the head into an oversized bobble shape or distort the features; the likeness must stay recognizable to friends.';
+  'Use the attached photo as the ONLY reference for who this is. Study it carefully and reproduce the real facial geometry exactly: the same distance between the eyes, eye shape and eyelid type, nose width and bridge, lip shape and thickness, jawline, cheekbone width, ear shape, eyebrow thickness and angle, forehead size, hairline, and the same hairstyle, hair length and parting. Keep the real skin tone and any visible features such as moles or wrinkles. Do not change age, gender or ethnicity. Do not beautify, slim or idealize the face.';
 
 const LAYOUT_RULES =
-  'Single person, head and shoulders, centered, facing the viewer. Plain solid white background. One sticker only. No watermark, no extra text, no logos.';
+  'Single person. The head and upper shoulders fill most of a square canvas at the same size and position in every image, centered, facing the viewer, eyes near the upper third. Plain solid white background. One person only. No border, no circle or frame around the subject, no watermark, and no text except a requested speech bubble.';
 
 export interface RenderInput {
   /** 순수 base64 (data: 접두사 없음) */
@@ -65,6 +67,10 @@ export interface RenderInput {
   line?: string;
   /** 시안 구분용 추가 지시 (예: 'natural proportions') */
   variantNote?: string;
+}
+
+export function modelForTone(tone: Tone): string {
+  return tone === 'caricature' ? PHOTO_MODEL : STYLE_MODEL;
 }
 
 export function buildRenderPrompt(input: RenderInput): string {
@@ -100,6 +106,7 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new RenderError('AI_NOT_CONFIGURED', 'AI 생성 키가 설정되지 않았습니다');
 
+  const model = modelForTone(input.tone);
   const body = JSON.stringify({
     contents: [
       {
@@ -110,7 +117,7 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
       },
     ],
     generationConfig: {
-      temperature: input.tone === 'caricature' ? 0.3 : 0.5,
+      temperature: input.tone === 'caricature' ? 0.25 : 0.5,
       topP: 0.9,
       maxOutputTokens: 2048,
     },
@@ -119,7 +126,7 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
   // 일시적 과부하(429/503)는 한 번 재시도한다
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -139,7 +146,7 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
     }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      console.error('[gemini-render] http', res.status, text.slice(0, 300));
+      console.error('[gemini-render] http', model, res.status, text.slice(0, 300));
       throw new RenderError('AI_FAILED', 'AI 생성에 실패했어요. 다시 시도해 주세요');
     }
 

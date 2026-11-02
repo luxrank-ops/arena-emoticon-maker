@@ -24,7 +24,12 @@ const schema = z.object({
     .max(4_000_000)
     .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, '사진 형식을 확인해 주세요'),
   target: z.discriminatedUnion('kind', [
-    z.object({ kind: z.literal('frame'), frameId: z.string().min(3).max(80) }),
+    z.object({
+      kind: z.literal('frame'),
+      frameId: z.string().min(3).max(80),
+      /** true 면 기존 컷을 무시하고 현재 대사·표정으로 다시 그린다 (에디터 재생성) */
+      force: z.boolean().optional(),
+    }),
     z.object({
       kind: z.literal('sheet'),
       sheetId: z.string().min(3).max(80),
@@ -60,7 +65,7 @@ export async function POST(req: Request) {
         );
         if (!pack) throw Object.assign(new Error('컷을 찾을 수 없습니다'), { code: 'FRAME_NOT_FOUND' });
         const frame = pack.frames.find((f) => f.id === target.frameId)!;
-        if (frame.imageId) return { existing: frame.imageId as string };
+        if (frame.imageId && !target.force) return { existing: frame.imageId as string };
         return {
           kind: 'frame' as const,
           packId: pack.id,

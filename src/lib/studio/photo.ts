@@ -49,7 +49,7 @@ export function hasPhoto(): boolean {
 }
 
 export type RenderTarget =
-  | { kind: 'frame'; frameId: string }
+  | { kind: 'frame'; frameId: string; force?: boolean }
   | { kind: 'sheet'; sheetId: string; variantKey: string };
 
 /** 컷/시안 1장 생성. 성공 시 이미지 URL */

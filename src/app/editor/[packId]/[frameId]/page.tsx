@@ -44,6 +44,7 @@ export default async function EditorPage({
         watermark={view.watermark}
         index={frame.index}
         total={view.total}
+        aiPack={view.pack.renderer === 'ai'}
       />
     </div>
   );
