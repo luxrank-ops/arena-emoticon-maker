@@ -3,7 +3,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import sharp from 'sharp';
-import { firestoreImageGet, firestoreImagePut, hasFirestore } from '@/lib/firestore';
+import { firestoreImageDelete, firestoreImageGet, firestoreImagePut, hasFirestore } from '@/lib/firestore';
 
 // ─────────────────────────────────────────────────────────────
 // 생성 이미지 저장소 (서버 전용)
@@ -48,6 +48,16 @@ export async function saveImage(id: string, userId: string, webp: Buffer): Promi
   const dir = path.join(os.tmpdir(), 'emotime-images');
   await fs.mkdir(dir, { recursive: true });
   await fs.writeFile(path.join(dir, `${id}.json`), JSON.stringify({ userId, data: b64 }));
+}
+
+/** 생성 이미지 영구 삭제 (팩 삭제, 다시 그리기 후 이전 컷 정리에 사용). 실패해도 호출자는 계속 진행한다 */
+export async function deleteImage(id: string): Promise<void> {
+  if (!IMAGE_ID_PATTERN.test(id)) return;
+  if (hasFirestore()) {
+    await firestoreImageDelete(id);
+    return;
+  }
+  await fs.unlink(path.join(os.tmpdir(), 'emotime-images', `${id}.json`)).catch(() => undefined);
 }
 
 export async function loadImage(id: string): Promise<{ userId: string; data: Buffer } | null> {

@@ -344,3 +344,28 @@ export async function getSheetView(userId: string, sheetId: string) {
     return { sheet, face };
   });
 }
+
+/**
+ * 팩 삭제: 팩과 그 컷 이미지 목록을 돌려준다 (이미지 실제 삭제는 호출자가 한다).
+ *  · 이 팩에서만 쓰던 캐릭터 시트와 그 시안 이미지도 함께 대상이 된다.
+ *  · 이미 쓴 크레딧은 환불하지 않는다.
+ */
+export async function deletePack(userId: string, packId: string): Promise<{ imageIds: string[] }> {
+  return withDB((db) => {
+    const idx = db.packs.findIndex((p) => p.id === packId && p.userId === userId);
+    if (idx < 0) throw new PackError('PACK_NOT_FOUND', '팩을 찾을 수 없습니다');
+    const pack = db.packs[idx];
+    const imageIds = pack.frames.map((f) => f.imageId).filter((x): x is string => !!x);
+    db.packs.splice(idx, 1);
+
+    const sheetStillUsed = db.packs.some((p) => p.sheetId === pack.sheetId);
+    if (!sheetStillUsed) {
+      const sIdx = db.sheets.findIndex((s) => s.id === pack.sheetId && s.userId === userId);
+      if (sIdx >= 0) {
+        const [sheet] = db.sheets.splice(sIdx, 1);
+        for (const v of sheet.variants) if (v.imageId) imageIds.push(v.imageId);
+      }
+    }
+    return { imageIds };
+  });
+}

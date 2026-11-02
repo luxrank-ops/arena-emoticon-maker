@@ -321,3 +321,12 @@ export async function firestoreImageGet(id: string): Promise<{ userId: string; d
   if (!userId || !data) return null;
   return { userId, data };
 }
+
+/** 생성 이미지 문서 삭제 (없어도 성공으로 본다) */
+export async function firestoreImageDelete(id: string): Promise<void> {
+  const res = await fsFetch(`/${IMAGE_COLLECTION}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok && res.status !== 404) {
+    throw new Error(`firestore image delete ${res.status}: ${await errorText(res)}`);
+  }
+  await res.body?.cancel().catch(() => undefined);
+}

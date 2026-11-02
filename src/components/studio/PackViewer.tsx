@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
+import { useRouter } from 'next/navigation';
 import { Sticker } from '@/components/Sticker';
 import { compressPhotoFile, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import { downloadBlob, exportKakaoPackZip, exportPackZip, renderPngBlob } from '@/lib/export';
@@ -36,6 +37,8 @@ export function PackViewer({
   const [genRound, setGenRound] = useState(0);
   const [generating, setGenerating] = useState(false);
   const aiPack = initialPack.renderer === 'ai';
+  const router = useRouter();
+  const [deleting, setDeleting] = useState(false);
 
   // AI 컷 생성: 아직 이미지가 없는 컷만 3개씩 병렬로 만든다 (사진은 이 탭의 임시 보관본)
   useEffect(() => {
@@ -58,6 +61,24 @@ export function PackViewer({
     }).finally(() => setGenerating(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genRound]);
+
+  async function deletePackNow() {
+    const ok = window.confirm(
+      '이 팩과 컷 이미지를 모두 삭제할까요?\n삭제한 이미지는 복구할 수 없고, 사용한 크레딧은 환불되지 않습니다.',
+    );
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/packs/${initialPack.id}`, { method: 'DELETE' });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json?.error?.message ?? '삭제하지 못했어요');
+      router.push('/studio/upload');
+      router.refresh();
+    } catch (e) {
+      setNotice((e as Error).message);
+      setDeleting(false);
+    }
+  }
 
   async function onPickPhoto(file: File) {
     try {
@@ -157,6 +178,13 @@ export function PackViewer({
             {zipBusy ? 'ZIP 만드는 중…' : '전체 PNG ZIP 다운로드'}
           </button>
           <Link href="/reply" className="btn-ghost !py-2 text-xs">톡 답장에 쓰기</Link>
+          <button
+            onClick={deletePackNow}
+            disabled={deleting}
+            className="rounded-full border border-coral/50 px-3 py-2 text-xs font-bold text-coralink hover:bg-coral/10 disabled:opacity-50"
+          >
+            {deleting ? '삭제 중…' : '팩 삭제'}
+          </button>
           <Link href="/goods" className="btn-ghost !py-2 text-xs">굿즈로 만들기</Link>
           {watermark ? (
             <Link href="/pricing" className="chip !border-coral/50 !bg-coral/10 !text-coralink">

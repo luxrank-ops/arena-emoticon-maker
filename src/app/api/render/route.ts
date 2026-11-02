@@ -4,7 +4,7 @@ import { getCurrentUser } from '@/lib/session';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 import { RenderError, renderWithGemini } from '@/lib/ai/gemini-render';
-import { encodeWebp, newImageId, saveImage } from '@/lib/images';
+import { deleteImage, encodeWebp, newImageId, saveImage } from '@/lib/images';
 import { applyCredits, CreditError } from '@/lib/credits';
 import type { Emotion, Tone } from '@/lib/types';
 
@@ -79,6 +79,7 @@ export async function POST(req: Request) {
           line: frame.line,
           variantNote: undefined as string | undefined,
           charged: !!target.force,
+          previousImageId: frame.imageId as string | undefined,
         };
       }
       const sheet = db.sheets.find((s) => s.id === target.sheetId && s.userId === user.id);
@@ -96,6 +97,7 @@ export async function POST(req: Request) {
         line: '',
         variantNote: SHEET_NOTES[variantIndex] ?? SHEET_NOTES[0],
         charged: false,
+        previousImageId: undefined as string | undefined,
       };
     });
 
@@ -156,6 +158,11 @@ export async function POST(req: Request) {
           bytes: webp.length,
         });
       });
+
+      // 다시 그린 컷이면 이전 이미지는 바로 지운다 (고아 이미지 방지)
+      if (plan.previousImageId && plan.previousImageId !== imageId) {
+        await deleteImage(plan.previousImageId).catch(() => undefined);
+      }
 
       return ok({ imageId, imageUrl: `/api/images/${imageId}` });
     } catch (e) {

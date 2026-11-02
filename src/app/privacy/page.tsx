@@ -34,7 +34,7 @@ export default function PrivacyPage() {
                 <tr className="border-b border-line">
                   <td className="py-2 font-bold text-ink">생성된 컷 이미지</td>
                   <td className="py-2">내 팩 제공, 굿즈 제작, 답장·브리핑에 재사용</td>
-                  <td className="py-2">삭제 요청 시까지 (4항 참고)</td>
+                  <td className="py-2">팩 삭제 시까지 (4항 참고)</td>
                 </tr>
                 <tr className="border-b border-line">
                   <td className="py-2 font-bold text-ink">이메일·닉네임(선택), 결제·정산 기록</td>
@@ -90,8 +90,7 @@ export default function PrivacyPage() {
           <h2 className="text-sm font-black text-ink">4. 파기 절차 및 방법</h2>
           <p className="mt-2">
             얼굴 분석 지표는 생성 후 24시간이 지나면 자동 파기됩니다. 원본 사진은 저장하지 않으므로 파기 대상이 아닙니다.
-            생성된 컷 이미지는 회원이 삭제를 요청하면 지체 없이 삭제합니다. 현재 앱 안에서 바로 삭제하는 기능은 준비 중이며,
-            support@emotime.app 으로 요청하면 수동으로 처리합니다. 전자적 파일은 복구 불가능한 방법으로 삭제하고, 처리 기록을 남깁니다.
+            생성된 컷 이미지는 팩 상세 화면의 "팩 삭제"로 즉시 영구 삭제할 수 있습니다. 삭제된 이미지는 복구할 수 없으며, 이미 사용한 크레딧은 환불되지 않습니다. 계정 전체 삭제나 앱에서 처리할 수 없는 요청은 support@emotime.app 으로 접수하면 수동으로 처리합니다. 전자적 파일은 복구 불가능한 방법으로 삭제하고, 처리 기록을 남깁니다.
           </p>
         </section>
 
