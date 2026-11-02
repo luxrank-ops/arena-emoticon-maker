@@ -75,8 +75,7 @@ export default async function SheetPage({ params }: { params: { id: string } }) 
       />
 
       <p className="mt-8 text-center text-[11px] text-sub">
-        얼굴 특징점은 <strong className="text-ink">{formatKstDate(face.purgedAt)}</strong>까지
-        보관된 뒤 파기 예약되어 있습니다 · 원본 사진은 보관하지 않습니다
+        생성된 컷은 팩과 함께 보관됩니다 · 원본 사진은 저장하지 않습니다 · 얼굴 파생 정보 기한 <strong className="text-ink">{formatKstDate(face.purgedAt)}</strong>
       </p>
     </div>
   );

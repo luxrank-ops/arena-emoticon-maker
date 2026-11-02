@@ -23,7 +23,7 @@ export default async function UploadPage() {
         <div>
           <h1 className="h2">내 얼굴로 이모티콘 만들기</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-sub">
-            셀카 1장이면 충분합니다. 얼굴 분석은 브라우저에서만 이뤄지고, 서버에는 색상·특징 지표만 전달돼요.
+            셀카 1장이면 충분합니다. 사진은 컷을 그릴 때만 AI(Google Gemini)로 전송되고, 원본은 서버에 저장하지 않아요.
           </p>
         </div>
         <div className="card-flat p-4 text-sm">
@@ -39,8 +39,7 @@ export default async function UploadPage() {
       <UploadFlow allowedTones={tones} credits={user.credits} planName={PLANS[user.plan].name} />
 
       <div className="mt-10 rounded-2xl border-2 border-dashed border-line p-4 text-center text-xs text-sub">
-        사진이 서버에 저장된다고요? <strong className="text-ink">아니요.</strong> 이모티미는 원본 이미지를 업로드하지
-        않습니다. 자세한 내용은 <Link href="/privacy" className="text-coralink underline">개인정보처리방침</Link>.
+        사진이 서버에 저장되나요? <strong className="text-ink">아니요.</strong> 생성 요청 때만 전송되고 응답 후 버려집니다. 자세한 내용은 <Link href="/privacy" className="text-coralink underline">개인정보처리방침</Link>.
       </div>
     </div>
   );
