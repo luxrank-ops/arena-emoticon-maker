@@ -93,7 +93,10 @@ export function UploadFlow({
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       {/* ── 왼쪽: 업로드 & 동의 ───────────────────────────── */}
-      <div className="space-y-4">
+      <div className="space-y-4">          <div className="flex gap-2 mb-4">
+            <button onClick={() => setMode('face')} className={clsx("btn-ghost flex-1", mode === 'face' && "btn-dark")}>얼굴형</button>
+            <button onClick={() => setMode('full')} className={clsx("btn-ghost flex-1", mode === 'full' && "btn-dark")}>전신형</button>
+          </div>
         <div
           onDragOver={(e) => {
             e.preventDefault();
