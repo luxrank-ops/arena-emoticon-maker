@@ -165,7 +165,7 @@ export function FrameEditor({
 
       {/* 편집 패널 */}
       <div className="space-y-4">
-        {aiPack ? (
+        { (aiPack || frame.spec.imageUrl) ? (
           <div className="card p-5">
             <p className="text-sm font-black">AI로 다시 그리기</p>
             <p className="mt-1 text-[12px] leading-relaxed text-sub">
