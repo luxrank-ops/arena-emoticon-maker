@@ -7,7 +7,10 @@ import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
 const schema = z.object({
   faceId: z.string().min(3),
-  tone: z.enum(['2d-cute', '3d-cartoon', 'sketch', 'mono', 'watercolor', 'caricature']),
+  tone: z.enum([
+    '2d-cute', '3d-cartoon', 'sketch', 'mono', 'watercolor', 'caricature',
+    'doodle', 'office-meme', 'clay-3d', 'pixel-art',
+  ]),
 });
 
 export async function POST(req: Request) {

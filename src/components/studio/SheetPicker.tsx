@@ -1,11 +1,18 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { TONES } from '@/lib/art/sticker';
-import type { Palette, SheetVariant, Tone } from '@/lib/types';
+import { compressPhotoFile, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
+import type { Palette, SheetVariant, StickerSpec, Tone } from '@/lib/types';
+
+// ─────────────────────────────────────────────────────────────
+// 캐릭터 시안 선택 (AI 생성본)
+//  · 시안 3종은 사진을 참조해 Gemini 가 실제로 그린 이미지다 (SVG 아님)
+//  · 사진은 이 탭의 임시 보관본을 쓰고, 생성 요청 때만 서버로 전송된다
+// ─────────────────────────────────────────────────────────────
 
 export function SheetPicker({
   sheetId,
@@ -27,19 +34,71 @@ export function SheetPicker({
   const [size, setSize] = useState<12 | 24>(12);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [images, setImages] = useState<Record<string, string>>(() =>
+    Object.fromEntries(variants.filter((v) => v.imageId).map((v) => [v.key, `/api/images/${v.imageId}`])),
+  );
+  const [pending, setPending] = useState<Record<string, boolean>>({});
+  const [failed, setFailed] = useState<Record<string, string>>({});
+  const [needPhoto, setNeedPhoto] = useState(false);
+  const [photoTick, setPhotoTick] = useState(0);
 
-  const spec = (v: SheetVariant, emotion: 'joy' | 'king' | 'love' = 'joy') => ({
-    seed: v.seed,
-    tone,
-    palette,
-    signature: v.signature,
-    emotion,
-    intensity: 72,
-    prop: 'none' as const,
-    background: 'cream' as const,
-    line: emotion === 'joy' ? '안녕!' : emotion === 'king' ? '킹받네' : '하트뿅',
-    linePosition: 'bottom' as const,
-  });
+  async function generate(keys: string[]) {
+    const photo = loadPhoto();
+    if (!photo) {
+      setNeedPhoto(true);
+      return;
+    }
+    setFailed((prev) => {
+      const next = { ...prev };
+      for (const k of keys) delete next[k];
+      return next;
+    });
+    setPending((prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, true])) }));
+    await runLimited(keys, 3, async (key) => {
+      try {
+        const url = await renderImage({ kind: 'sheet', sheetId, variantKey: key }, photo);
+        setImages((prev) => ({ ...prev, [key]: url }));
+      } catch (e) {
+        setFailed((prev) => ({ ...prev, [key]: (e as Error).message }));
+      } finally {
+        setPending((prev) => ({ ...prev, [key]: false }));
+      }
+    });
+  }
+
+  // 처음 열렸을 때, 그리고 사진을 다시 올렸을 때 아직 없는 시안을 생성한다
+  useEffect(() => {
+    const missing = variants.filter((v) => !images[v.key]).map((v) => v.key);
+    if (missing.length) void generate(missing);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [photoTick]);
+
+  async function onPickPhoto(file: File) {
+    setError(null);
+    try {
+      savePhoto(await compressPhotoFile(file));
+      setNeedPhoto(false);
+      setPhotoTick((t) => t + 1);
+    } catch (e) {
+      setError((e as Error).message);
+    }
+  }
+
+  function specOf(v: SheetVariant): StickerSpec {
+    return {
+      seed: v.seed,
+      tone,
+      palette,
+      signature: v.signature,
+      emotion: 'joy',
+      intensity: 72,
+      prop: 'none',
+      background: 'cream',
+      line: '',
+      linePosition: 'bottom',
+      imageUrl: images[v.key],
+    };
+  }
 
   async function create() {
     if (!chosen) return;
@@ -69,41 +128,98 @@ export function SheetPicker({
     }
   }
 
+  const chosenReady = !!(chosen && images[chosen]);
+
   return (
     <div className="space-y-6">
+      {needPhoto ? (
+        <div className="card flex flex-wrap items-center justify-between gap-3 p-5">
+          <div>
+            <p className="text-sm font-black">이 탭에 사진이 없어요</p>
+            <p className="text-xs text-sub">
+              사진은 탭을 닫으면 지워집니다. 같은 셀카를 한 번 더 올려 주세요.
+            </p>
+          </div>
+          <label className="btn-primary cursor-pointer !py-2 text-xs">
+            셀카 다시 올리기
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onPickPhoto(f);
+              }}
+            />
+          </label>
+        </div>
+      ) : null}
+
       <div className="grid gap-4 md:grid-cols-3">
-        {variants.map((v) => (
-          <button
-            key={v.key}
-            onClick={() => setChosen(v.key)}
-            className={clsx(
-              'card overflow-hidden p-0 text-left transition',
-              chosen === v.key ? 'ring-4 ring-coral/40' : 'hover:-translate-y-0.5',
-            )}
-          >
-            <div className="bg-cream p-3">
-              <Sticker spec={spec(v)} ariaLabel={`캐릭터 시안 ${v.key}`} />
-            </div>
-            <div className="flex items-center justify-between border-t-2 border-line px-4 py-3">
-              <div>
-                <p className="text-sm font-black">
-                  시안 {v.key} · {v.label}
-                </p>
-                <p className="text-[11px] text-sub">
-                  {TONES[tone].label} · 표정 12종 파생
-                </p>
-              </div>
-              <span
-                className={clsx(
-                  'grid h-6 w-6 place-items-center rounded-full border-2 text-xs font-black',
-                  chosen === v.key ? 'border-ink bg-coral text-white' : 'border-line text-sub',
+        {variants.map((v) => {
+          const isPending = !!pending[v.key];
+          const err = failed[v.key];
+          return (
+            <div
+              key={v.key}
+              role="button"
+              tabIndex={0}
+              onClick={() => images[v.key] && setChosen(v.key)}
+              onKeyDown={(e) => {
+                if ((e.key === 'Enter' || e.key === ' ') && images[v.key]) setChosen(v.key);
+              }}
+              className={clsx(
+                'card overflow-hidden p-0 text-left transition',
+                images[v.key] ? 'cursor-pointer' : 'cursor-default',
+                chosen === v.key ? 'ring-4 ring-coral/40' : images[v.key] ? 'hover:-translate-y-0.5' : '',
+              )}
+            >
+              <div className="bg-cream p-3">
+                {images[v.key] ? (
+                  <Sticker spec={specOf(v)} ariaLabel={`캐릭터 시안 ${v.key}`} />
+                ) : (
+                  <div className="grid aspect-square place-items-center rounded-xl bg-[length:200%_100%] bg-gradient-to-r from-line/20 via-line/50 to-line/20 p-4 text-center animate-shimmer">
+                    {err ? (
+                      <div className="space-y-2">
+                        <p className="text-[11px] font-bold text-coralink">{err}</p>
+                        <button
+                          type="button"
+                          className="btn-ghost !px-3 !py-1.5 text-[11px]"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void generate([v.key]);
+                          }}
+                        >
+                          다시 그리기
+                        </button>
+                      </div>
+                    ) : (
+                      <span className="text-[11px] font-bold text-sub">
+                        {isPending || !needPhoto ? 'AI가 시안을 그리는 중…' : '사진을 기다리는 중'}
+                      </span>
+                    )}
+                  </div>
                 )}
-              >
-                ✓
-              </span>
+              </div>
+              <div className="flex items-center justify-between border-t-2 border-line px-4 py-3">
+                <div>
+                  <p className="text-sm font-black">
+                    시안 {v.key} · {v.label}
+                  </p>
+                  <p className="text-[11px] text-sub">{TONES[tone].label} · 같은 얼굴 기준</p>
+                </div>
+                <span
+                  className={clsx(
+                    'grid h-6 w-6 place-items-center rounded-full border-2 text-xs font-black',
+                    chosen === v.key ? 'border-ink bg-coral text-white' : 'border-line text-sub',
+                  )}
+                >
+                  ✓
+                </span>
+              </div>
             </div>
-          </button>
-        ))}
+          );
+        })}
       </div>
 
       <div className="card p-5">
@@ -140,11 +256,17 @@ export function SheetPicker({
           </p>
         ) : null}
 
-        <button className="btn-primary mt-4 w-full !py-4" disabled={!chosen || busy} onClick={create}>
-          {busy ? '팩 생성 중…' : chosen ? `${size}컷 생성하기 (${size}크레딧)` : '캐릭터를 먼저 선택해 주세요'}
+        <button className="btn-primary mt-4 w-full !py-4" disabled={!chosenReady || busy} onClick={create}>
+          {busy
+            ? '팩 만드는 중…'
+            : chosenReady
+              ? `${size}컷 만들기 (${size}크레딧)`
+              : chosen
+                ? '시안을 그리는 중입니다'
+                : '마음에 드는 시안을 골라 주세요'}
         </button>
         <p className="mt-2 text-center text-[11px] text-sub">
-          생성은 90초 이내 · 미리보기는 준비되는 순서대로 열립니다
+          컷은 한 장씩 AI가 그리며, 완성되는 순서대로 팩에 나타납니다
         </p>
       </div>
     </div>

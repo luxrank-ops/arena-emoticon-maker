@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
+import { compressPhotoFile, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import { downloadBlob, exportKakaoPackZip, exportPackZip, renderPngBlob } from '@/lib/export';
 import { formatKstDateTime } from '@/lib/time';
 import { formatBytes, KAKAO_RULES, type PackValidation } from '@/lib/packager';
@@ -12,7 +13,7 @@ import type { FrameView, Pack, Plan } from '@/lib/types';
 export function PackViewer({
   pack: initialPack,
   frames: initialFrames,
-  ready: initialReady,
+  ready: _initialReady,
   total,
   watermark,
   kakao,
@@ -25,49 +26,58 @@ export function PackViewer({
   kakao: { validation: PackValidation; packaging: boolean; plan: Plan };
 }) {
   const [frames, setFrames] = useState(initialFrames);
-  const [ready, setReady] = useState(initialReady);
-  const [status, setStatus] = useState(initialPack.status);
   const [zipBusy, setZipBusy] = useState(false);
   const [kakaoBusy, setKakaoBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [kakaoNotice, setKakaoNotice] = useState<string | null>(null);
   const [kakaoFiles, setKakaoFiles] = useState<{ name: string; bytes: number }[] | null>(null);
+  const [photoMissing, setPhotoMissing] = useState(false);
+  const [genErrors, setGenErrors] = useState<Record<string, string>>({});
+  const [genRound, setGenRound] = useState(0);
+  const [generating, setGenerating] = useState(false);
+  const aiPack = initialPack.renderer === 'ai';
 
-  // SSE 진행률
+  // AI 컷 생성: 아직 이미지가 없는 컷만 3개씩 병렬로 만든다 (사진은 이 탭의 임시 보관본)
   useEffect(() => {
-    if (status === 'READY') return;
-    const es = new EventSource(`/api/packs/${initialPack.id}/stream`);
-    es.addEventListener('frame.ready', (e) => {
-      const data = JSON.parse((e as MessageEvent).data) as { ready: number; total: number; status: string };
-      setReady(data.ready);
-      setStatus(data.status as Pack['status']);
-    });
-    es.addEventListener('job.done', () => {
-      setStatus('READY');
-      es.close();
-      void refresh();
-    });
-    es.onerror = () => es.close();
-    return () => es.close();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialPack.id, status]);
-
-  async function refresh() {
-    try {
-      const res = await fetch(`/api/packs/${initialPack.id}`, { cache: 'no-store' });
-      const json = await res.json();
-      if (json.ok) {
-        setFrames(json.frames);
-        setReady(json.ready);
-        setStatus(json.pack.status);
+    if (!aiPack) return;
+    const missing = frames.filter((f) => !f.spec.imageUrl && !genErrors[f.id]).map((f) => f.id);
+    if (missing.length === 0) return;
+    const photo = loadPhoto();
+    if (!photo) {
+      setPhotoMissing(true);
+      return;
+    }
+    setGenerating(true);
+    void runLimited(missing, 3, async (id) => {
+      try {
+        const url = await renderImage({ kind: 'frame', frameId: id }, photo);
+        setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, spec: { ...f.spec, imageUrl: url } } : f)));
+      } catch (e) {
+        setGenErrors((prev) => ({ ...prev, [id]: (e as Error).message }));
       }
-    } catch {
-      /* noop */
+    }).finally(() => setGenerating(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [genRound]);
+
+  async function onPickPhoto(file: File) {
+    try {
+      savePhoto(await compressPhotoFile(file));
+      setPhotoMissing(false);
+      setGenRound((r) => r + 1);
+    } catch (e) {
+      setNotice((e as Error).message);
     }
   }
 
-  const visible = useMemo(() => frames.map((f, i) => ({ ...f, ready: f.ready || i < ready })), [frames, ready]);
-  const done = status === 'READY';
+  function retryFailed() {
+    setGenErrors({});
+    setGenRound((r) => r + 1);
+  }
+
+  // AI 팩은 이미지가 실제로 생성돼야 완성 컷으로 본다 (시간 기반 가짜 완료 금지)
+  const visible = frames.map((f) => ({ ...f, ready: aiPack ? !!f.spec.imageUrl : f.ready }));
+  const ready = visible.filter((f) => f.ready).length;
+  const done = ready >= total;
 
   async function downloadOne(f: FrameView) {
     const blob = await renderPngBlob(f.spec, { watermark });
@@ -156,6 +166,41 @@ export function PackViewer({
         </div>
         {notice ? <p className="mt-2 text-xs font-bold text-mint">{notice}</p> : null}
       </div>
+
+      {aiPack && (photoMissing || Object.keys(genErrors).length > 0 || generating) ? (
+        <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
+          {photoMissing ? (
+            <>
+              <p className="text-sm font-bold">
+                이 탭에 사진이 없어 컷을 그릴 수 없어요. 같은 셀카를 다시 올려 주세요.
+              </p>
+              <label className="btn-primary cursor-pointer !py-2 text-xs">
+                셀카 다시 올리기
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) void onPickPhoto(f);
+                  }}
+                />
+              </label>
+            </>
+          ) : generating ? (
+            <p className="text-sm font-bold text-sub">AI가 컷을 그리는 중이에요. 완성되는 순서대로 나타납니다.</p>
+          ) : (
+            <>
+              <p className="text-sm font-bold text-coralink">
+                일부 컷을 그리지 못했어요 ({Object.keys(genErrors).length}컷).
+              </p>
+              <button className="btn-ghost !py-2 text-xs" onClick={retryFailed}>
+                실패한 컷 다시 그리기
+              </button>
+            </>
+          )}
+        </div>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         {visible.map((f) => (

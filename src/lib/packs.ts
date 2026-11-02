@@ -158,6 +158,7 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     title: title?.trim() || `${sheet.tone === 'caricature' ? '개그' : '나의'} 이모티콘 팩`,
     size,
     status: 'GENERATING',
+    renderer: 'ai',
     creditsSpent: size,
     createdAt: new Date().toISOString(),
     frames,
@@ -191,6 +192,7 @@ export function specFromIdentity(identity: IdentitySnapshot, frame: Frame): Stic
     background: frame.background,
     line: frame.line,
     linePosition: 'bottom',
+    imageUrl: frame.imageId ? `/api/images/${frame.imageId}` : undefined,
   };
 }
 
@@ -230,6 +232,8 @@ function fallbackIdentity(tone: Tone): IdentitySnapshot {
 }
 
 export function readyCount(pack: Pack, now = Date.now()) {
+  // AI 팩은 컷 이미지가 실제로 생성돼야 완성으로 본다 (시간 기반 가짜 완료 금지)
+  if (pack.renderer === 'ai') return pack.frames.filter((f) => !!f.imageId).length;
   return pack.frames.filter((f) => f.readyAt <= now).length;
 }
 
@@ -248,7 +252,11 @@ export async function getPackView(userId: string, packId: string) {
     const frames: FrameView[] = pack.frames
       .slice()
       .sort((a, b) => a.index - b.index)
-      .map((f) => ({ ...f, spec: specFromIdentity(identity, f), ready: f.readyAt <= now }));
+      .map((f) => ({
+        ...f,
+        spec: specFromIdentity(identity, f),
+        ready: pack.renderer === 'ai' ? !!f.imageId : f.readyAt <= now,
+      }));
     return {
       pack: { ...pack, status: (ready >= pack.frames.length ? 'READY' : 'GENERATING') as Pack['status'] },
       frames,

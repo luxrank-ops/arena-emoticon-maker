@@ -292,3 +292,32 @@ export async function firestoreCas(version: string, next: string): Promise<boole
 export async function firestoreDebugRead(): Promise<string | null> {
   return (await firestoreRead()).raw;
 }
+
+// ─────────────────────────────────────────────────────────────
+// 생성 이미지 저장 (문서 1개 = 이미지 1장, base64 WebP)
+//  · 앱 상태 문서(emotime/store)와 분리해 1 MiB 상한과 CAS 충돌을 피한다.
+//  · 원본 사진은 여기에 절대 저장하지 않는다 (생성 결과물만).
+// ─────────────────────────────────────────────────────────────
+const IMAGE_COLLECTION = process.env.FIRESTORE_IMAGE_COLLECTION || 'emotime_images';
+
+export async function firestoreImagePut(id: string, userId: string, base64: string): Promise<void> {
+  const res = await fsFetch(`/${IMAGE_COLLECTION}?documentId=${encodeURIComponent(id)}`, {
+    method: 'POST',
+    body: JSON.stringify({
+      fields: {
+        userId: { stringValue: userId },
+        data: { stringValue: base64 },
+      },
+    }),
+  });
+  if (!res.ok) throw new Error(`firestore image put ${res.status}: ${await errorText(res)}`);
+}
+
+export async function firestoreImageGet(id: string): Promise<{ userId: string; data: string } | null> {
+  const doc = await getDoc(`${IMAGE_COLLECTION}/${encodeURIComponent(id)}`);
+  if (!doc) return null;
+  const userId = str(doc, 'userId');
+  const data = str(doc, 'data');
+  if (!userId || !data) return null;
+  return { userId, data };
+}

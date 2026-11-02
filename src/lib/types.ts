@@ -91,6 +91,8 @@ export interface FaceSignature {
 }
 
 export interface StickerSpec {
+  /** AI 생성 이미지 URL (있으면 절차적 SVG 대신 이 이미지를 그린다) */
+  imageUrl?: string;
   seed: number;
   tone: Tone;
   palette: Palette;
@@ -151,6 +153,8 @@ export interface SheetVariant {
   seed: number;
   signature: FaceSignature;
   label: string;
+  /** AI 생성 이미지 ID */
+  imageId?: string;
 }
 
 export interface CharacterSheet {
@@ -177,6 +181,8 @@ export interface Frame {
   seed: number;
   readyAt: number;
   usageCount: number;
+  /** AI 생성 이미지 ID (`/api/images/<id>`) */
+  imageId?: string;
 }
 
 export interface FrameView extends Frame {
@@ -195,6 +201,8 @@ export interface Pack {
   creditsSpent: number;
   createdAt: string;
   frames: Frame[];
+  /** 'ai' 면 컷 이미지(imageId)가 있어야 완성. 없으면 레거시 SVG 재조합 팩 */
+  renderer?: 'ai';
   /**
    * 비식별 렌더 스냅샷 (팔레트 + 얼굴 시그니처 + 화풍).
    * 얼굴 프로필은 24시간 뒤 파기되므로, 팩이 그 뒤에도 계속 렌더되려면

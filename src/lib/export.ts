@@ -60,12 +60,58 @@ function drawWatermark(ctx: CanvasRenderingContext2D, size: number) {
   ctx.restore();
 }
 
+/** AI 컷 이미지(URL)를 로드한다 (same-origin 이라 캔버스가 오염되지 않는다) */
+async function loadUrlImage(url: string): Promise<HTMLImageElement> {
+  const img = new Image();
+  img.decoding = 'sync';
+  img.src = url;
+  await img.decode();
+  return img;
+}
+
+/**
+ * 흰 배경을 가장자리에서부터 투명으로 지운다.
+ * 가장자리와 이어진 흰색만 지우므로 안쪽 흰 눈동자·하이라이트는 남는다.
+ */
+function knockOutWhiteBackground(ctx: CanvasRenderingContext2D, size: number) {
+  const data = ctx.getImageData(0, 0, size, size);
+  const px = data.data;
+  const seen = new Uint8Array(size * size);
+  const stack: number[] = [];
+  const isWhite = (idx: number) => px[idx * 4] > 238 && px[idx * 4 + 1] > 238 && px[idx * 4 + 2] > 238;
+  const push = (x: number, y: number) => {
+    const idx = y * size + x;
+    if (!seen[idx] && isWhite(idx)) {
+      seen[idx] = 1;
+      stack.push(idx);
+    }
+  };
+  for (let x = 0; x < size; x++) {
+    push(x, 0);
+    push(x, size - 1);
+  }
+  for (let y = 0; y < size; y++) {
+    push(0, y);
+    push(size - 1, y);
+  }
+  while (stack.length) {
+    const idx = stack.pop()!;
+    px[idx * 4 + 3] = 0;
+    const x = idx % size;
+    const y = (idx - x) / size;
+    if (x > 0) push(x - 1, y);
+    if (x < size - 1) push(x + 1, y);
+    if (y > 0) push(x, y - 1);
+    if (y < size - 1) push(x, y + 1);
+  }
+  ctx.putImageData(data, 0, 0);
+}
+
 export async function renderPngBlob(
   spec: StickerSpec,
   opts: { size?: number; watermark?: boolean } = {},
 ): Promise<Blob> {
   const size = opts.size ?? SIZE;
-  const img = await loadImage(renderSticker(spec));
   const canvas = canvasOf(size);
   const ctx = canvas.getContext('2d')!;
   ctx.clearRect(0, 0, size, size);
@@ -73,7 +119,15 @@ export async function renderPngBlob(
     ctx.fillStyle = backgroundFill(spec.background);
     ctx.fillRect(0, 0, size, size);
   }
-  ctx.drawImage(img, 0, 0, size, size);
+  if (spec.imageUrl) {
+    // AI 컷: 실제 생성 이미지를 그대로 쓴다 (투명 배경이면 흰 배경만 지운다)
+    const photo = await loadUrlImage(spec.imageUrl);
+    ctx.drawImage(photo, 0, 0, size, size);
+    if (spec.background === 'transparent') knockOutWhiteBackground(ctx, size);
+  } else {
+    const img = await loadImage(renderSticker(spec));
+    ctx.drawImage(img, 0, 0, size, size);
+  }
   if (opts.watermark) drawWatermark(ctx, size);
   return await new Promise((resolve) => canvas.toBlob((b) => resolve(b!), 'image/png'));
 }
@@ -107,7 +161,9 @@ export async function renderGifBlob(spec: StickerSpec, opts: { frames?: number; 
   const frames = opts.frames ?? 12;
   const size = opts.size ?? 360;
   const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
-  const base = await loadImage(renderSticker({ ...spec, line: spec.line }));
+  const base = spec.imageUrl
+    ? await loadUrlImage(spec.imageUrl)
+    : await loadImage(renderSticker({ ...spec, line: spec.line }));
   const canvas = canvasOf(size);
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
   const gif = GIFEncoder();

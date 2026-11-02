@@ -4,10 +4,10 @@ import { useCallback, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { analyzeSelfie, type FaceAnalysis } from '@/lib/face/analyze';
-import { Sticker } from '@/components/Sticker';
-import { EMOTIONS, TONES } from '@/lib/art/sticker';
+import { TONES } from '@/lib/art/sticker';
 import { track } from '@/lib/analytics';
-import type { Emotion, StickerSpec, Tone } from '@/lib/types';
+import { compressPhotoFile, loadPhoto, savePhoto } from '@/lib/studio/photo';
+import type { Tone } from '@/lib/types';
 
 const CONSENT_VERSION = 'v1.0';
 
@@ -28,7 +28,6 @@ export function UploadFlow({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [tone, setTone] = useState<Tone>(allowedTones[0] ?? '2d-cute');
-  const [emotion, setEmotion] = useState<Emotion>('joy');
   const [consent, setConsent] = useState({ terms: false, privacy: false, overseas: false });
   const [dragging, setDragging] = useState(false);
 
@@ -40,6 +39,8 @@ export function UploadFlow({
       const result = await analyzeSelfie(file);
       setAnalysis(result);
       track('photo_analyzed', { ok: result.ok });
+      // 생성 단계에서 쓸 사진을 이 탭에만 임시 보관 (서버 저장 없음)
+      savePhoto(await compressPhotoFile(file));
     } catch {
       setError('사진을 읽지 못했어요. 다른 사진으로 시도해 주세요.');
     } finally {
@@ -49,31 +50,13 @@ export function UploadFlow({
 
   const ready = analysis?.ok && consent.terms && consent.privacy && consent.overseas && !busy;
 
-  const previewSpec: StickerSpec | null = useMemo(() => {
-    if (!analysis) return null;
-    // 이미지 팔레트에서 파생된 시드: 사용자마다 다른 랜덤 헤어 변형 적용
-    const seed = analysis.palette.skin
-      ? analysis.palette.skin
-          .slice(1)
-          .split('')
-          .reduce((acc, ch) => acc + ch.charCodeAt(0), 4211)
-      : 4211;
-    return {
-      seed,
-      tone,
-      palette: analysis.palette,
-      signature: analysis.signature,
-      emotion,
-      intensity: 80,
-      prop: 'none',
-      background: 'cream',
-      line: EMOTIONS[emotion].hint,
-      linePosition: 'bottom',
-    };
-  }, [analysis, tone, emotion]);
 
   async function submit() {
     if (!analysis) return;
+    if (!loadPhoto()) {
+      setError('사진을 다시 선택해 주세요. 탭을 새로 열면 사진 보관이 초기화돼요.');
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -159,7 +142,7 @@ export function UploadFlow({
               <p className="text-lg font-black">정면 셀카 한 장을 올려주세요</p>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-sub">
                 밝은 곳에서, 안경·모자 없이, 얼굴이 화면의 절반 정도 차게. 사진은
-                <strong className="text-ink"> 브라우저 밖으로 나가지 않습니다</strong>.
+                <strong className="text-ink"> AI 생성 요청 때만 전송되고 서버에 저장되지 않습니다</strong>.
               </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 <button className="btn-primary" onClick={() => galleryInputRef.current?.click()} disabled={busy}>
@@ -214,7 +197,7 @@ export function UploadFlow({
               </div>
 
               <p className="mt-4 rounded-xl border border-line bg-cream px-3 py-2 text-left text-[11px] leading-relaxed text-sub">
-                원본 사진은 업로드되지 않습니다. 서버에는 팔레트·품질 지표만 전송되고, 파기 예약 시각이 기록됩니다.
+                원본 사진은 서버에 저장되지 않습니다. 이 탭에만 임시 보관되며, 컷 생성 요청 시에만 AI(Google Gemini)로 전송됩니다.
               </p>
             </div>
           )}
@@ -226,7 +209,7 @@ export function UploadFlow({
           <div className="mt-3 space-y-2.5 text-[13px]">
             {[
               { key: 'terms' as const, label: '서비스 이용약관 동의', href: '/terms' },
-              { key: 'privacy' as const, label: '개인정보 수집·이용 동의 (얼굴 이미지 특징점, 생성 후 24시간 내 파기)', href: '/privacy' },
+              { key: 'privacy' as const, label: '개인정보 수집·이용 동의 (생성 요청 시 사진 일시 처리, 원본 미저장)', href: '/privacy' },
               { key: 'overseas' as const, label: '개인정보 국외이전 동의 (Google LLC · 생성 목적)', href: '/privacy' },
             ].map((c) => (
               <label key={c.key} className="flex items-start gap-2 leading-snug">
@@ -250,38 +233,13 @@ export function UploadFlow({
 
       {/* ── 오른쪽: 스타일 & 미리보기 ─────────────────────── */}
       <div className="space-y-4">
-        <div className="card overflow-hidden">
-          <div className="flex items-center justify-between border-b-2 border-line px-4 py-3">
-            <p className="text-sm font-black">실시간 미리보기</p>
-            <span className="chip !bg-cream">데모 렌더러 · 0.1초</span>
-          </div>
-          <div className="bg-cream p-4">
-            {previewSpec ? (
-              <div className="mx-auto max-w-[300px] animate-pop">
-                <Sticker spec={previewSpec} ariaLabel="내 얼굴 미리보기" />
-              </div>
-            ) : (
-              <div className="grid aspect-square place-items-center rounded-2xl border-2 border-dashed border-line text-center text-xs text-sub">
-                사진을 올리면
-                <br />
-                내 얼굴 이모티콘이 여기에 나타납니다
-              </div>
-            )}
-          </div>
-          <div className="flex flex-wrap gap-1.5 border-t-2 border-line px-4 py-3">
-            {(Object.keys(EMOTIONS) as Emotion[]).slice(0, 8).map((e) => (
-              <button
-                key={e}
-                onClick={() => setEmotion(e)}
-                className={clsx(
-                  'rounded-full border px-2.5 py-1 text-[11px] font-bold transition',
-                  emotion === e ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-sub hover:border-ink',
-                )}
-              >
-                {EMOTIONS[e].label}
-              </button>
-            ))}
-          </div>
+        <div className="card p-5">
+          <p className="text-sm font-black">AI가 만드는 방식</p>
+          <ol className="mt-3 space-y-2 text-[13px] leading-snug text-sub">
+            <li>1. 셀카 한 장으로 캐릭터 시안 3종을 AI가 그립니다.</li>
+            <li>2. 고른 시안으로 같은 얼굴의 표정 컷 12개(또는 24개)를 만듭니다.</li>
+            <li>3. 완성된 컷은 팩에 저장되고 PNG·ZIP·카카오 규격으로 받을 수 있어요.</li>
+          </ol>
         </div>
 
         <div className="card p-5">
