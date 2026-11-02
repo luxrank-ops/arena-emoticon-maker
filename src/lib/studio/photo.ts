@@ -8,7 +8,7 @@
 // ─────────────────────────────────────────────────────────────
 
 const KEY = 'emotime:photo';
-const MAX_SIDE = 768;
+const MAX_SIDE = 1024;
 
 /** 사진 파일 → 최대 768px JPEG data URL (용량·전송량 절약, EXIF 방향 반영) */
 export async function compressPhotoFile(file: File): Promise<string> {
