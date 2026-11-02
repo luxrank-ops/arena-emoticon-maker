@@ -1,12 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { Sticker } from '@/components/Sticker';
-import { downloadBlob, renderPngBlob } from '@/lib/export';
+import { downloadBlob } from '@/lib/export';
+import type { AiCut } from '@/lib/ai-cuts';
 import type { ReplyResult } from '@/lib/recommend/engine';
-import type { StickerSpec } from '@/lib/types';
 
-type Candidate = ReplyResult['candidates'][number] & { spec: StickerSpec };
+type Candidate = ReplyResult['candidates'][number] & { cut: AiCut | null };
 type ReplyPayload = Omit<ReplyResult, 'candidates'> & { candidates: Candidate[] };
 
 const SAMPLES = [
@@ -17,7 +16,7 @@ const SAMPLES = [
   '미안 늦었어 ㅠㅠ 진짜 미안해',
 ];
 
-export function ReplyStudio({ hasFace, watermark }: { hasFace: boolean; watermark: boolean }) {
+export function ReplyStudio({ hasCuts }: { hasCuts: boolean; watermark: boolean }) {
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState<ReplyPayload | null>(null);
@@ -62,9 +61,11 @@ export function ReplyStudio({ hasFace, watermark }: { hasFace: boolean; watermar
     }
   }
 
-  async function savePng(c: Candidate) {
-    const blob = await renderPngBlob(c.spec, { watermark, size: 720 });
-    downloadBlob(blob, `reply-${c.templateId}.png`);
+  async function saveImage(c: Candidate) {
+    if (!c.cut) return;
+    const res = await fetch(c.cut.imageUrl);
+    const blob = await res.blob();
+    downloadBlob(blob, `reply-${c.cut.emotion}-${c.cut.frameId}.webp`);
   }
 
   return (
@@ -106,10 +107,10 @@ export function ReplyStudio({ hasFace, watermark }: { hasFace: boolean; watermar
           </div>
         </div>
 
-        {!hasFace ? (
+        {!hasCuts ? (
           <div className="rounded-xl border-2 border-dashed border-line px-4 py-3 text-[11px] leading-relaxed text-sub">
-            지금은 <strong className="text-ink">데모 얼굴</strong>로 미리보기 중입니다. 팩을 만들면 같은 답장이
-            내 얼굴로 바뀝니다.
+            아직 만든 AI 컷이 없어요. <strong className="text-ink">팩을 만들면</strong> 답장 컷이 내 얼굴로 나옵니다.
+            대사 추천은 지금도 사용할 수 있어요.
           </div>
         ) : null}
 
@@ -162,10 +163,26 @@ export function ReplyStudio({ hasFace, watermark }: { hasFace: boolean; watermar
                     <span className="absolute left-2 top-2 z-10 rounded-full border border-ink bg-paper px-2 py-0.5 text-[10px] font-black">
                       {i === 0 ? 'BEST' : `대안 ${i}`}
                     </span>
-                    <Sticker spec={c.spec} />
+                    {c.cut ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={c.cut.imageUrl}
+                        alt={`답장 컷 ${c.cut.line}`}
+                        className="aspect-square w-full object-contain"
+                      />
+                    ) : (
+                      <div className="grid aspect-square place-items-center rounded-xl bg-paper p-3 text-center text-[11px] font-bold text-sub">
+                        이 감정의 컷이 아직 없어요
+                        <br />
+                        팩을 만들면 여기에 나와요
+                      </div>
+                    )}
                   </div>
                   <div className="border-t-2 border-line p-3">
                     <p className="text-sm font-black">“{c.line}”</p>
+                    {c.cut && c.cut.line !== c.line ? (
+                      <p className="mt-0.5 text-[10px] text-sub">컷 안 대사: “{c.cut.line}”</p>
+                    ) : null}
                     <p className="mt-1 text-[10px] leading-snug text-sub">{c.why}</p>
                     <div className="mt-2 flex gap-1">
                       <button
@@ -175,10 +192,11 @@ export function ReplyStudio({ hasFace, watermark }: { hasFace: boolean; watermar
                         {copied === c.line ? '복사됨!' : '대사 복사'}
                       </button>
                       <button
-                        onClick={() => savePng(c)}
-                        className="rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-sub hover:border-ink"
+                        onClick={() => saveImage(c)}
+                        disabled={!c.cut}
+                        className="rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-sub hover:border-ink disabled:opacity-40"
                       >
-                        PNG
+                        이미지
                       </button>
                     </div>
                   </div>
@@ -187,7 +205,7 @@ export function ReplyStudio({ hasFace, watermark }: { hasFace: boolean; watermar
             </div>
 
             <p className="rounded-xl border border-line bg-paper px-4 py-3 text-[11px] leading-relaxed text-sub">
-              💡 붙여넣은 대화는 서버에 저장되지 않습니다. 요청 처리 후 즉시 폐기됩니다.
+              붙여넣은 대화는 서버에 저장되지 않습니다. 요청 처리 후 즉시 폐기됩니다.
             </p>
           </>
         )}

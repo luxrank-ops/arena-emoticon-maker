@@ -1,7 +1,6 @@
 import Link from 'next/link';
-import { Sticker } from '@/components/Sticker';
 import { planBrief } from '@/lib/recommend/engine';
-import { specFor } from '@/lib/spec';
+import { findAiCut } from '@/lib/ai-cuts';
 import { getCurrentUser } from '@/lib/session';
 import { PLANS } from '@/lib/pricing';
 import { withDB } from '@/lib/store';
@@ -16,22 +15,13 @@ export default async function BriefPage() {
     db.packs.filter((p) => p.userId === user.id).flatMap((p) => p.frames.map((f) => f.templateId)),
   );
   const plan = planBrief(now, recent);
-  const seeds = [...kstDateKey(now)].reduce(
-    (s, c) => s + c.charCodeAt(0),
-    0,
-  );
+  void kstDateKey(now);
 
-  const items = await Promise.all(
-    plan.items.map(async (it, i) => ({
+  // 브리핑 각 항목에 맞는 내 AI 컷을 붙인다 (새로 그리지 않음)
+  const items = await withDB((db) =>
+    plan.items.map((it) => ({
       ...it,
-      spec: await specFor(user.id, {
-        emotion: it.emotion,
-        line: it.line,
-        intensity: 76,
-        background: 'cream',
-        seed: seeds + i * 31,
-        templateId: it.templateId,
-      }),
+      cut: findAiCut(db, user.id, { templateId: it.templateId, emotion: it.emotion }),
     })),
   );
 
@@ -44,8 +34,8 @@ export default async function BriefPage() {
           <span className="chip !border-ink !bg-lemon !text-ink">Daily Face Brief</span>
           <h1 className="h2 mt-3">{plan.headline}</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-sub">
-            요일·시간대·최근 사용 기록으로 오늘 대화에 쓸 8컷을 미리 골랐습니다. 새로 생성하지 않고
-            <strong className="text-ink"> 뱅크에서 재조합</strong>해서 매일 아침 원가 0원으로 도착합니다.
+            요일·시간대·최근 사용 기록으로 오늘 대화에 쓸 컷을 골랐습니다. 내가 만든 AI 컷을 재사용하므로
+            <strong className="text-ink"> 추가 생성 없이</strong> 매일 아침 원가 0원으로 도착합니다.
           </p>
         </div>
         <div className="card-flat px-4 py-3 text-right text-xs">
@@ -61,11 +51,20 @@ export default async function BriefPage() {
               <span className="absolute left-2 top-2 z-10 rounded-full border border-ink bg-paper px-1.5 py-0.5 text-[10px] font-black">
                 {i + 1}
               </span>
-              <Sticker spec={it.spec} />
+              {it.cut ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={it.cut.imageUrl} alt={it.label} className="aspect-square w-full object-contain" />
+              ) : (
+                <div className="grid aspect-square place-items-center rounded-xl bg-paper p-3 text-center text-[11px] font-bold text-sub">
+                  이 감정의 컷이 아직 없어요
+                  <br />
+                  팩을 만들면 나와요
+                </div>
+              )}
             </div>
             <div className="border-t-2 border-line px-3 py-2">
               <p className="text-[13px] font-black">{it.label}</p>
-              <p className="truncate text-[11px] text-sub">“{it.line}”</p>
+              <p className="truncate text-[11px] text-sub">“{it.cut?.line ?? it.line}”</p>
               <p className="mt-1 text-[10px] leading-tight text-sub">{it.reason}</p>
             </div>
           </div>
@@ -82,14 +81,14 @@ export default async function BriefPage() {
         <div className="card-flat p-4">
           <p className="text-xs font-black">원가는?</p>
           <p className="mt-1 text-[11px] leading-relaxed text-sub">
-            이미 보유한 표정 뱅크를 재조합하므로 컷당 원가 0원. 구독 유지의 핵심 장치입니다.
+            이미 만든 AI 컷을 재사용하므로 추가 생성 비용이 없습니다. 구독 유지의 핵심 장치입니다.
           </p>
         </div>
         <div className="card-flat p-4">
-          <p className="text-xs font-black">내 얼굴로?</p>
+          <p className="text-xs font-black">컷이 비어 있나요?</p>
           <p className="mt-1 text-[11px] leading-relaxed text-sub">
-            팩을 만들면 같은 브리핑이 내 얼굴 컷으로 바뀝니다.{' '}
-            <Link href="/studio/upload" className="text-coralink underline">만들기 →</Link>
+            팩에 없는 감정은 비어 보입니다.{' '}
+            <Link href="/studio/upload" className="text-coralink underline">팩 만들기 →</Link>
           </p>
         </div>
       </div>

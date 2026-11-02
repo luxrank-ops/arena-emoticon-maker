@@ -18,7 +18,7 @@ export default async function GoodsPage() {
     if (!identity) return null;
     const now = Date.now();
     return pack.frames
-      .filter((f) => f.readyAt <= now)
+      .filter((f) => (pack.renderer === 'ai' ? !!f.imageId : f.readyAt <= now))
       .slice(0, 12)
       .map((f) => ({ id: f.id, label: f.label, line: f.line, spec: specFromIdentity(identity, f) }));
   });

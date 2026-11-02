@@ -167,14 +167,14 @@ export function FrameEditor({
           <div className="card p-5">
             <p className="text-sm font-black">AI로 다시 그리기</p>
             <p className="mt-1 text-[12px] leading-relaxed text-sub">
-              대사나 표정을 바꾼 뒤 다시 그리면, 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸려요.
+              대사나 표정을 바꾼 뒤 다시 그리면, 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸리며, 1크레딧이 차감됩니다. 생성에 실패하면 자동으로 환불돼요.
             </p>
             <button
               className="btn-primary mt-3 w-full !py-3 text-sm"
               disabled={redrawing || (!dirty && !needPhoto)}
               onClick={redraw}
             >
-              {redrawing ? 'AI가 그리는 중…' : dirty ? '바뀐 내용으로 다시 그리기' : '대사나 표정을 바꾸면 활성화돼요'}
+              {redrawing ? 'AI가 그리는 중…' : dirty ? '바뀐 내용으로 다시 그리기 · 1크레딧' : '대사나 표정을 바꾸면 활성화돼요'}
             </button>
             {needPhoto ? (
               <label className="btn-ghost mt-2 w-full cursor-pointer !py-2 text-center text-xs">

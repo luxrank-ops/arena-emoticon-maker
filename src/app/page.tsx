@@ -1,10 +1,21 @@
 import Link from 'next/link';
-import { Sticker } from '@/components/Sticker';
 import { SectionHead } from '@/components/ui';
-import { styleSample } from '@/lib/samples';
 import { EMOTIONS, TONES } from '@/lib/art/sticker';
 import { GOODS, PLANS, won } from '@/lib/pricing';
-import { sampleSpec } from '@/lib/samples';
+
+// 실제 AI 생성 컷 샘플 (public/samples, 같은 셀카로 생성)
+const HERO_IMG = [
+  '/samples/tone-2d-cute.webp',
+  '/samples/tone-doodle.webp',
+  '/samples/tone-clay-3d.webp',
+  '/samples/tone-pixel-art.webp',
+];
+const BRIEF_IMG = [
+  '/samples/tone-office-meme.webp',
+  '/samples/tone-mono.webp',
+  '/samples/tone-sketch.webp',
+  '/samples/tone-watercolor.webp',
+];
 
 const HERO = [
   { i: 0, cls: 'col-span-2 row-span-2 rotate-[-3deg]', bg: 'bg-lemon/40' },
@@ -53,7 +64,7 @@ export default function LandingPage() {
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-bold text-sub">
               <li>✓ 가입 즉시 12크레딧</li>
               <li>✓ 카드 등록 없이 체험</li>
-              <li>✓ 원본 사진 24시간 내 자동 파기</li>
+              <li>✓ 원본 사진은 저장하지 않음</li>
             </ul>
           </div>
 
@@ -67,7 +78,8 @@ export default function LandingPage() {
                   key={h.i}
                   className={`${h.cls} ${h.bg} rounded-[28px] border-2 border-ink p-1.5 shadow-pop`}
                 >
-                  <Sticker spec={sampleSpec(h.i, { background: 'transparent' })} />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={HERO_IMG[h.i]} alt="" className="aspect-square w-full object-contain" />
                 </div>
               ))}
               <div className="flex flex-col justify-center rounded-[28px] border-2 border-dashed border-ink/30 p-3 text-center">
@@ -145,7 +157,8 @@ export default function LandingPage() {
               <div className="mt-4 flex gap-2">
                 {[0, 3, 1].map((i) => (
                   <div key={i} className="w-20 rounded-2xl border-2 border-line bg-cream p-1">
-                    <Sticker spec={sampleSpec(i + 4, { background: 'cream' })} />
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={BRIEF_IMG[i]} alt="" className="aspect-square w-full object-contain" />
                   </div>
                 ))}
                 <div className="grid w-20 place-items-center rounded-2xl border-2 border-dashed border-line text-[10px] font-bold text-sub">
@@ -212,7 +225,8 @@ export default function LandingPage() {
             {Object.entries(TONES).map(([key, tone], i) => (
               <div key={key} className="card-flat overflow-hidden">
                 <div className="bg-cream p-2">
-                  <Sticker spec={styleSample(key as keyof typeof TONES, i)} />
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={`/samples/tone-${key}.webp`} alt={tone.label} className="aspect-square w-full object-contain" />
                 </div>
                 <div className="border-t-2 border-line px-3 py-2">
                   <p className="text-sm font-black">{tone.label}</p>
@@ -318,7 +332,7 @@ export default function LandingPage() {
             {[
               {
                 q: '내 사진이 서버에 저장되나요?',
-                a: '아니요. 얼굴 분석은 브라우저에서 끝나고, 서버에는 피부·헤어 색상 팔레트와 품질 지표만 전달됩니다. 원본 이미지는 업로드되지 않습니다.',
+                a: '아니요. 얼굴 지표는 브라우저에서 계산합니다. 컷을 만들 때만 사진이 AI(Google Gemini)로 전송되며, 원본은 서버에 저장하지 않습니다. 완성된 컷은 내 팩에 보관됩니다.',
               },
               {
                 q: '다른 사람 사진으로도 만들 수 있나요?',
