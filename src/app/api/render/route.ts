@@ -1,3 +1,4 @@
+import { ACCESSORIES } from '@/lib/accessories';
 import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
@@ -27,6 +28,7 @@ const schema = z.object({
     .string()
     .max(4_000_000)
     .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, '사진 형식을 확인해 주세요'),
+  accessoryIds: z.array(z.string()).max(3).optional(),
   target: z.discriminatedUnion('kind', [
     z.object({
       kind: z.literal('frame'),
@@ -126,6 +128,10 @@ export async function POST(req: Request) {
 
     try {
       // 3) Gemini 생성 (DB 잠금 밖에서 수행)
+      const accessoryPrompts = (body.accessoryIds || [])
+        .map((id) => ACCESSORIES.find((a) => a.id === id)?.promptAddition)
+        .filter(Boolean) as string[];
+
       const png = await renderWithGemini({
         photoBase64,
         mimeType,
@@ -133,6 +139,7 @@ export async function POST(req: Request) {
         emotion: plan.emotion,
         line: plan.line || undefined,
         variantNote: plan.variantNote,
+        accessoryPrompts,
       });
 
       // 4) WebP 로 줄여 저장 → DB 에 연결

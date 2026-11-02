@@ -1,3 +1,4 @@
+import { ACCESSORIES } from '@/lib/accessories';
 'use client';
 
 import { useMemo, useState } from 'react';
@@ -38,6 +39,7 @@ export function FrameEditor({
   const [redrawing, setRedrawing] = useState(false);
   const [redrawError, setRedrawError] = useState<string | null>(null);
   const [needPhoto, setNeedPhoto] = useState(false);
+  const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
 
   const spec: StickerSpec = useMemo(
     () => ({ ...frame.spec, emotion, line: frame.line, prop: frame.prop, background: frame.background, intensity: frame.intensity }),
@@ -80,7 +82,7 @@ export function FrameEditor({
     setRedrawing(true);
     try {
       await patch({ line: frame.line, emotion });
-      const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true }, photo);
+      const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true, accessoryIds: selectedAccessories }, photo);
       setFrame((prev) => ({ ...prev, spec: { ...prev.spec, imageUrl: url } }));
       setDrawn({ line: frame.line, emotion });
       track('frame_redraw', { emotion });

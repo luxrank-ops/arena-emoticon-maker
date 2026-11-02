@@ -67,6 +67,8 @@ export interface RenderInput {
   line?: string;
   /** 시안 구분용 추가 지시 (예: 'natural proportions') */
   variantNote?: string;
+  /** 추가 악세사리 프롬프트 지시어들 */
+  accessoryPrompts?: string[];
 }
 
 export function modelForTone(tone: Tone): string {
@@ -83,6 +85,9 @@ export function buildRenderPrompt(input: RenderInput): string {
     parts.push(
       `Include exactly one speech bubble with the Korean text "${input.line}" written exactly as given, clearly legible.`,
     );
+  }
+  if (input.accessoryPrompts && input.accessoryPrompts.length > 0) {
+    parts.push(`Add accessories/props: ${input.accessoryPrompts.join(', ')}.`);
   }
   if (input.variantNote) parts.push(`Variant note: ${input.variantNote}.`);
   return parts.join(' ');
