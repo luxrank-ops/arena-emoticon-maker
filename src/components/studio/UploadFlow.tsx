@@ -30,6 +30,8 @@ export function UploadFlow({
   const [tone, setTone] = useState<Tone>(allowedTones[0] ?? '2d-cute');
   const [consent, setConsent] = useState({ terms: false, privacy: false, overseas: false });
   const [dragging, setDragging] = useState(false);
+  // 촬영 구도 선택 (얼굴형 / 전신형). 생성 프롬프트 반영은 후속 작업 — 지금은 선택 상태만 유지한다.
+  const [mode, setMode] = useState<'face' | 'full'>('face');
 
   const onFile = useCallback(async (file: File) => {
     setError(null);

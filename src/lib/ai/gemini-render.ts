@@ -1,4 +1,5 @@
 import type { Emotion, Tone } from '@/lib/types';
+import { unitCostUsd } from '@/lib/ai/cost';
 
 // ─────────────────────────────────────────────────────────────
 // 사진 → 이모티콘 컷 (Gemini 이미지 모델, 서버 전용)
@@ -106,12 +107,29 @@ export class RenderError extends Error {
   }
 }
 
+/**
+ * 생성 결과 + 사용량 메타데이터.
+ *  · costUsd 는 공시 단가 × 1장 추정치다 (Gemini 응답에는 금액이 없다).
+ *  · 토큰 수는 응답의 usageMetadata 에서 그대로 옮겨 남겨둔다 → 나중에 실제 단가로 재계산 가능.
+ */
+export interface RenderOutput {
+  png: Buffer;
+  model: string;
+  latencyMs: number;
+  costUsd: number;
+  promptTokens?: number;
+  outputTokens?: number;
+  /** 429/503 재시도 포함 실제 HTTP 시도 횟수 (원가 추적용) */
+  attempts: number;
+}
+
 /** 사진을 참조해 컷 1장을 만든다. 실패 시 RenderError */
-export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
+export async function renderWithGemini(input: RenderInput): Promise<RenderOutput> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new RenderError('AI_NOT_CONFIGURED', 'AI 생성 키가 설정되지 않았습니다');
 
   const model = modelForTone(input.tone);
+  const startedAt = Date.now();
   const body = JSON.stringify({
     contents: [
       {
@@ -129,7 +147,9 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
   });
 
   // 일시적 과부하(429/503)는 한 번 재시도한다
+  let attempts = 0;
   for (let attempt = 0; attempt < 2; attempt++) {
+    attempts += 1;
     const res = await fetch(
       `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
       {
@@ -155,7 +175,10 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
       throw new RenderError('AI_FAILED', 'AI 생성에 실패했어요. 다시 시도해 주세요');
     }
 
-    const json = (await res.json()) as { candidates?: { content?: { parts?: GeminiPart[] } }[] };
+    const json = (await res.json()) as {
+      candidates?: { content?: { parts?: GeminiPart[] } }[];
+      usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
+    };
     const parts = json.candidates?.[0]?.content?.parts ?? [];
     const image = parts.find((p) => p.inlineData?.data);
     if (!image?.inlineData?.data) {
@@ -163,7 +186,15 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
       if (attempt === 0) continue;
       throw new RenderError('AI_NO_IMAGE', 'AI가 이미지를 만들지 못했어요. 다른 사진으로 다시 시도해 주세요');
     }
-    return Buffer.from(image.inlineData.data, 'base64');
+    return {
+      png: Buffer.from(image.inlineData.data, 'base64'),
+      model,
+      latencyMs: Date.now() - startedAt,
+      costUsd: unitCostUsd('gemini', model),
+      promptTokens: json.usageMetadata?.promptTokenCount,
+      outputTokens: json.usageMetadata?.candidatesTokenCount,
+      attempts,
+    };
   }
   throw new RenderError('AI_FAILED', 'AI 생성에 실패했어요. 다시 시도해 주세요');
 }

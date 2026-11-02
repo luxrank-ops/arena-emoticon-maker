@@ -5,6 +5,7 @@ import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { won } from '@/lib/pricing';
 import { purgeStats } from '@/lib/purge';
+import { AI_COST_CAP_KRW, modelsOverCap, summarizeEvents, usdToKrw } from '@/lib/ai/cost';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,6 +47,7 @@ export default async function AdminPage() {
       creditsIssued,
       creditsSpent,
       errors: db.events.filter((e) => e.type === 'error').length,
+      usage: summarizeEvents(db.events),
       recent: db.orders.slice(-6).reverse(),
       topFrames: db.packs
         .flatMap((p) => p.frames)
@@ -55,7 +57,9 @@ export default async function AdminPage() {
   });
 
   const purge = await purgeStats();
-  const aiCost = m.frames * 54;
+  const usage = m.usage;
+  const overCap = modelsOverCap();
+  const aiCost = usage.krw;
   const margin = m.revenue > 0 ? Math.round(((m.revenue - aiCost) / m.revenue) * 100) : 0;
 
   return (
@@ -66,13 +70,22 @@ export default async function AdminPage() {
           <h1 className="h2 mt-2">운영 콘솔</h1>
           <p className="mt-1 text-sm text-sub">결제·원가·모더레이션 현황. 실제 데이터입니다.</p>
         </div>
-        <span className="chip !bg-cream">원가 가정: 컷당 54원</span>
+        <span className="chip !bg-cream">원가: 공시 단가 × 실제 호출 수</span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <Stat label="매출 (누적)" value={`${won(m.revenue)}원`} hint={`구독 ${won(m.subscription)}원 · 굿즈 ${won(m.goods)}원`} />
         <Stat label="사용자" value={`${m.users}명`} hint={`Free ${m.plans.FREE} · Plus ${m.plans.PLUS} · Studio ${m.plans.STUDIO}`} />
         <Stat label="생성 컷" value={`${m.frames}컷`} hint={`팩 ${m.packs}개 · AI 원가 ${won(aiCost)}원`} />
+        <Stat
+          label="API 생성 호출"
+          value={`${usage.calls}회`}
+          hint={
+            usage.calls
+              ? `컷당 ${won(usage.krwPerCall)}원 · p95 ${(usage.latency.p95Ms / 1000).toFixed(1)}s`
+              : '아직 외부 생성 API 호출 없음'
+          }
+        />
         <Stat label="총마진 (추정)" value={`${margin}%`} hint={`크레딧 발행 ${m.creditsIssued} / 사용 ${m.creditsSpent}`} />
       </div>
 
@@ -104,6 +117,56 @@ export default async function AdminPage() {
         </div>
 
         <div className="space-y-4">
+          <div className="card p-5">
+            <div className="flex items-baseline justify-between gap-2">
+              <p className="text-sm font-black">API 소모량</p>
+              <span className="text-[10px] text-sub">USD→KRW {won(usage.fxKrwPerUsd)}원</span>
+            </div>
+            {usage.calls === 0 ? (
+              <p className="mt-2 text-[11px] leading-relaxed text-sub">
+                생성 API 호출 기록이 없습니다. (데모 렌더러만 사용 중이면 원가 0원)
+                <br />
+                <code className="text-[10px]">node scripts/api-usage.mjs</code> 로 언제든 다시 확인할 수 있습니다.
+              </p>
+            ) : (
+              <>
+                <div className="mt-2 flex gap-4 text-[11px] text-sub">
+                  <span>호출 <strong className="text-ink">{usage.calls}회</strong></span>
+                  <span>원가 <strong className="text-ink">{won(usage.krw)}원</strong></span>
+                  <span>컷당 <strong className="text-ink">{won(usage.krwPerCall)}원</strong></span>
+                </div>
+                <table className="mt-3 w-full text-left text-[11px]">
+                  <thead className="text-[10px] uppercase tracking-wide text-sub">
+                    <tr>
+                      <th className="pb-1">모델</th>
+                      <th className="pb-1 text-right">호출</th>
+                      <th className="pb-1 text-right">원가(원)</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {usage.byModel.slice(0, 5).map((row) => (
+                      <tr key={row.key}>
+                        <td className="py-1.5 font-bold">{row.key}</td>
+                        <td className="py-1.5 text-right text-sub">{row.calls}</td>
+                        <td className="py-1.5 text-right font-black">{won(usdToKrw(row.usd))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-2 text-[10px] leading-relaxed text-sub">
+                  실측 {usage.measuredCalls}건 · 추정 {usage.estimatedCalls}건 · 지연 평균{' '}
+                  {(usage.latency.avgMs / 1000).toFixed(1)}s
+                </p>
+              </>
+            )}
+            {overCap.length > 0 && (
+              <p className="mt-2 rounded-lg border border-line bg-lemon/30 px-2 py-1.5 text-[10px] leading-relaxed text-sub">
+                ⚠ 컷당 상한 {won(AI_COST_CAP_KRW)}원 초과:{' '}
+                {overCap.map((x) => `${x.model} ${won(x.krw)}원`).join(' · ')}
+              </p>
+            )}
+          </div>
+
           <div className="card p-5">
             <p className="text-sm font-black">모더레이션 · 안전장치</p>
             <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-sub">

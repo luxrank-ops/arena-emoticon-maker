@@ -56,7 +56,11 @@ async function req(path, opts = {}) {
 }
 
 const PALETTE = { skin: '#F6D3B3', skinShade: '#E8BA95', hair: '#332621', shirt: '#5AB8F5', accent: '#FF6B5B' };
-const SIGNATURE = { headScale: 1.02, faceWidth: 0.98, eyeSpacing: 1, eyeSize: 1, browWeight: 0.9, mouthWidth: 1, hairStyle: 2, cheek: 0.6, glasses: false };
+const SIGNATURE = {
+  headScale: 1.02, faceWidth: 0.98, eyeSpacing: 1, eyeSize: 1,
+  eyeShape: 'almond', browWeight: 0.9, mouthWidth: 1, lipThickness: 1, noseSize: 1,
+  hairStyle: 2, cheek: 0.6, jawline: 'round', glasses: false,
+};
 
 // 세션 고정: 관리자 로그인 등이 다른 쿠키를 심어도 사용자 세션이 바뀌지 않게 한다.
 // (과거 이 때문에 '파기된 시트' 단언이 간헐적으로 404 가 됐다)
@@ -110,7 +114,8 @@ assert(patched.json?.frame?.emotion === 'king', 'emotion 저장');
 console.log('\n[4] 추천 엔진');
 const reply = await req('/api/reply', { method: 'POST', body: JSON.stringify({ text: '미안 늦었어 ㅠㅠ 진짜 미안해' }) });
 assert(reply.json?.result?.candidates?.length === 3, 'POST /api/reply → 3 candidates');
-assert(!!reply.json?.result?.candidates?.[0]?.spec, 'candidate.spec 포함');
+assert(!!reply.json?.result?.candidates?.[0]?.templateId, 'candidate.templateId 포함');
+assert(typeof reply.json?.result?.candidates?.[0]?.cut === 'object' || reply.json?.result?.candidates?.[0]?.cut === null, 'candidate.cut 필드(내 컷 재사용)');
 
 const brief = await req('/api/brief');
 assert(brief.json?.items?.length === 8, 'GET /api/brief → 8 items');

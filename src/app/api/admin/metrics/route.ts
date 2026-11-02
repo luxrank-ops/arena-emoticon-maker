@@ -2,6 +2,7 @@ import { handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { PLANS } from '@/lib/pricing';
+import { summarizeEvents } from '@/lib/ai/cost';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,9 @@ export async function GET() {
         .slice(0, 5)
         .map((f) => ({ label: f.label, line: f.line, usage: f.usageCount }));
 
+      // API 소모량(생성 호출 수 · 모델별 원가)
+      const usage = summarizeEvents(db.events);
+
       return {
         users: db.users.length,
         plans: planCount,
@@ -43,7 +47,11 @@ export async function GET() {
         goodsRevenue: paid.filter((o) => o.kind === 'goods').reduce((s, o) => s + o.amount, 0),
         creditsIssued,
         creditsSpent: Math.abs(creditsSpent),
-        aiCostEstimate: frames * 54,
+        /** 실제 생성 호출 기준 원가(원). 호출이 없으면 0 — 컷 수 × 가정 단가를 쓰지 않는다 */
+        apiCostKrw: usage.krw,
+        /** 예전 필드명 (하위 호환) */
+        aiCostEstimate: usage.krw,
+        apiUsage: usage,
         errors,
         recentOrders,
         topFrames,

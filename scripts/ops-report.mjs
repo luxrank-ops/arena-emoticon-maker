@@ -10,12 +10,24 @@ if (!fs.existsSync(FILE)) {
   process.exit(1);
 }
 const db = JSON.parse(fs.readFileSync(FILE, 'utf8'));
+// AI 원가는 '실제 생성 호출'에서 계산한다 (단가: src/lib/ai/prices.json)
+const PRICES = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'src/lib/ai/prices.json'), 'utf8'));
+const FX = Number(process.env.FX_KRW_PER_USD) > 0 ? Number(process.env.FX_KRW_PER_USD) : PRICES.fxKrwPerUsd;
+const unitCost = (provider, model) =>
+  (model && PRICES.models[model] !== undefined ? PRICES.models[model] : PRICES.providers[provider] ?? 0);
+const apiUsd = (db.events || [])
+  .filter((e) => e.type === 'generate')
+  .reduce((sum, e) => {
+    const measured = typeof e.meta?.costUsd === 'number' && e.meta.costUsd > 0 ? e.meta.costUsd : undefined;
+    return sum + (measured ?? unitCost(e.meta?.provider, e.meta?.model));
+  }, 0);
 const paid = db.orders.filter((o) => o.status === 'PAID');
 const revenue = paid.reduce((s, o) => s + o.amount, 0);
 const sub = paid.filter((o) => o.kind === 'subscription').reduce((s, o) => s + o.amount, 0);
 const goods = paid.filter((o) => o.kind === 'goods').reduce((s, o) => s + o.amount, 0);
 const frames = db.packs.reduce((s, p) => s + p.frames.length, 0);
-const aiCost = frames * 54;
+const aiCalls = (db.events || []).filter((e) => e.type === 'generate').length;
+const aiCost = Math.round(apiUsd * FX);
 const paying = new Set(paid.filter((o) => o.kind === 'subscription').map((o) => o.userId));
 const conversion = db.users.length ? ((paying.size / db.users.length) * 100).toFixed(1) : '0.0';
 const errors = db.events.filter((e) => e.type === 'error');
@@ -44,6 +56,7 @@ const md = `# 이모티미 운영 리포트 — ${new Date().toISOString().slice
 | 무료→유료 전환 | ${conversion}% (${paying.size}명) |
 | 누적 매출 | ${revenue.toLocaleString('ko-KR')}원 (구독 ${sub.toLocaleString('ko-KR')} / 굿즈 ${goods.toLocaleString('ko-KR')}) |
 | AI 원가(추정) | ${aiCost.toLocaleString('ko-KR')}원 (매출 대비 ${pct(aiCost, revenue)}%) |
+| 생성 API 호출 | ${aiCalls}회 (호출당 ${aiCalls ? Math.round(aiCost / aiCalls).toLocaleString('ko-KR') : 0}원) |
 | 총마진(추정) | ${pct(revenue - aiCost, revenue)}% |
 | 답장 추천 사용 | ${replies}회 |
 | 오류 이벤트 | ${errors.length}건 |

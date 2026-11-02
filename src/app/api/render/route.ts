@@ -132,7 +132,7 @@ export async function POST(req: Request) {
         .map((id) => ACCESSORIES.find((a) => a.id === id)?.promptAddition)
         .filter(Boolean) as string[];
 
-      const png = await renderWithGemini({
+      const rendered = await renderWithGemini({
         photoBase64,
         mimeType,
         tone: plan.tone,
@@ -143,7 +143,7 @@ export async function POST(req: Request) {
       });
 
       // 4) WebP 로 줄여 저장 → DB 에 연결
-      const webp = await encodeWebp(png);
+      const webp = await encodeWebp(rendered.png);
       const imageId = newImageId();
       await saveImage(imageId, user.id, webp);
 
@@ -157,11 +157,19 @@ export async function POST(req: Request) {
           const variant = sheet?.variants.find((v) => v.key === plan.variantKey);
           if (variant) variant.imageId = imageId;
         }
+        // API 소모량 추적: 모델·지연·단가를 이벤트에 남긴다.
+        // → /admin 카드와 scripts/api-usage.mjs 가 이 값으로 원가를 집계한다.
         logEvent(db, user.id, 'generate', {
           kind: plan.kind,
           tone: plan.tone,
           redraw: plan.charged,
           provider: 'gemini',
+          model: rendered.model,
+          latencyMs: rendered.latencyMs,
+          costUsd: rendered.costUsd,
+          attempts: rendered.attempts,
+          promptTokens: rendered.promptTokens ?? 0,
+          outputTokens: rendered.outputTokens ?? 0,
           bytes: webp.length,
         });
       });

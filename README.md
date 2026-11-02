@@ -35,6 +35,7 @@ npm run dev                    # http://localhost:3000
 npm run build && npm run start # 프로덕션 빌드
 BASE_URL=http://localhost:3000 node scripts/smoke.mjs   # 56 케이스 스모크
 node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
+node scripts/api-usage.mjs     # API 소모량(호출 수·추정 원가) → docs/API-USAGE.md
 ```
 
 - **관측/분석은 키를 넣는 순간 켜집니다.** `SENTRY_DSN`·`NEXT_PUBLIC_POSTHOG_KEY` 가 없으면 SDK 는 no-op 이고,
@@ -65,6 +66,7 @@ Firebase 연동 절차는 [`docs/FIREBASE.md`](docs/FIREBASE.md) 참고.
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Identity Lock 파이프라인 · 데이터 모델 · API 계약 · ADR |
 | [docs/COMPLIANCE.md](docs/COMPLIANCE.md) | 토스페이먼츠 심사 · 청약철회 · 개인정보 · AI 표시 의무 |
 | [docs/STEP2-BUILD-NOTES.md](docs/STEP2-BUILD-NOTES.md) | **구현 결과 · 설계 대비 변경 로그 · 보안 현황** |
+| [docs/API-USAGE.md](docs/API-USAGE.md) | **API 소모량·원가 추적** — 호출 집계 · 단가 소스 · 예산 게이트 · 무료 쿼터 가드레일 |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | **Sentry · PostHog 실연동** — 붙은 지점 · 개인정보 설계 · 무료 쿼터 가드레일 |
 | [AGENTS.md](AGENTS.md) | 5개 서브 에이전트 조직 · 스프린트 보드 |
 

@@ -1,0 +1,16 @@
+{
+  "_comment": "AI 생성 1장당 공시 단가(USD). 관리자 콘솔(src/lib/ai/cost.ts)과 scripts/api-usage.mjs 가 함께 읽는다. 가격이 바뀌면 이 파일만 수정.",
+  "fxKrwPerUsd": 1400,
+  "models": {
+    "gemini-3-pro-image-preview": 0.134,
+    "gemini-3.1-flash-image-preview": 0.039,
+    "gemini-2.5-flash-image": 0.039,
+    "gemini-2.0-flash-preview-image-generation": 0.039
+  },
+  "providers": {
+    "gemini": 0.039,
+    "replicate": 0.0045,
+    "fal": 0.05,
+    "mock": 0
+  }
+}
