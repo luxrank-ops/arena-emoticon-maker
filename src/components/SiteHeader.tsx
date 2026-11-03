@@ -45,9 +45,9 @@ export async function SiteHeader() {
             className="chip hover:border-ink"
             title="크레딧 · 플랜"
           >
-            <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{plan.name}</span>
+            <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{user.role === 'admin' ? '관리자' : plan.name}</span>
             <span className="h-3 w-px bg-line" />
-            <span>⚡ {user.credits}</span>
+            <span>⚡ {user.role === 'admin' ? '무제한' : user.credits}</span>
           </Link>
           <Link href="/studio/upload" className="btn-primary !px-4 !py-2 text-xs sm:text-sm">
             무료로 만들기

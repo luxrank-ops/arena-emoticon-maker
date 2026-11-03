@@ -1,5 +1,6 @@
 import type {
   CharacterSheet,
+  CompositionMode,
   FaceProfile,
   Frame,
   FrameView,
@@ -45,7 +46,7 @@ export function tonesForPlan(plan: 'FREE' | 'PLUS' | 'STUDIO'): Tone[] {
       ];
 }
 
-export async function createSheet(userId: string, faceId: string, tone: Tone) {
+export async function createSheet(userId: string, faceId: string, tone: Tone, mode: CompositionMode = 'face') {
   return withDB((db) => {
     const face = db.faces.find((f) => f.id === faceId && f.userId === userId);
     if (!face) throw new PackError('FACE_NOT_FOUND', '얼굴 정보를 찾을 수 없습니다');
@@ -78,6 +79,7 @@ export async function createSheet(userId: string, faceId: string, tone: Tone) {
       userId,
       faceId,
       tone,
+      mode,
       variants,
       chosenKey: null,
       createdAt: new Date().toISOString(),
@@ -97,7 +99,7 @@ export async function chooseSheet(userId: string, sheetId: string, variantKey: s
   });
 }
 
-export async function createPack(userId: string, sheetId: string, size: number, title?: string) {
+export async function createPack(userId: string, sheetId: string, size: number, title?: string, unlimited = false) {
   const { sheet, face } = await withDB((db) => {
     const s = db.sheets.find((x) => x.id === sheetId && x.userId === userId);
     if (!s) throw new PackError('SHEET_NOT_FOUND', '캐릭터 시트를 찾을 수 없습니다');
@@ -135,7 +137,7 @@ export async function createPack(userId: string, sheetId: string, size: number, 
   }));
 
   try {
-    await applyCredits({
+    if (!unlimited) await applyCredits({
       userId,
       delta: -size,
       reason: 'GENERATION',
@@ -155,11 +157,12 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     userId,
     sheetId,
     tone: sheet.tone,
+    mode: sheet.mode ?? 'face',
     title: title?.trim() || `${sheet.tone === 'caricature' ? '개그' : '나의'} 이모티콘 팩`,
     size,
     status: 'GENERATING',
     renderer: 'ai',
-    creditsSpent: size,
+    creditsSpent: unlimited ? 0 : size,
     createdAt: new Date().toISOString(),
     frames,
     // 얼굴 프로필이 파기된 뒤에도 이 팩을 계속 그릴 수 있게 비식별 스냅샷을 고정한다
@@ -172,7 +175,7 @@ export async function createPack(userId: string, sheetId: string, size: number, 
 
   await withDB((db) => {
     db.packs.push(pack);
-    logEvent(db, userId, 'pack_created', { packId, size, tone: sheet.tone, cost: size });
+    logEvent(db, userId, 'pack_created', { packId, size, tone: sheet.tone, cost: pack.creditsSpent });
     void face;
   });
 

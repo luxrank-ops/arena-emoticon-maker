@@ -41,7 +41,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'generateBatch', RATE_LIMITS.generateBatch);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
 
     const body = batchSchema.parse(await req.json());
 

@@ -38,7 +38,7 @@ export default async function BillingPage() {
         <div className="card p-6">
           <p className="text-xs font-black uppercase tracking-widest text-sub">{PLANS[user.plan].name} 플랜</p>
           <p className="mt-2 text-4xl font-black">
-            {user.credits}
+            {user.role === 'admin' ? '무제한' : user.credits}
             <span className="ml-1 text-sm font-bold text-sub">크레딧</span>
           </p>
           <p className="mt-1 text-xs text-sub">

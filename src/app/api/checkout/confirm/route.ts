@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'confirm', RATE_LIMITS.confirm);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
     if (paymentsUnavailable()) return paymentsUnavailableResponse();
     const body = schema.parse(await req.json());
 

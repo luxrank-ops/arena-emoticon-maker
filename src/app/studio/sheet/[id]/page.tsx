@@ -71,6 +71,7 @@ export default async function SheetPage({ params }: { params: { id: string } }) 
         palette={face.palette}
         tone={sheet.tone}
         credits={user.credits}
+        unlimited={user.role === 'admin'}
         alreadyChosen={sheet.chosenKey}
       />
 

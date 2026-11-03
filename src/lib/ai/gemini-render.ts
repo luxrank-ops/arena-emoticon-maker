@@ -1,4 +1,4 @@
-import type { Emotion, Tone } from '@/lib/types';
+import type { CompositionMode, Emotion, Tone } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
 // 사진 → 이모티콘 컷 (Gemini 이미지 모델, 서버 전용)
@@ -62,6 +62,7 @@ export interface RenderInput {
   photoBase64: string;
   mimeType: string;
   tone: Tone;
+  mode?: CompositionMode;
   emotion: Emotion;
   /** 말풍선에 넣을 대사 (없으면 말풍선 없음) */
   line?: string;
@@ -79,7 +80,9 @@ export function buildRenderPrompt(input: RenderInput): string {
   const parts = [
     `Create ${STYLE_DIRECTIONS[input.tone]} of the person in the reference photo, showing ${EMOTION_PROMPTS[input.emotion]}.`,
     IDENTITY_RULES,
-    LAYOUT_RULES,
+    input.mode === 'full'
+      ? 'Single person, full body visible from head to feet, centered on a square canvas with space around the entire figure. Preserve the recognizable face. If clothing or body details are not visible in the reference, invent suitable clothing and proportions. Plain solid white background. No border, watermark, or text except a requested speech bubble.'
+      : LAYOUT_RULES,
   ];
   if (input.line) {
     parts.push(

@@ -15,10 +15,12 @@ export function UploadFlow({
   allowedTones,
   credits,
   planName,
+  unlimited = false,
 }: {
   allowedTones: Tone[];
   credits: number;
   planName: string;
+  unlimited?: boolean;
 }) {
   const router = useRouter();
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -27,6 +29,7 @@ export function UploadFlow({
   const [fileName, setFileName] = useState<string>('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mode, setMode] = useState<'face' | 'full'>('face');
   const [tone, setTone] = useState<Tone>(allowedTones[0] ?? '2d-cute');
   const [consent, setConsent] = useState({ terms: false, privacy: false, overseas: false });
   const [dragging, setDragging] = useState(false);
@@ -76,7 +79,7 @@ export function UploadFlow({
       const sheetRes = await fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ faceId: faceJson.faceId, tone }),
+        body: JSON.stringify({ faceId: faceJson.faceId, tone, mode }),
       });
       const sheetJson = await sheetRes.json();
       if (!sheetRes.ok) throw new Error(sheetJson?.error?.message ?? '캐릭터 시트를 만들지 못했어요');
@@ -93,9 +96,10 @@ export function UploadFlow({
   return (
     <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
       {/* ── 왼쪽: 업로드 & 동의 ───────────────────────────── */}
-      <div className="space-y-4">          <div className="flex gap-2 mb-4">
-            <button onClick={() => setMode('face')} className={clsx("btn-ghost flex-1", mode === 'face' && "btn-dark")}>얼굴형</button>
-            <button onClick={() => setMode('full')} className={clsx("btn-ghost flex-1", mode === 'full' && "btn-dark")}>전신형</button>
+      <div className="space-y-4">
+          <div role="group" aria-label="이모티콘 구도 선택" className="card flex gap-2 p-3">
+            <button type="button" aria-pressed={mode === 'face'} onClick={() => setMode('face')} className={clsx("flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black", mode === 'face' ? "border-ink bg-ink text-cream" : "border-line bg-paper text-ink")}>얼굴 모드</button>
+            <button type="button" aria-pressed={mode === 'full'} onClick={() => setMode('full')} className={clsx("flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black", mode === 'full' ? "border-ink bg-ink text-cream" : "border-line bg-paper text-ink")}>전신 모드</button>
           </div>
         <div
           onDragOver={(e) => {
@@ -283,7 +287,7 @@ export function UploadFlow({
           {busy ? '처리 중…' : '캐릭터 시트 만들기 →'}
         </button>
         <p className="text-center text-[11px] text-sub">
-          다음 단계에서 3가지 시안 중 하나를 고릅니다 · 보유 크레딧 {credits}
+          다음 단계에서 3가지 시안 중 하나를 고릅니다 · 보유 크레딧 {unlimited ? '무제한' : credits}
         </p>
       </div>
     </div>

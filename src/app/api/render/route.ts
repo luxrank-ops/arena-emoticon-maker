@@ -55,7 +55,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'generate', RATE_LIMITS.generate);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
 
     const body = schema.parse(await req.json());
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(body.photo);
@@ -77,10 +77,11 @@ export async function POST(req: Request) {
           packId: pack.id,
           frameId: frame.id,
           tone: pack.tone as Tone,
+          mode: pack.mode ?? 'face',
           emotion: frame.emotion as Emotion,
           line: frame.line,
           variantNote: undefined as string | undefined,
-          charged: !!target.force,
+          charged: !!target.force && user.role !== 'admin',
           previousImageId: frame.imageId as string | undefined,
         };
       }
@@ -95,6 +96,7 @@ export async function POST(req: Request) {
         sheetId: sheet.id,
         variantKey: variant.key,
         tone: sheet.tone as Tone,
+        mode: sheet.mode ?? 'face',
         emotion: 'joy' as Emotion,
         line: '',
         variantNote: SHEET_NOTES[variantIndex] ?? SHEET_NOTES[0],
@@ -136,6 +138,7 @@ export async function POST(req: Request) {
         photoBase64,
         mimeType,
         tone: plan.tone,
+        mode: plan.mode,
         emotion: plan.emotion,
         line: plan.line || undefined,
         variantNote: plan.variantNote,
