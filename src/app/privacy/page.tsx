@@ -37,8 +37,13 @@ export default function PrivacyPage() {
                   <td className="py-2">팩 삭제 시까지 (4항 참고)</td>
                 </tr>
                 <tr className="border-b border-line">
-                  <td className="py-2 font-bold text-ink">이메일·닉네임(선택), 결제·정산 기록</td>
-                  <td className="py-2">회원 관리, 결제·환불, 법정 보존</td>
+                  <td className="py-2 font-bold text-ink">이메일, 이름, 닉네임, 생년월일, 성별(선택), 비밀번호 해시</td>
+                  <td className="py-2">회원 식별, 로그인, 연령 확인 및 회원 관리</td>
+                  <td className="py-2">회원 탈퇴 또는 삭제 요청 시까지 (법정 보존 항목 제외)</td>
+                </tr>
+                <tr className="border-b border-line">
+                  <td className="py-2 font-bold text-ink">결제·정산 기록</td>
+                  <td className="py-2">결제·환불, 법정 보존</td>
                   <td className="py-2">계약·결제 기록 5년</td>
                 </tr>
                 <tr className="border-b border-line">

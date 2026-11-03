@@ -24,6 +24,9 @@ import type {
 export interface DB {
   version: number;
   users: User[];
+  accounts: { userId: string; email: string; nickname: string; nicknameKey: string; name: string; birthDate: string; gender: 'male' | 'female' | 'unspecified'; passwordHash: string; consentAt: string }[];
+  sessions: { tokenHash: string; userId: string; expiresAt: string }[];
+  adminLoginAttempts: number[];
   faces: FaceProfile[];
   sheets: CharacterSheet[];
   packs: Pack[];
@@ -36,6 +39,9 @@ export interface DB {
 const EMPTY: DB = {
   version: 1,
   users: [],
+  accounts: [],
+  sessions: [],
+  adminLoginAttempts: [],
   faces: [],
   sheets: [],
   packs: [],

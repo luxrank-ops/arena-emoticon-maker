@@ -1,10 +1,14 @@
 import { cookies } from 'next/headers';
+import { createHash } from 'node:crypto';
 import { PLANS } from '@/lib/pricing';
 import type { User } from '@/lib/types';
 import { ensureSeed, findUser, uid, withDB } from '@/lib/store';
 import { maybePurgeFaces } from '@/lib/purge';
 
 export const SID_COOKIE = 'emotime_sid';
+export const AUTH_COOKIE = 'emotime_auth';
+export const ADMIN_USER_ID = 'account_admin';
+export const hashSessionToken = (token: string) => createHash('sha256').update(token).digest('hex');
 const GUEST = 'guest_session';
 
 function monthKey(d: Date) {
@@ -14,11 +18,14 @@ function monthKey(d: Date) {
 async function resolve(sessionId: string): Promise<User> {
   return withDB((db) => {
     ensureSeed(db);
-    const existing = findUser(db, sessionId);
-    if (existing) return grantMonthly(db, existing);
+    // 게스트 쿠키는 인증 수단이 아니다. 계정 ID를 넣어도 해당 회원으로 접속할 수 없다.
+    const protectedId = sessionId === ADMIN_USER_ID || db.accounts.some((a) => a.userId === sessionId);
+    const guestId = protectedId ? `guest_${hashSessionToken(sessionId)}` : sessionId;
+    const existing = findUser(db, guestId);
+    if (existing) return { ...grantMonthly(db, existing), role: 'user' as const };
 
     const user: User = {
-      id: sessionId,
+      id: guestId,
       name: '이모티미 사용자',
       plan: 'FREE',
       credits: PLANS.FREE.credits,
@@ -67,13 +74,27 @@ export function sessionIdFromCookies(): string {
   }
 }
 
-export async function getCurrentUser(): Promise<User> {
+export async function getCurrentUser(): Promise<User & { isAuthenticated: boolean }> {
   const sid = sessionIdFromCookies();
-  const user = await resolve(sid);
+  let token: string | undefined;
+  try { token = cookies().get(AUTH_COOKIE)?.value; } catch { /* 요청 밖에서는 게스트 */ }
+  let user: User | null = null;
+  if (token && /^[a-f0-9]{64}$/.test(token)) {
+    const tokenHash = hashSessionToken(token);
+    user = await withDB((db) => {
+      const session = db.sessions.find((s) => s.tokenHash === tokenHash && Date.parse(s.expiresAt) > Date.now());
+      const accountUser = session && findUser(db, session.userId);
+      if (!accountUser || (accountUser.id === ADMIN_USER_ID && !process.env.ADMIN_PASSCODE)) return null;
+      if (accountUser.id !== ADMIN_USER_ID && !db.accounts.some((a) => a.userId === accountUser.id)) return null;
+      return { ...grantMonthly(db, accountUser), role: accountUser.id === ADMIN_USER_ID ? 'admin' as const : 'user' as const };
+    });
+  }
+  const isAuthenticated = !!user;
+  user ??= await resolve(sid);
   // 얼굴 파기 기회적 스윕 (5분에 1회, 비동기 fire-and-forget)
   //  · 크론이 없는 환경에서도 24시간 파기 정책이 실제로 지켜지게 하는 안전망
   void maybePurgeFaces();
-  return { ...user };
+  return { ...user, isAuthenticated };
 }
 
 export async function getUserById(id: string): Promise<User | null> {
