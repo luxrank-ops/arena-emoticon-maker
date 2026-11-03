@@ -1,22 +1,26 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { analyzeSelfie, type FaceAnalysis } from '@/lib/face/analyze';
 import { TONES } from '@/lib/art/sticker';
 import { track } from '@/lib/analytics';
-import { compressPhotoFile, ensurePhotoConsistency, linkPhoto, loadPhoto, savePhoto } from '@/lib/studio/photo';
+import { compressPhotoFile, ensurePhotoConsistency, linkPhoto, loadPhoto, photoScopeId, savePhoto } from '@/lib/studio/photo';
 import type { Tone } from '@/lib/types';
 
 const CONSENT_VERSION = 'v1.2';
+const DRAFT_KEY = 'emotime:studio:draft:v1';
 
 export function UploadFlow({
+  step,
   allowedTones,
   credits,
   planName,
   unlimited = false,
 }: {
+  step: 'photo' | 'settings';
   allowedTones: Tone[];
   credits: number;
   planName: string;
@@ -34,10 +38,46 @@ export function UploadFlow({
   const [tone, setTone] = useState<Tone>(allowedTones[0] ?? '2d-cute');
   const [consent, setConsent] = useState({ terms: false, privacy: false, overseas: false });
   const [dragging, setDragging] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
+
+  useEffect(() => {
+    try {
+      const saved = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null');
+      if (saved?.analysis && saved.photoId && saved.photoId === photoScopeId('draft') && loadPhoto('draft')) {
+        setAnalysis(saved.analysis);
+        setFileName(saved.fileName || '');
+        setMode(saved.mode === 'full' ? 'full' : 'face');
+        if (allowedTones.includes(saved.tone)) setTone(saved.tone);
+        if (saved.consent) setConsent(saved.consent);
+      }
+    } catch { /* 잘못된 임시 정보는 무시하고 사진부터 다시 시작한다 */ }
+    setHydrated(true);
+  }, [allowedTones]);
+
+  useEffect(() => {
+    if (!hydrated || !analysis) return;
+    try {
+      const photoId = photoScopeId('draft');
+      if (photoId) sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId }));
+    } catch { /* 다음 단계로 이동할 때 저장 실패를 알린다 */ }
+  }, [hydrated, analysis, fileName, mode, tone, consent]);
+
+  function goToSettings() {
+    if (!analysis?.ok || busy) return;
+    try {
+      const photoId = photoScopeId('draft');
+      if (!photoId || !loadPhoto('draft')) throw new Error();
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId }));
+      router.push('/studio/upload/settings');
+    } catch { setError('임시 정보를 저장하지 못했어요. 사진을 다시 선택해 주세요.'); }
+  }
+
 
   const onFile = useCallback(async (file: File) => {
     setError(null);
     setBusy(true);
+    try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* 저장 불가 시 다음 단계에서 안내 */ }
+    setConsent({ terms: false, privacy: false, overseas: false });
     setAnalysis(null);
     setFileName(file.name);
     try {
@@ -57,7 +97,7 @@ export function UploadFlow({
 
 
   async function submit() {
-    if (!analysis) return;
+    if (!analysis?.ok || !consent.terms || !consent.privacy || !consent.overseas || busy) return;
     const photo = loadPhoto('draft');
     if (!photo) {
       setError('사진을 다시 선택해 주세요. 탭을 새로 열면 사진 보관이 초기화돼요.');
@@ -101,14 +141,14 @@ export function UploadFlow({
     }
   }
 
-  return (
-    <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
-      {/* ── 왼쪽: 업로드 & 동의 ───────────────────────────── */}
-      <div className="space-y-4">
-          <div role="group" aria-label="이모티콘 구도 선택" className="card flex gap-2 p-3">
-            <button type="button" aria-pressed={mode === 'face'} onClick={() => setMode('face')} className={clsx("flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black", mode === 'face' ? "border-ink bg-ink text-cream" : "border-line bg-paper text-ink")}>얼굴 모드</button>
-            <button type="button" aria-pressed={mode === 'full'} onClick={() => setMode('full')} className={clsx("flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black", mode === 'full' ? "border-ink bg-ink text-cream" : "border-line bg-paper text-ink")}>전신 모드</button>
-          </div>
+  if (!hydrated) return <p role="status" className="text-sm text-sub">준비 중이에요…</p>;
+  if (step === 'settings' && (!analysis?.ok || !loadPhoto('draft'))) {
+    return <div className="card p-6"><p className="font-bold">먼저 사진을 선택해 주세요.</p><p className="mt-2 text-sm text-sub">사진과 분석 정보는 이 탭에서만 보관됩니다.</p><Link href="/studio/upload" className="btn-primary mt-4 inline-flex">사진 선택으로 돌아가기</Link></div>;
+  }
+
+  const errorNotice = error ? <p role="alert" className="rounded-xl border-2 border-coral/50 bg-coral/10 px-4 py-3 text-sm font-bold text-coralink">{error}</p> : null;
+  if (step === 'photo') return (
+    <div className="mx-auto max-w-2xl space-y-4">
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -119,7 +159,7 @@ export function UploadFlow({
             e.preventDefault();
             setDragging(false);
             const f = e.dataTransfer.files?.[0];
-            if (f) void onFile(f);
+            if (f && !busy) void onFile(f);
           }}
           className={clsx(
             'card relative grid min-h-[240px] place-items-center p-6 text-center transition',
@@ -135,6 +175,7 @@ export function UploadFlow({
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void onFile(f);
+              e.target.value = '';
             }}
           />
           {/* 카메라로 찍기: capture="user" → 전면 카메라 바로 열림 */}
@@ -147,6 +188,7 @@ export function UploadFlow({
             onChange={(e) => {
               const f = e.target.files?.[0];
               if (f) void onFile(f);
+              e.target.value = '';
             }}
           />
           {!analysis ? (
@@ -180,7 +222,7 @@ export function UploadFlow({
                     {(analysis.metrics.coverage * 100).toFixed(1)}%
                   </p>
                 </div>
-                <button className="chip hover:border-ink" onClick={() => galleryInputRef.current?.click()}>
+                <button className="chip hover:border-ink" disabled={busy} onClick={() => galleryInputRef.current?.click()}>
                   다시 선택
                 </button>
               </div>
@@ -217,47 +259,18 @@ export function UploadFlow({
             </div>
           )}
         </div>
-
-        {/* 동의 */}
-        <div className="card p-5">
-          <p className="text-sm font-black">필수 동의</p>
-          <div className="mt-3 space-y-2.5 text-[13px]">
-            {[
-              { key: 'terms' as const, label: '서비스 이용약관 동의', href: '/terms' },
-              { key: 'privacy' as const, label: '개인정보 수집·이용 동의 (생성 요청 시 사진 일시 처리, 원본 미저장)', href: '/privacy' },
-              { key: 'overseas' as const, label: '개인정보 국외이전 동의 (사진·선택한 시안, Google LLC · 사전 확인 및 생성 목적)', href: '/privacy' },
-            ].map((c) => (
-              <label key={c.key} className="flex items-start gap-2 leading-snug">
-                <input
-                  type="checkbox"
-                  className="mt-0.5 h-4 w-4 accent-coral"
-                  checked={consent[c.key]}
-                  onChange={(e) => setConsent((s) => ({ ...s, [c.key]: e.target.checked }))}
-                />
-                <span>
-                  <span className="font-bold">[필수]</span> {c.label}{' '}
-                  <a href={c.href} target="_blank" className="text-coralink underline">
-                    보기
-                  </a>
-                </span>
-              </label>
-            ))}
+      {errorNotice}
+      <button className="btn-primary w-full !py-4 text-base" disabled={!analysis?.ok || busy} onClick={goToSettings}>다음 · 스타일 선택 →</button>
+      <p className="text-center text-xs text-sub">사진 분석은 브라우저에서 진행되며, 다음 단계에서 구도와 스타일을 선택합니다.</p>
+    </div>
+  );
+  return (
+    <div className="mx-auto max-w-3xl space-y-4">
+      <div className="card p-5"><p className="text-sm font-black">구도 선택</p><p className="mt-1 text-xs text-sub">얼굴 중심 또는 전신 이모티콘을 선택해 주세요.</p></div>
+          <div role="group" aria-label="이모티콘 구도 선택" className="card flex gap-2 p-3">
+            <button type="button" aria-pressed={mode === 'face'} onClick={() => setMode('face')} className={clsx("flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black", mode === 'face' ? "border-ink bg-ink text-cream" : "border-line bg-paper text-ink")}>얼굴 모드</button>
+            <button type="button" aria-pressed={mode === 'full'} onClick={() => setMode('full')} className={clsx("flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black", mode === 'full' ? "border-ink bg-ink text-cream" : "border-line bg-paper text-ink")}>전신 모드</button>
           </div>
-        </div>
-      </div>
-
-      {/* ── 오른쪽: 스타일 & 미리보기 ─────────────────────── */}
-      <div className="space-y-4">
-        <div className="card p-5">
-          <p className="text-sm font-black">AI가 만드는 방식</p>
-          <ol className="mt-3 space-y-2 text-[13px] leading-snug text-sub">
-            <li>1. 이미지를 그리기 전 원본 사진의 특징을 두 차례 확인해 일관성 기준을 준비합니다.</li>
-            <li>2. 준비가 끝나면 캐릭터 시안 3종을 AI가 그립니다.</li>
-            <li>3. 고른 시안으로 표정별 개별 이미지를 만듭니다. 실사 카톡 스티커는 12컷 또는 16컷을 선택할 수 있어요.</li>
-            <li>4. 완성된 컷은 팩에 저장되고 PNG·ZIP·카카오 규격으로 받을 수 있어요.</li>
-          </ol>
-        </div>
-
         <div className="card p-5">
           <div className="flex items-center justify-between">
             <p className="text-sm font-black">버전 선택 (캐릭터 vs 실사포토)</p>
@@ -285,21 +298,38 @@ export function UploadFlow({
             })}
           </div>
         </div>
-
-        {busy && stage ? <p role="status" className="rounded-xl border-2 border-line bg-cream px-4 py-3 text-sm font-bold">{stage}</p> : null}
-        {error ? (
-          <p className="rounded-xl border-2 border-coral/50 bg-coral/10 px-4 py-3 text-sm font-bold text-coralink">
-            {error}
-          </p>
-        ) : null}
-
-        <button className="btn-primary w-full !py-4 text-base" disabled={!ready} onClick={submit}>
-          {busy ? '처리 중…' : '캐릭터 시트 만들기 →'}
-        </button>
-        <p className="text-center text-[11px] text-sub">
-          다음 단계에서 3가지 시안 중 하나를 고릅니다 · 보유 크레딧 {unlimited ? '무제한' : credits}
-        </p>
+        <div className="card p-5">
+          <p className="text-sm font-black">필수 동의</p>
+          <div className="mt-3 space-y-2.5 text-[13px]">
+            {[
+              { key: 'terms' as const, label: '서비스 이용약관 동의', href: '/terms' },
+              { key: 'privacy' as const, label: '개인정보 수집·이용 동의 (생성 요청 시 사진 일시 처리, 원본 미저장)', href: '/privacy' },
+              { key: 'overseas' as const, label: '개인정보 국외이전 동의 (사진·선택한 시안, Google LLC · 사전 확인 및 생성 목적)', href: '/privacy' },
+            ].map((c) => (
+              <label key={c.key} className="flex items-start gap-2 leading-snug">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 h-4 w-4 accent-coral"
+                  checked={consent[c.key]}
+                  onChange={(e) => setConsent((s) => ({ ...s, [c.key]: e.target.checked }))}
+                />
+                <span>
+                  <span className="font-bold">[필수]</span> {c.label}{' '}
+                  <a href={c.href} target="_blank" className="text-coralink underline">
+                    보기
+                  </a>
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+      {busy && stage ? <p role="status" className="rounded-xl border-2 border-line bg-cream px-4 py-3 text-sm font-bold">{stage}</p> : null}
+      {errorNotice}
+      <div className="flex flex-col-reverse gap-2 sm:flex-row">
+        <Link href="/studio/upload" aria-disabled={busy} onClick={(e) => { if (busy) e.preventDefault(); }} className="btn-ghost text-center sm:flex-1">← 사진 선택</Link>
+        <button className="btn-primary !py-4 text-base sm:flex-[2]" disabled={!ready} onClick={submit}>{busy ? '처리 중…' : '다음 · 캐릭터 시안 만들기 →'}</button>
       </div>
+      <p className="text-center text-[11px] text-sub">생성 전에 사진을 두 차례 확인합니다 · 보유 크레딧 {unlimited ? '무제한' : credits}</p>
     </div>
   );
 }

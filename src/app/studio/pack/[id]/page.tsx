@@ -32,7 +32,7 @@ export default async function PackPage({ params }: { params: { id: string } }) {
         <Link href="/studio/upload" className="hover:text-ink">만들기</Link>
         <span>/</span>
         <span className="text-ink">내 팩</span>
-        <span className="ml-auto chip">STEP 3 / 3</span>
+        <span className="ml-auto chip">STEP 4 / 4</span>
       </nav>
 
       <div className="mb-8">
