@@ -119,7 +119,7 @@ export function FrameEditor({
   async function exportPng() {
     setExporting('png');
     try {
-      const blob = await renderPngBlob(spec, { watermark, size: 1024 });
+      const blob = await renderPngBlob(spec, { watermark });
       downloadBlob(blob, `${frame.label}-${frame.index + 1}.png`);
       track('export_sticker', { format: 'png', emotion: frame.emotion });
     } finally {
