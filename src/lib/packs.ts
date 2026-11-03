@@ -17,6 +17,7 @@ import { applyCredits, CreditError } from '@/lib/credits';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { PLANS } from '@/lib/pricing';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
+import { loadImage } from '@/lib/images';
 
 const FRAME_INTERVAL_MS = 850;
 
@@ -95,7 +96,9 @@ export async function chooseSheet(userId: string, sheetId: string, variantKey: s
   return withDB((db) => {
     const sheet = db.sheets.find((s) => s.id === sheetId && s.userId === userId);
     if (!sheet) throw new PackError('SHEET_NOT_FOUND', '캐릭터 시트를 찾을 수 없습니다');
-    if (!sheet.variants.some((v) => v.key === variantKey)) throw new PackError('VARIANT_NOT_FOUND', '없는 시트 옵션입니다');
+    const variant = sheet.variants.find((v) => v.key === variantKey);
+    if (!variant) throw new PackError('VARIANT_NOT_FOUND', '없는 시트 옵션입니다');
+    if (!variant.imageId) throw new PackError('REFERENCE_REQUIRED', '시안 이미지가 준비된 후 선택해 주세요.');
     sheet.chosenKey = variantKey;
     return sheet;
   });
@@ -110,6 +113,13 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     if (!f) throw new PackError('FACE_NOT_FOUND', '얼굴 정보를 찾을 수 없습니다');
     return { sheet: s, face: f };
   });
+
+  // 컷 전체에 사용할 시안을 고정하고, 차감 전에 이미지 접근 가능 여부를 확인한다.
+  const chosen = sheet.variants.find((v) => v.key === sheet.chosenKey);
+  const reference = chosen?.imageId ? await loadImage(chosen.imageId) : null;
+  if (!chosen?.imageId || !reference || reference.userId !== userId) {
+    throw new PackError('REFERENCE_REQUIRED', '선택한 시안을 불러올 수 없어요. 시안을 다시 만들거나 선택해 주세요.');
+  }
 
   const recent = await withDB((db) =>
     db.packs
@@ -158,7 +168,6 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     throw e;
   }
 
-  const chosen = sheet.variants.find((v) => v.key === sheet.chosenKey) ?? sheet.variants[0];
   const pack: Pack = {
     id: packId,
     userId,

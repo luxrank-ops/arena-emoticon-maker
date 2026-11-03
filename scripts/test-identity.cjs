@@ -42,6 +42,8 @@ const base = { photoBase64: 'cGhvdG8=', mimeType: 'image/jpeg', tone: '2d-cute',
 const prompt = renderer.buildRenderPrompt({ ...base, characterReference: { mimeType: 'image/webp', base64: 'cmVm' } });
 assert.match(prompt, /first image is the original photo/);
 assert.match(prompt, /second image is the chosen character design reference/);
+assert.match(prompt, /framing, character scale and proportions/);
+assert.match(prompt, /photo takes priority|preserve the identity and real facial features of the first image/);
 assert.doesNotMatch(prompt, /5 years younger/);
 assert.doesNotMatch(renderer.buildRenderPrompt(base), /second image/);
 const scenes = loadTs('./src/lib/photo-stickers.ts').PHOTO_STICKER_SCENES;
@@ -53,6 +55,7 @@ assert.match(stickerPrompt, /Exactly one individual sticker/);
 assert.match(stickerPrompt, /No grid/);
 assert.match(stickerPrompt, /냠냠/);
 assert.match(stickerPrompt, /chopsticks/);
+assert.match(stickerPrompt, /Keep the face clearly visible/);
 assert.doesNotMatch(stickerPrompt, /speech bubble/);
 let request;
 global.fetch = async (_url, options) => {

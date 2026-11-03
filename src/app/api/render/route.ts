@@ -134,6 +134,13 @@ export async function POST(req: Request) {
       return ok({ imageId: plan.existing, imageUrl: `/api/images/${plan.existing}` });
     }
 
+    // 시안이 누락되면 원본 사진만으로 조용히 진행하지 않는다. 차감 전 확인한다.
+    const reference = plan.kind === 'frame' && plan.chosenImageId ? await loadImage(plan.chosenImageId) : null;
+    if (plan.kind === 'frame' && (!reference || reference.userId !== user.id)) {
+      return fail('REFERENCE_REQUIRED', '선택한 시안을 불러올 수 없어 컷을 만들 수 없어요. 시안을 다시 선택해 새 팩을 만들어 주세요.', 409);
+    }
+    const characterReference = reference ? { mimeType: 'image/webp', base64: reference.data.toString('base64') } : undefined;
+
     // 2) 다시 그리기면 먼저 차감 (잔액 부족이면 생성하지 않는다)
     const chargeRef = uid('rd');
     if (plan.charged) {
@@ -159,11 +166,7 @@ export async function POST(req: Request) {
         .map((id) => ACCESSORIES.find((a) => a.id === id)?.promptAddition)
         .filter(Boolean) as string[];
 
-      // 시안은 이미 저장된 생성 이미지다. 원본 사진은 계속 요청에서만 사용한다.
-      const reference = plan.chosenImageId ? await loadImage(plan.chosenImageId) : null;
-      const characterReference = reference?.userId === user.id
-        ? { mimeType: 'image/webp', base64: reference.data.toString('base64') }
-        : undefined;
+      // 원본 사진을 우선하고, 팩에 고정된 시안을 모든 컷의 스타일 기준으로 사용한다.
       const png = await renderWithGemini({
         photoBase64,
         mimeType,
