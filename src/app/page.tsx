@@ -171,7 +171,7 @@ export default function LandingPage() {
               </div>
             </div>
 
-            <div className="card relative overflow-hidden bg-ink p-6 text-cream">
+            <div className="card relative overflow-hidden !bg-ink p-6 text-cream">
               <span className="chip !border-cream/30 !bg-cream/10 !text-cream">기능 02</span>
               <h3 className="mt-3 text-2xl font-black">톡 붙여넣기 · 3초 답장</h3>
               <p className="mt-2 text-sm leading-relaxed text-cream/70">
