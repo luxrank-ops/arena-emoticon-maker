@@ -82,6 +82,7 @@ const EMOTION_PROMPTS: Record<Emotion, string> = {
 
 const STYLE_PROMPTS: Record<Tone, string> = {
   '2d-cute': '2D cute sticker style, thick clean outline, kawaii, KakaoTalk emoji style, flat colors, white background',
+  'photo-sticker': 'photorealistic Korean chat sticker of the same person, white cutout outline, warm colors',
   caricature: 'photorealistic real human portrait cutout, natural real skin texture, authentic lifelike photo sticker, clean white background',
   doodle: 'charming wobbly crayon doodle sticker style like Choi Gosim, hand-drawn naive pop art, colorful primary accent colors, white background',
   'office-meme': 'humorous Korean office worker survival meme sticker, relatable funny office life comic style, clear speech bubble, witty expression, white background',

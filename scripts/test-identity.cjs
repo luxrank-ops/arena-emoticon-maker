@@ -44,6 +44,16 @@ assert.match(prompt, /first image is the original photo/);
 assert.match(prompt, /second image is the chosen character design reference/);
 assert.doesNotMatch(prompt, /5 years younger/);
 assert.doesNotMatch(renderer.buildRenderPrompt(base), /second image/);
+const scenes = loadTs('./src/lib/photo-stickers.ts').PHOTO_STICKER_SCENES;
+assert.equal(scenes.length, 16);
+assert.equal(new Set(scenes.map((scene) => scene.id)).size, 16);
+assert.ok(scenes.slice(0, 12).some((scene) => scene.id === 'photo-eat'));
+const stickerPrompt = renderer.buildRenderPrompt({ ...base, tone: 'photo-sticker', emotion: 'joy', line: '냠냠', sceneAction: scenes[8].action });
+assert.match(stickerPrompt, /Exactly one individual sticker/);
+assert.match(stickerPrompt, /No grid/);
+assert.match(stickerPrompt, /냠냠/);
+assert.match(stickerPrompt, /chopsticks/);
+assert.doesNotMatch(stickerPrompt, /speech bubble/);
 let request;
 global.fetch = async (_url, options) => {
   request = JSON.parse(options.body);

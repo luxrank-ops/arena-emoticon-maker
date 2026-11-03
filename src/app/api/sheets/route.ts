@@ -10,7 +10,7 @@ const schema = z.object({
   mode: z.enum(['face', 'full']).default('face'),
   tone: z.enum([
     '2d-cute', '3d-cartoon', 'sketch', 'mono', 'watercolor', 'caricature',
-    'doodle', 'office-meme', 'clay-3d', 'pixel-art',
+    'doodle', 'office-meme', 'clay-3d', 'pixel-art', 'photo-sticker',
   ]),
 });
 

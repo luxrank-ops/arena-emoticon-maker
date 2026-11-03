@@ -224,13 +224,17 @@ export default function LandingPage() {
       {/* ── 스타일 ──────────────────────────────────────────── */}
       <section className="border-y-2 border-ink bg-paper py-16">
         <div className="wrap">
-          <SectionHead eyebrow="6가지 화풍" title="얼굴은 그대로, 분위기는 골라서" />
+          <SectionHead eyebrow="다양한 화풍" title="얼굴은 그대로, 분위기는 골라서" />
           <div className="mt-8 grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">
             {Object.entries(TONES).map(([key, tone], i) => (
               <div key={key} className="card-flat overflow-hidden">
                 <div className="bg-cream p-2">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={`/samples/tone-${key}.webp`} alt={tone.label} className="aspect-square w-full object-contain" />
+                  {key === 'photo-sticker' ? (
+                    <div className="grid aspect-square place-items-center rounded-xl bg-lemon/30 p-4 text-center text-sm font-black">📷<br />실사 스티커<br /><span className="text-xs text-sub">표정별 개별 생성</span></div>
+                  ) : (
+                    <img src={`/samples/tone-${key}.webp`} alt={tone.label} className="aspect-square w-full object-contain" />
+                  )}
                 </div>
                 <div className="border-t-2 border-line px-3 py-2">
                   <p className="text-sm font-black">{tone.label}</p>

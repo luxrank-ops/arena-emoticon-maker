@@ -31,7 +31,7 @@ export default async function UploadPage() {
           <ol className="mt-2 space-y-1 text-sub">
             <li><strong className="text-ink">1.</strong> 사진 업로드 · 품질 확인</li>
             <li><strong className="text-ink">2.</strong> 캐릭터 시트 3종 중 선택</li>
-            <li><strong className="text-ink">3.</strong> 12/24컷 생성 · 편집 · 내보내기</li>
+            <li><strong className="text-ink">3.</strong> 12/16/24컷 생성 · 편집 · 내보내기</li>
           </ol>
         </div>
       </div>
