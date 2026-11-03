@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { handleError, ok } from '@/lib/api';
+import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { chooseSheet } from '@/lib/packs';
 
@@ -12,6 +12,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     const sheet = await chooseSheet(user.id, params.id, body.variantKey);
     return ok({ sheet });
   } catch (e) {
+    if ((e as { code?: string }).code === 'REFERENCE_REQUIRED') return fail('REFERENCE_REQUIRED', (e as Error).message, 409);
     return handleError(e);
   }
 }

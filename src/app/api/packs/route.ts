@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     void captureServer('pack_created', user.id, { size: pack.size, cost: pack.creditsSpent });
     return ok({ packId: pack.id, size: pack.size, cost: pack.creditsSpent });
   } catch (e) {
+    if ((e as { code?: string }).code === 'REFERENCE_REQUIRED') return fail('REFERENCE_REQUIRED', (e as Error).message, 409);
     if ((e as { code?: string }).code === 'INVALID_SIZE') return fail('INVALID_SIZE', (e as Error).message, 422);
     return handleError(e);
   }
