@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/session';
 import { PLANS } from '@/lib/pricing';
+import { LogoutButton } from '@/components/LogoutButton';
 
 const NAV = [
   { href: '/studio/upload', label: '만들기' },
@@ -49,9 +50,15 @@ export async function SiteHeader() {
             <span className="h-3 w-px bg-line" />
             <span>⚡ {user.role === 'admin' ? '무제한' : user.credits}</span>
           </Link>
-          <Link href="/studio/upload" className="btn-primary !px-4 !py-2 text-xs sm:text-sm">
-            무료로 만들기
-          </Link>
+          {user.isAuthenticated ? (
+            <div className="flex flex-col items-end gap-0.5">
+              <span className="max-w-[80px] truncate text-xs font-bold" title={user.name}>{user.name}</span>
+              <LogoutButton />
+            </div>
+          ) : (
+            <Link href="/login" className="btn-primary !px-3 !py-2 text-xs sm:text-sm">로그인</Link>
+          )}
+          <Link href="/studio/upload" className="btn-primary hidden !px-4 !py-2 text-xs lg:inline-flex">만들기</Link>
         </div>
       </div>
     </header>

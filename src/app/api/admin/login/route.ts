@@ -1,47 +1,18 @@
 import { z } from 'zod';
-import { timingSafeEqual } from 'node:crypto';
-import { fail, handleError, ok } from '@/lib/api';
-import { getCurrentUser } from '@/lib/session';
-import { withDB } from '@/lib/store';
-import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
+import { fail, ok } from '@/lib/api';
+import { ADMIN_NICKNAME, login } from '@/lib/auth';
+import { authError, authRateLimit, validateAuthRequest } from '@/lib/auth-api';
 
-const schema = z.object({ passcode: z.string().min(1).max(64) });
-
+/** 기존 운영 콘솔도 같은 계정·서버 인증 세션을 사용한다. */
 export async function POST(req: Request) {
   try {
-    const user = await getCurrentUser();
-
-    // 무차별 대입 방지: 세션당 5회/분
-    // 세션 쿠키를 바꿔가며 짧은 비밀번호를 추측하는 시도도 제한한다.
-    const globalLimit = enforceRateLimit('all', 'adminLoginGlobal', 10, 60_000);
-    if (globalLimit) return globalLimit;
-    const limited = enforceRateLimit(user.id, 'adminLogin', RATE_LIMITS.adminLogin);
+    const forbidden = validateAuthRequest(req);
+    if (forbidden) return forbidden;
+    if (!req.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return fail('INVALID_INPUT', 'JSON 요청이 필요합니다', 415);
+    const limited = authRateLimit('login');
     if (limited) return limited;
-
-    const configured = process.env.ADMIN_PASSCODE;
-    // 운영 환경에서 코드 미설정 → fail-closed (기본값으로 열어두지 않는다)
-    //  · 입력 검증보다 먼저 검사해, 어떤 입력이 와도 503 으로만 응답한다
-    if (!configured) {
-      return fail('ADMIN_DISABLED', '운영자 코드가 설정되지 않아 로그인할 수 없습니다', 503);
-    }
-    const { passcode } = schema.parse(await req.json());
-    const expected = configured;
-    if (!safeEqual(passcode, expected)) return fail('FORBIDDEN', '운영자 코드가 올바르지 않습니다', 401);
-
-    await withDB((db) => {
-      const u = db.users.find((x) => x.id === user.id);
-      if (u) u.role = 'admin';
-    });
+    const { passcode } = z.object({ passcode: z.string().min(1).max(128) }).parse(await req.json());
+    await login(ADMIN_NICKNAME, passcode);
     return ok({ admin: true });
-  } catch (e) {
-    return handleError(e);
-  }
-}
-
-/** 길이 차이로 정보가 새지 않는 상수 시간 비교 */
-function safeEqual(a: string, b: string) {
-  const bufA = Buffer.from(a);
-  const bufB = Buffer.from(b);
-  if (bufA.length !== bufB.length) return false;
-  return timingSafeEqual(bufA, bufB);
+  } catch (e) { return authError(e); }
 }
