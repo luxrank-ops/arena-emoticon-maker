@@ -52,7 +52,7 @@ export const STYLE_DIRECTIONS: Record<Tone, string> = {
 };
 
 const IDENTITY_RULES =
-  'Use the attached photo as the ONLY reference for who this is. Study it carefully and reproduce the real facial geometry exactly: the same distance between the eyes, eye shape and eyelid type, nose width and bridge, lip shape and thickness, jawline, cheekbone width, ear shape, eyebrow thickness and angle, forehead size, hairline, and the same hairstyle, hair length and parting. Keep the real skin tone and any visible features such as moles or wrinkles. Do not change age, gender or ethnicity. Do not beautify, slim or idealize the face. Make the person look clearly about 5 years younger than in the photo. Visibly reduce age cues: soften or remove forehead lines, reduce crow\'s feet at the eye corners, soften the nasolabial folds next to the nose and mouth, reduce under-eye bags and dark circles, even out skin tone and reduce spots, tighten the jawline slightly and reduce neck lines. Keep the exact same identity, bone structure, eye and nose shape, hairstyle and recognizable features.';
+  'The first image is the original photo and the only source of the person’s identity. Preserve their actual age, facial geometry, eye shape and spacing, nose, lips, jaw, ears, eyebrows, hairline, hairstyle, skin tone, and distinctive visible features. Do not beautify, de-age, alter facial proportions, or change gender or ethnicity. Preserve the recognizable identity even when adapting the illustration style or expression. Change only the requested expression, accessories and pose; never treat a style reference as a different person.';
 
 const LAYOUT_RULES =
   'Single person. The head and upper shoulders fill most of a square canvas at the same size and position in every image, centered, facing the viewer, eyes near the upper third. Plain solid white background. One person only. No border, no circle or frame around the subject, no watermark, and no text except a requested speech bubble.';
@@ -61,6 +61,8 @@ export interface RenderInput {
   /** 순수 base64 (data: 접두사 없음) */
   photoBase64: string;
   mimeType: string;
+  /** 사용자가 선택한 시안. 원본이 인물 정체성의 우선 기준이다. */
+  characterReference?: { mimeType: string; base64: string };
   tone: Tone;
   mode?: CompositionMode;
   emotion: Emotion;
@@ -84,6 +86,9 @@ export function buildRenderPrompt(input: RenderInput): string {
       ? 'Single person, full body visible from head to feet, centered on a square canvas with space around the entire figure. Preserve the recognizable face. If clothing or body details are not visible in the reference, invent suitable clothing and proportions. Plain solid white background. No border, watermark, or text except a requested speech bubble.'
       : LAYOUT_RULES,
   ];
+  if (input.characterReference) {
+    parts.push('The second image is the chosen character design reference. Match its visual style, color palette, hairstyle, clothing when visible, and character proportions across all cuts. If it conflicts with the first image, preserve the identity and real facial features of the first image. Do not copy its expression, pose, text or accessories unless requested.');
+  }
   if (input.line) {
     parts.push(
       `Include exactly one speech bubble with the Korean text "${input.line}" written exactly as given, clearly legible.`,
@@ -121,6 +126,10 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
         parts: [
           { text: buildRenderPrompt(input) },
           { inlineData: { mimeType: input.mimeType, data: input.photoBase64 } },
+          ...(input.characterReference ? [
+            { text: 'Chosen character design reference (not the original photo):' },
+            { inlineData: { mimeType: input.characterReference.mimeType, data: input.characterReference.base64 } },
+          ] : []),
         ],
       },
     ],

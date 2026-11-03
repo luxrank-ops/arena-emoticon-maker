@@ -7,10 +7,11 @@
 //  · 생성 결과(컷 이미지)만 서버에 남는다.
 // ─────────────────────────────────────────────────────────────
 
-const KEY = 'emotime:photo';
+const PREFIX = 'emotime:photo:v2:';
 const MAX_SIDE = 1024;
+export type PhotoScope = 'draft' | `sheet:${string}` | `pack:${string}`;
 
-/** 사진 파일 → 최대 768px JPEG data URL (용량·전송량 절약, EXIF 방향 반영) */
+/** 사진 파일 → 최대 1024px JPEG data URL (용량·전송량 절약, EXIF 방향 반영) */
 export async function compressPhotoFile(file: File): Promise<string> {
   const bitmap = await createImageBitmap(file);
   const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height));
@@ -28,24 +29,56 @@ export async function compressPhotoFile(file: File): Promise<string> {
   return canvas.toDataURL('image/jpeg', 0.9);
 }
 
-export function savePhoto(dataUrl: string) {
+const scopeKey = (scope: PhotoScope) => `${PREFIX}scope:${scope}`;
+const dataKey = (id: string) => `${PREFIX}data:${id}`;
+
+/** 스코프가 사진을 공유하므로 연결이 남아 있을 때에는 사진을 지우지 않는다. */
+function removeIfUnused(id: string | null) {
+  if (!id) return;
+  for (let i = 0; i < sessionStorage.length; i++) {
+    const key = sessionStorage.key(i);
+    if (key?.startsWith(`${PREFIX}scope:`) && sessionStorage.getItem(key) === id) return;
+  }
+  sessionStorage.removeItem(dataKey(id));
+}
+
+export function savePhoto(dataUrl: string, scope: PhotoScope) {
+  const id = crypto.randomUUID();
   try {
-    sessionStorage.setItem(KEY, dataUrl);
+    const old = sessionStorage.getItem(scopeKey(scope));
+    sessionStorage.setItem(dataKey(id), dataUrl);
+    try {
+      sessionStorage.setItem(scopeKey(scope), id);
+    } catch (error) {
+      sessionStorage.removeItem(dataKey(id));
+      throw error;
+    }
+    removeIfUnused(old);
   } catch {
     throw new Error('사진을 임시 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요');
   }
 }
 
-export function loadPhoto(): string | null {
+export function loadPhoto(scope: PhotoScope): string | null {
   try {
-    return sessionStorage.getItem(KEY);
+    const id = sessionStorage.getItem(scopeKey(scope));
+    return id ? sessionStorage.getItem(dataKey(id)) : null;
   } catch {
     return null;
   }
 }
 
-export function hasPhoto(): boolean {
-  return !!loadPhoto();
+/** 사진 자체를 복사하지 않고 시트·팩을 같은 탭의 사진에 연결한다. */
+export function linkPhoto(from: PhotoScope, to: PhotoScope) {
+  try {
+    const id = sessionStorage.getItem(scopeKey(from));
+    if (!id || !sessionStorage.getItem(dataKey(id))) throw new Error('missing photo');
+    const old = sessionStorage.getItem(scopeKey(to));
+    sessionStorage.setItem(scopeKey(to), id);
+    removeIfUnused(old);
+  } catch {
+    throw new Error('사진을 연결하지 못했어요. 같은 사진을 다시 선택해 주세요');
+  }
 }
 
 export type RenderTarget =

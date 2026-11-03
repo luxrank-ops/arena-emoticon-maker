@@ -200,6 +200,8 @@ export interface Pack {
   id: string;
   userId: string;
   sheetId: string;
+  /** 팩 생성 시 확정한 시안 이미지 (같은 시트에서 다른 팩을 만들어도 변경되지 않음) */
+  characterReferenceImageId?: string;
   tone: Tone;
   title: string;
   size: number;
