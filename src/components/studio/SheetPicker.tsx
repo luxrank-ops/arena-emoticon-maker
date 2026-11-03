@@ -11,7 +11,7 @@ import type { Palette, SheetVariant, StickerSpec, Tone } from '@/lib/types';
 // ─────────────────────────────────────────────────────────────
 // 캐릭터 시안 선택 (AI 생성본)
 //  · 시안 3종은 사진을 참조해 Gemini 가 실제로 그린 이미지다 (SVG 아님)
-//  · 사진은 이 탭의 임시 보관본을 쓰고, 생성 요청 때만 서버로 전송된다
+//  · 사진은 이 탭의 임시 보관본을 쓰고, 사전 확인 및 생성 요청 때 서버로 전송된다
 // ─────────────────────────────────────────────────────────────
 
 export function SheetPicker({
@@ -58,7 +58,7 @@ export function SheetPicker({
     setPending((prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, true])) }));
     await runLimited(keys, 3, async (key) => {
       try {
-        const url = await renderImage({ kind: 'sheet', sheetId, variantKey: key }, photo);
+        const url = await renderImage({ kind: 'sheet', sheetId, variantKey: key }, photo, `sheet:${sheetId}`);
         setImages((prev) => ({ ...prev, [key]: url }));
       } catch (e) {
         setFailed((prev) => ({ ...prev, [key]: (e as Error).message }));
@@ -156,7 +156,8 @@ export function SheetPicker({
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f) void onPickPhoto(f);
+                if (f && window.confirm('사진은 이미지 생성 전에 일관성 확인을 위해 두 차례, 이후 생성 시 Google Gemini로 전송됩니다. 이에 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
+                    e.target.value = '';
               }}
             />
           </label>

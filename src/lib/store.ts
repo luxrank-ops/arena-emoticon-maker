@@ -27,6 +27,8 @@ export interface DB {
   accounts: { userId: string; email: string; nickname: string; nicknameKey: string; name: string; birthDate: string; gender: 'male' | 'female' | 'unspecified'; passwordHash: string; consentAt: string }[];
   sessions: { tokenHash: string; userId: string; expiresAt: string }[];
   adminLoginAttempts: number[];
+  /** 원본을 저장하지 않는 단기 일관성 기준. 기한 이후 파기한다. */
+  consistencyPreparations: { tokenHash: string; userId: string; photoHash: string; features: string[]; expiresAt: number }[];
   faces: FaceProfile[];
   sheets: CharacterSheet[];
   packs: Pack[];
@@ -42,6 +44,7 @@ const EMPTY: DB = {
   accounts: [],
   sessions: [],
   adminLoginAttempts: [],
+  consistencyPreparations: [],
   faces: [],
   sheets: [],
   packs: [],

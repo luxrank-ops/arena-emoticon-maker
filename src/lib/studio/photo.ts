@@ -1,9 +1,11 @@
 'use client';
 
+import type { PreparedIdentity } from '@/lib/ai/consistency';
+
 // ─────────────────────────────────────────────────────────────
 // 브라우저 측 사진 보관 & 생성 요청 도우미
 //  · 사진은 이 탭의 sessionStorage 에만 머문다 (탭을 닫으면 사라짐).
-//  · 서버에는 "생성 요청" 때만 본문으로 전송되고, 응답 후 서버가 버린다.
+//  · 서버에는 사전 확인과 생성 요청 시 본문으로 전송되고, 원본은 저장하지 않는다.
 //  · 생성 결과(컷 이미지)만 서버에 남는다.
 // ─────────────────────────────────────────────────────────────
 
@@ -40,6 +42,7 @@ function removeIfUnused(id: string | null) {
     if (key?.startsWith(`${PREFIX}scope:`) && sessionStorage.getItem(key) === id) return;
   }
   sessionStorage.removeItem(dataKey(id));
+  sessionStorage.removeItem(`${PREFIX}guidance:${id}`);
 }
 
 export function savePhoto(dataUrl: string, scope: PhotoScope) {
@@ -85,23 +88,61 @@ export type RenderTarget =
   | { kind: 'frame'; frameId: string; force?: boolean; accessoryIds?: string[] }
   | { kind: 'sheet'; sheetId: string; variantKey: string };
 
-/** 컷/시안 1장 생성. 성공 시 이미지 URL */
-export async function renderImage(target: RenderTarget, photo: string): Promise<string> {
-  const res = await fetch('/api/render', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ photo, target }),
-  });
-  const json = (await res.json().catch(() => null)) as
-    | { ok: true; imageUrl: string }
-    | { ok: false; error?: { message?: string } }
-    | null;
-  if (!res.ok || !json || json.ok !== true) {
-    throw new Error(
-      (json && 'error' in json && json.error?.message) || 'AI 생성에 실패했어요. 다시 시도해 주세요',
-    );
+// 같은 사진의 병렬 시안/컷 요청은 준비 작업을 공유한다.
+const preparing = new Map<string, Promise<PreparedIdentity>>();
+const PREPARED_TTL_MS = 60 * 60_000;
+
+export async function ensurePhotoConsistency(photo: string, scope: PhotoScope): Promise<PreparedIdentity> {
+  const id = sessionStorage.getItem(scopeKey(scope));
+  if (!id || sessionStorage.getItem(dataKey(id)) !== photo) throw new Error('사진이 변경됐어요. 같은 사진으로 다시 시작해 주세요.');
+  const profileKey = `${PREFIX}guidance:${id}`;
+  try {
+    const raw = sessionStorage.getItem(profileKey);
+    if (raw) {
+      const cached = JSON.parse(raw) as PreparedIdentity;
+      if (cached.createdAt > Date.now() - PREPARED_TTL_MS && cached.createdAt <= Date.now() && /^[a-f0-9]{64}$/.test(cached.token)) return cached;
+    }
+  } catch { /* 손상된 캐시는 다시 준비한다 */ }
+  const existing = preparing.get(id);
+  if (existing) return existing;
+  const task = (async () => {
+    const res = await fetch('/api/face/consistency', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo, consent: true }),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok || !json?.prepared) throw new Error(json?.error?.message ?? '일관성 준비를 완료하지 못했어요.');
+    if (sessionStorage.getItem(scopeKey(scope)) !== id || sessionStorage.getItem(dataKey(id)) !== photo) throw new Error('준비 중 사진이 변경됐어요. 다시 시작해 주세요.');
+    try { sessionStorage.setItem(profileKey, JSON.stringify(json.prepared)); }
+    catch { throw new Error('일관성 기준을 임시 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); }
+    return json.prepared as PreparedIdentity;
+  })();
+  preparing.set(id, task);
+  try { return await task; } finally { preparing.delete(id); }
+}
+
+/** 이미지 생성 전에 두 단계 사진 검토가 끝나야 요청한다. */
+export async function renderImage(target: RenderTarget, photo: string, scope: PhotoScope): Promise<string> {
+  let consistency = await ensurePhotoConsistency(photo, scope);
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const res = await fetch('/api/render', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ photo, target, consistency }),
+    });
+    const json = (await res.json().catch(() => null)) as
+      | { ok: true; imageUrl: string }
+      | { ok: false; error?: { code?: string; message?: string } }
+      | null;
+    if (res.ok && json && json.ok === true) return json.imageUrl;
+    if (attempt === 0 && json && 'error' in json && json.error?.code === 'CONSISTENCY_REQUIRED') {
+      // 인증 세션이 바뀌었거나 준비가 만료됐을 때만 이미지 생성 전에 다시 준비한다.
+      const id = sessionStorage.getItem(scopeKey(scope));
+      if (id) sessionStorage.removeItem(`${PREFIX}guidance:${id}`);
+      consistency = await ensurePhotoConsistency(photo, scope);
+      continue;
+    }
+    throw new Error((json && 'error' in json && json.error?.message) || 'AI 생성에 실패했어요. 다시 시도해 주세요');
   }
-  return json.imageUrl;
+  throw new Error('사진의 일관성 준비를 완료하지 못했어요.');
 }
 
 /** 동시 실행 개수를 제한해 목록을 처리한다 (Gemini 과호출 방지) */

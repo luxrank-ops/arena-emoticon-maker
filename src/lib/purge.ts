@@ -28,6 +28,7 @@ export async function purgeExpiredFaces(
       (f) => opts.force || new Date(f.purgedAt).getTime() <= now,
     );
     const ranAt = new Date(now).toISOString();
+    if (!opts.dryRun) db.consistencyPreparations = db.consistencyPreparations.filter((entry) => entry.expiresAt > now);
 
     if (opts.dryRun || due.length === 0) {
       if (!opts.dryRun) {

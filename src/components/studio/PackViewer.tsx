@@ -53,7 +53,7 @@ export function PackViewer({
     setGenerating(true);
     void runLimited(missing, 3, async (id) => {
       try {
-        const url = await renderImage({ kind: 'frame', frameId: id }, photo);
+        const url = await renderImage({ kind: 'frame', frameId: id }, photo, `pack:${initialPack.id}`);
         setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, spec: { ...f.spec, imageUrl: url } } : f)));
       } catch (e) {
         setGenErrors((prev) => ({ ...prev, [id]: (e as Error).message }));
@@ -210,7 +210,8 @@ export function PackViewer({
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) void onPickPhoto(f);
+                    if (f && window.confirm('사진은 이미지 생성 전에 일관성 확인을 위해 두 차례, 이후 생성 시 Google Gemini로 전송됩니다. 이에 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
+                    e.target.value = '';
                   }}
                 />
               </label>

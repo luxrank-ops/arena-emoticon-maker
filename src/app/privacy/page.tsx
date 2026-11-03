@@ -6,7 +6,7 @@ export default function PrivacyPage() {
   return (
     <div className="wrap max-w-3xl py-12">
       <h1 className="h2">개인정보처리방침</h1>
-      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 2일 · 버전 v1.1</p>
+      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 3일 · 버전 v1.2</p>
 
       <div className="mt-8 space-y-8 text-[13px] leading-relaxed text-sub">
         <section>
@@ -30,6 +30,11 @@ export default function PrivacyPage() {
                   <td className="py-2 font-bold text-ink">얼굴 분석 지표(색상 팔레트·품질 지표)</td>
                   <td className="py-2">캐릭터 시트·컷 생성</td>
                   <td className="py-2">생성 후 24시간 이내 파기</td>
+                </tr>
+                <tr className="border-b border-line">
+                  <td className="py-2 font-bold text-ink">일관성 준비 정보(사진 해시·시각적 특징·인증 토큰 해시)</td>
+                  <td className="py-2">생성 전 사진 확인 및 같은 사진의 컷 생성 기준 유지</td>
+                  <td className="py-2">유효기간 1시간, 이후 다음 자동 정리 시 삭제</td>
                 </tr>
                 <tr className="border-b border-line">
                   <td className="py-2 font-bold text-ink">생성된 시안·컷 이미지</td>
@@ -62,8 +67,7 @@ export default function PrivacyPage() {
           <p className="mt-3">
             <strong className="text-ink">원본 사진의 흐름</strong>은 다음과 같습니다. ① 사진은 이용자의 브라우저 탭에만
             임시 보관되며, 탭을 닫으면 사라집니다. ② 얼굴 분석 지표(색상·품질)는 브라우저에서 계산합니다.
-            ③ 컷을 만들 때에만 사진이 서버를 거쳐 AI 제공자(Google Gemini API)로 전송됩니다. ④ 서버는 응답을 받은 뒤
-            원본 사진을 저장하지 않습니다. 팩의 컷을 만들거나 다시 그릴 때는 선택한 생성 시안도 일관성 유지를 위한 참조 이미지로 Google에 전송될 수 있습니다.
+            ③ 이미지 생성 전에 원본 사진을 Google Gemini로 두 차례 전송해 시각적 특징을 확인합니다. 시안·컷 생성 시 사진과 선택한 시안도 전송될 수 있습니다. ④ 서버는 원본 사진을 저장하지 않지만, 생성 기준에 필요한 사진 해시와 시각적 특징을 1시간 동안 유효하게 보관하고 만료 후 다음 자동 정리 시 삭제합니다.
           </p>
         </section>
 
@@ -79,13 +83,13 @@ export default function PrivacyPage() {
         <section>
           <h2 className="text-sm font-black text-ink">3. 개인정보의 국외 이전</h2>
           <p className="mt-2">
-            컷 생성을 위해 아래와 같이 국외 이전이 발생합니다.
+            생성 전 사진 확인 및 컷 생성을 위해 아래와 같이 국외 이전이 발생합니다.
           </p>
           <ul className="mt-2 space-y-1">
             <li>· 이전받는 자: Google LLC (Gemini API)</li>
-            <li>· 이전 항목: 컷 생성 요청 시 셀카 사진, 선택한 생성 시안 이미지, 생성 지시문(표정·대사·화풍)</li>
+            <li>· 이전 항목: 생성 전 사진 확인 및 컷 생성 시 셀카 사진, 선택한 생성 시안, 사진 특징 및 생성 지시문</li>
             <li>· 이전 국가·시기·방법: 미국 / 컷 생성 요청 시점 / 암호화된 네트워크(HTTPS) 전송</li>
-            <li>· 이용 목적: 이미지 생성</li>
+            <li>· 이용 목적: 생성 전 사진 확인 및 이미지 생성</li>
             <li>· 보유 기간: 회사 서버는 응답 후 즉시 폐기합니다. 제공자 측 처리·보관 정책은 Google API 약관을 따르며, 이 부분은 법률 검토 중입니다.</li>
           </ul>
           <p className="mt-2">이전을 거부할 수 있으나, 이 경우 컷 생성 서비스 이용이 제한됩니다.</p>
