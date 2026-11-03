@@ -35,6 +35,7 @@ export const TONE_GENERATION_PARAMS: Record<Tone, { loraId?: string; promptPrefi
     promptPrefix: 'watercolor painting, soft edges, bleeding colors, artistic, gentle, same person',
     negativePrompt: 'sharp lines, vector, flat color, different person, changed face',
   },
+  'photo-sticker': { promptPrefix: 'photorealistic Korean chat sticker, white outline, warm colors, same person', negativePrompt: 'grid, collage, different person' },
   caricature: {
     loraId: undefined,
     promptPrefix: 'same person in photo, realistic sticker emoticon, exact facial identity, rich emotional expressions, clean background',

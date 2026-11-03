@@ -1,4 +1,5 @@
 import { ACCESSORIES } from '@/lib/accessories';
+import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
@@ -86,6 +87,7 @@ export async function POST(req: Request) {
           tone: pack.tone as Tone,
           mode: pack.mode ?? 'face',
           emotion: frame.emotion as Emotion,
+          sceneAction: pack.tone === 'photo-sticker' ? PHOTO_STICKER_SCENES.find((s) => s.id === frame.templateId && s.emotion === frame.emotion)?.action : undefined,
           line: frame.line,
           accessoryIds: target.accessoryIds ?? frame.accessoryIds ?? [],
           chosenImageId,
@@ -107,6 +109,7 @@ export async function POST(req: Request) {
         tone: sheet.tone as Tone,
         mode: sheet.mode ?? 'face',
         emotion: 'joy' as Emotion,
+        sceneAction: undefined as string | undefined,
         line: '',
         accessoryIds: [] as string[],
         chosenImageId: undefined as string | undefined,
@@ -160,6 +163,7 @@ export async function POST(req: Request) {
         line: plan.line || undefined,
         variantNote: plan.variantNote,
         accessoryPrompts,
+        sceneAction: plan.sceneAction,
       });
 
       // 4) WebP 로 줄여 저장 → DB 에 연결

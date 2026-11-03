@@ -246,7 +246,7 @@ export function UploadFlow({
           <p className="text-sm font-black">AI가 만드는 방식</p>
           <ol className="mt-3 space-y-2 text-[13px] leading-snug text-sub">
             <li>1. 셀카 한 장으로 캐릭터 시안 3종을 AI가 그립니다.</li>
-            <li>2. 고른 시안으로 같은 얼굴의 표정 컷 12개(또는 24개)를 만듭니다.</li>
+            <li>2. 고른 시안으로 표정별 개별 이미지를 만듭니다. 실사 카톡 스티커는 12컷 또는 16컷을 선택할 수 있어요.</li>
             <li>3. 완성된 컷은 팩에 저장되고 PNG·ZIP·카카오 규격으로 받을 수 있어요.</li>
           </ol>
         </div>

@@ -16,6 +16,7 @@ import { TEMPLATES_BY_ID } from '@/lib/recommend/templates';
 import { applyCredits, CreditError } from '@/lib/credits';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { PLANS } from '@/lib/pricing';
+import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 
 const FRAME_INTERVAL_MS = 850;
 
@@ -27,7 +28,7 @@ export class PackError extends Error {
   }
 }
 
-export const FREE_TONES: Tone[] = ['2d-cute', 'caricature', 'doodle', 'office-meme', 'clay-3d', 'pixel-art'];
+export const FREE_TONES: Tone[] = ['2d-cute', 'caricature', 'doodle', 'office-meme', 'clay-3d', 'pixel-art', 'photo-sticker'];
 
 export function tonesForPlan(plan: 'FREE' | 'PLUS' | 'STUDIO'): Tone[] {
   return plan === 'FREE'
@@ -39,6 +40,7 @@ export function tonesForPlan(plan: 'FREE' | 'PLUS' | 'STUDIO'): Tone[] {
         'office-meme',
         'clay-3d',
         'pixel-art',
+        'photo-sticker',
         '3d-cartoon',
         'sketch',
         'mono',
@@ -116,7 +118,11 @@ export async function createPack(userId: string, sheetId: string, size: number, 
       .flatMap((p) => p.frames.map((f) => f.templateId)),
   );
 
-  const templates = composePackTemplates(size, new Date(), recent);
+  if (sheet.tone === 'photo-sticker' && size !== 12 && size !== 16) throw new PackError('INVALID_SIZE', '실사 카톡 스티커는 12컷 또는 16컷을 선택해 주세요');
+  if (size === 16 && sheet.tone !== 'photo-sticker') throw new PackError('INVALID_SIZE', '16컷은 실사 카톡 스티커에서만 선택할 수 있습니다');
+  const templates = sheet.tone === 'photo-sticker'
+    ? PHOTO_STICKER_SCENES.slice(0, size)
+    : composePackTemplates(size, new Date(), recent);
   const packId = uid('pack');
   const now = Date.now();
 
@@ -130,7 +136,8 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     label: t.label,
     line: t.line,
     prop: 'none',
-    background: 'transparent',
+    // 실사 스티커는 흰색 불투명 배경으로 생성되므로 투명 배경으로 표시하지 않는다.
+    background: sheet.tone === 'photo-sticker' ? 'cream' : 'transparent',
     seed: (now % 100000) + i * 17,
     readyAt: now + i * FRAME_INTERVAL_MS,
     usageCount: 0,

@@ -7,6 +7,7 @@ export type Plan = 'FREE' | 'PLUS' | 'STUDIO';
 export type Tone =
   | '2d-cute'
   | 'caricature'
+  | 'photo-sticker'
   | 'doodle'
   | 'office-meme'
   | 'clay-3d'

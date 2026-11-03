@@ -31,6 +31,7 @@ export const EMOTIONS: Record<Emotion, { label: string; hint: string; emoji: str
 
 export const TONES: Record<Tone, { label: string; desc: string; badge: string }> = {
   '2d-cute': { label: '2D 캐릭터 버전', desc: '귀여운 외곽선, 카톡 인기 캐릭터 스타일', badge: '캐릭터' },
+  'photo-sticker': { label: '실사 카톡 스티커', desc: '흰 테두리·한국어 대사·귀여운 표정, 개별 이미지', badge: 'NEW' },
   caricature: { label: '실사 포토 버전', desc: '실제 인물 사진 그대로 12가지 감정 표정', badge: '실사포토' },
   doodle: { label: '힐링 낙서 버전', desc: '최고심풍 삐뚤빼뚤 손그림, 긍정 자존감 대사', badge: 'MZ원픽' },
   'office-meme': { label: '직장인 밈 버전', desc: '곽철이·루피풍 은은한 광기, 퇴근/넵 필수짤', badge: '대세' },
@@ -392,6 +393,7 @@ const TONE_STYLE: Record<Tone, ToneStyle> = {
   sketch: { sw: 17, ink: '#3A332C', stroke: `stroke="#3A332C"`, highlight: '#FFFFFF', useGradient: false, filter: true, flatten: false },
   mono: { sw: 18, ink: '#141414', stroke: `stroke="#141414"`, highlight: '#FFFFFF', useGradient: false, filter: false, flatten: false },
   watercolor: { sw: 0, ink: '#6B5B4F', stroke: 'stroke="none"', highlight: '#FFFFFF', useGradient: true, filter: false, flatten: true },
+  'photo-sticker': { sw: 18, ink: INK, stroke: `stroke="${INK}"`, highlight: '#FFFFFF', useGradient: false, filter: false, flatten: false },
   caricature: { sw: 18, ink: INK, stroke: `stroke="${INK}"`, highlight: '#FFFFFF', useGradient: false, filter: false, flatten: false },
   doodle: { sw: 20, ink: '#111111', stroke: `stroke="#111111"`, highlight: '#FFFD82', useGradient: false, filter: false, flatten: false },
   'office-meme': { sw: 16, ink: '#222222', stroke: `stroke="#222222"`, highlight: '#FFFFFF', useGradient: false, filter: false, flatten: false },

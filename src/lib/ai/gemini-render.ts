@@ -31,6 +31,8 @@ export const EMOTION_PROMPTS: Record<Emotion, string> = {
 export const STYLE_DIRECTIONS: Record<Tone, string> = {
   '2d-cute':
     'a cute 2D character sticker in the style of popular KakaoTalk emoticons: thick clean black outline, flat soft colors, simple shading, a stylized but clearly recognizable version of the person',
+  'photo-sticker':
+    'a warm photorealistic Korean messaging sticker featuring the real person, natural photographic facial features and clothing, soft colors, a clean white cutout outline around the person, and a few small hand-drawn emoji accents appropriate to the expression',
   caricature:
     'a photorealistic studio portrait photograph of the real person, shot like a real camera photo: natural skin texture with visible pores, soft realistic studio lighting, true colors, real depth of field. It must NOT look like an illustration, painting, CGI or cartoon. Keep the same clothing as the reference photo',
   doodle:
@@ -72,26 +74,34 @@ export interface RenderInput {
   variantNote?: string;
   /** 추가 악세사리 프롬프트 지시어들 */
   accessoryPrompts?: string[];
+  sceneAction?: string;
 }
 
 export function modelForTone(tone: Tone): string {
-  return tone === 'caricature' ? PHOTO_MODEL : STYLE_MODEL;
+  return tone === 'caricature' || tone === 'photo-sticker' ? PHOTO_MODEL : STYLE_MODEL;
 }
 
 export function buildRenderPrompt(input: RenderInput): string {
   const parts = [
     `Create ${STYLE_DIRECTIONS[input.tone]} of the person in the reference photo, showing ${EMOTION_PROMPTS[input.emotion]}.`,
     IDENTITY_RULES,
-    input.mode === 'full'
+    input.tone === 'photo-sticker'
+      ? (input.mode === 'full'
+        ? 'Exactly one individual sticker, one person shown from head to feet, with space around the whole figure on a clean white square background. A narrow white sticker-cutout outline hugs the figure. No grid, collage, panels, multiple people or multiple expressions.'
+        : 'Exactly one individual sticker, one person from the chest up, centered with space for hands, text and small decorations on a clean white square background. A narrow white sticker-cutout outline hugs the figure. No grid, collage, panels, multiple people or multiple expressions.')
+      : input.mode === 'full'
       ? 'Single person, full body visible from head to feet, centered on a square canvas with space around the entire figure. Preserve the recognizable face. If clothing or body details are not visible in the reference, invent suitable clothing and proportions. Plain solid white background. No border, watermark, or text except a requested speech bubble.'
       : LAYOUT_RULES,
   ];
   if (input.characterReference) {
     parts.push('The second image is the chosen character design reference. Match its visual style, color palette, hairstyle, clothing when visible, and character proportions across all cuts. If it conflicts with the first image, preserve the identity and real facial features of the first image. Do not copy its expression, pose, text or accessories unless requested.');
   }
+  if (input.sceneAction) parts.push(`For this individual sticker, show the person ${input.sceneAction}.`);
   if (input.line) {
     parts.push(
-      `Include exactly one speech bubble with the Korean text "${input.line}" written exactly as given, clearly legible.`,
+      input.tone === 'photo-sticker'
+        ? `Include the Korean text "${input.line}" exactly as given in cute, bold, handwritten lettering beside the person. No other text.`
+        : `Include exactly one speech bubble with the Korean text "${input.line}" written exactly as given, clearly legible.`,
     );
   }
   if (input.accessoryPrompts && input.accessoryPrompts.length > 0) {
@@ -134,7 +144,7 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
       },
     ],
     generationConfig: {
-      temperature: input.tone === 'caricature' ? 0.25 : 0.5,
+      temperature: input.tone === 'caricature' || input.tone === 'photo-sticker' ? 0.25 : 0.5,
       topP: 0.9,
       maxOutputTokens: 2048,
     },

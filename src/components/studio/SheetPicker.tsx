@@ -33,7 +33,7 @@ export function SheetPicker({
 }) {
   const router = useRouter();
   const [chosen, setChosen] = useState<string | null>(alreadyChosen);
-  const [size, setSize] = useState<12 | 24>(12);
+  const [size, setSize] = useState<12 | 16 | 24>(12);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<Record<string, string>>(() =>
@@ -237,7 +237,7 @@ export function SheetPicker({
             <p className="text-xs text-sub">{unlimited ? '관리자 무제한 사용' : `1컷 = 1크레딧 · 보유 ${credits}크레딧`}</p>
           </div>
           <div className="flex gap-2">
-            {([12, 24] as const).map((s) => (
+            {(tone === 'photo-sticker' ? [12, 16] as const : [12, 24] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => setSize(s)}
@@ -254,8 +254,9 @@ export function SheetPicker({
         </div>
 
         <div className="mt-4 rounded-xl border border-line bg-cream px-4 py-3 text-[12px] leading-relaxed text-sub">
-          <strong className="text-ink">24컷</strong>은 카카오 이모티콘 스튜디오 제안 규격과 동일한 구성입니다.
-          12컷은 개인 사용·빠른 제작에 적합합니다.
+          {tone === 'photo-sticker'
+            ? '표정마다 각각 독립된 이미지로 만들어집니다. 12·16컷은 개인 사용용이며 카카오 정식 제안 규격 충족을 보장하지 않습니다.'
+            : <><strong className="text-ink">24컷</strong>은 카카오 이모티콘 스튜디오 제안 규격과 동일한 구성입니다. 12컷은 개인 사용·빠른 제작에 적합합니다.</>}
         </div>
 
         {error ? (
