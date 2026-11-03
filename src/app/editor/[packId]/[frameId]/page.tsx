@@ -35,7 +35,7 @@ export default async function EditorPage({
       <div className="mb-6">
         <h1 className="h2">컷 편집</h1>
         <p className="mt-1 text-sm text-sub">
-          대사·표정·소품·배경을 즉시 바꿔보세요. 모든 변경은 자동 저장됩니다.
+          대사와 표정을 편집하고, AI 컷은 악세사리를 선택해 다시 그릴 수 있어요.
         </p>
       </div>
       <FrameEditor
@@ -45,6 +45,7 @@ export default async function EditorPage({
         index={frame.index}
         total={view.total}
         aiPack={((view.pack.renderer as any) ?? 'ai') !== 'svg'}
+        unlimited={user.role === 'admin'}
       />
     </div>
   );

@@ -28,13 +28,14 @@ const schema = z.object({
     .string()
     .max(4_000_000)
     .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, '사진 형식을 확인해 주세요'),
-  accessoryIds: z.array(z.string()).max(3).optional(),
   target: z.discriminatedUnion('kind', [
     z.object({
       kind: z.literal('frame'),
       frameId: z.string().min(3).max(80),
       /** true 면 기존 컷을 무시하고 현재 대사·표정으로 다시 그린다 (에디터, 1크레딧) */
       force: z.boolean().optional(),
+      accessoryIds: z.array(z.string().refine((id) => ACCESSORIES.some((a) => a.id === id), '알 수 없는 악세사리입니다'))
+        .max(3).refine((ids) => new Set(ids).size === ids.length, '중복된 악세사리입니다').optional(),
     }),
     z.object({
       kind: z.literal('sheet'),
@@ -65,6 +66,10 @@ export async function POST(req: Request) {
 
     const target = body.target;
 
+    if (target.kind === 'frame' && target.accessoryIds && !target.force) {
+      return fail('INVALID_INPUT', '악세사리를 적용하려면 다시 그려야 합니다', 422);
+    }
+
     // 1) 대상 확인 (소유자 검증)
     const plan = await withDB((db) => {
       if (target.kind === 'frame') {
@@ -80,6 +85,7 @@ export async function POST(req: Request) {
           mode: pack.mode ?? 'face',
           emotion: frame.emotion as Emotion,
           line: frame.line,
+          accessoryIds: target.accessoryIds ?? frame.accessoryIds ?? [],
           variantNote: undefined as string | undefined,
           charged: !!target.force && user.role !== 'admin',
           previousImageId: frame.imageId as string | undefined,
@@ -99,6 +105,7 @@ export async function POST(req: Request) {
         mode: sheet.mode ?? 'face',
         emotion: 'joy' as Emotion,
         line: '',
+        accessoryIds: [] as string[],
         variantNote: SHEET_NOTES[variantIndex] ?? SHEET_NOTES[0],
         charged: false,
         previousImageId: undefined as string | undefined,
@@ -130,7 +137,7 @@ export async function POST(req: Request) {
 
     try {
       // 3) Gemini 생성 (DB 잠금 밖에서 수행)
-      const accessoryPrompts = (body.accessoryIds || [])
+      const accessoryPrompts = plan.accessoryIds
         .map((id) => ACCESSORIES.find((a) => a.id === id)?.promptAddition)
         .filter(Boolean) as string[];
 
@@ -154,7 +161,10 @@ export async function POST(req: Request) {
         if (plan.kind === 'frame') {
           const pack = db.packs.find((p) => p.id === plan.packId && p.userId === user.id);
           const frame = pack?.frames.find((f) => f.id === plan.frameId);
-          if (frame) frame.imageId = imageId;
+          if (frame) {
+            frame.imageId = imageId;
+            frame.accessoryIds = plan.accessoryIds;
+          }
         } else {
           const sheet = db.sheets.find((s) => s.id === plan.sheetId && s.userId === user.id);
           const variant = sheet?.variants.find((v) => v.key === plan.variantKey);

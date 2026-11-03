@@ -1,5 +1,6 @@
-import { ACCESSORIES } from '@/lib/accessories';
 'use client';
+
+import { ACCESSORIES } from '@/lib/accessories';
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -21,6 +22,7 @@ export function FrameEditor({
   index,
   total,
   aiPack,
+  unlimited = false,
 }: {
   frame: FrameView;
   packId: string;
@@ -29,26 +31,34 @@ export function FrameEditor({
   total: number;
   /** AI 생성 팩이면 대사·표정 변경 시 컷을 다시 그린다 */
   aiPack: boolean;
+  unlimited?: boolean;
 }) {
   const [frame, setFrame] = useState(initial);
   const [exporting, setExporting] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [emotion, setEmotion] = useState<Emotion>(initial.emotion);
   // 마지막으로 그려진(또는 처음 받은) 대사·표정 — 이와 다르면 "다시 그리기" 를 연다
-  const [drawn, setDrawn] = useState({ line: initial.line, emotion: initial.emotion });
+  const [drawn, setDrawn] = useState({ line: initial.line, emotion: initial.emotion, accessories: initial.accessoryIds ?? [] });
   const [redrawing, setRedrawing] = useState(false);
   const [redrawError, setRedrawError] = useState<string | null>(null);
   const [needPhoto, setNeedPhoto] = useState(false);
-  const [selectedAccessories, setSelectedAccessories] = useState<string[]>([]);
+  const [selectedAccessories, setSelectedAccessories] = useState<string[]>(initial.accessoryIds ?? []);
 
   const spec: StickerSpec = useMemo(
     () => ({ ...frame.spec, emotion, line: frame.line, prop: frame.prop, background: frame.background, intensity: frame.intensity }),
     [frame, emotion],
   );
 
-  const dirty = aiPack && (frame.line !== drawn.line || emotion !== drawn.emotion);
+  const dirty = aiPack && (frame.line !== drawn.line || emotion !== drawn.emotion ||
+    selectedAccessories.length !== drawn.accessories.length || selectedAccessories.some((id) => !drawn.accessories.includes(id)));
 
-  async function patch(next: { line?: string; prop?: PropKey; background?: BackgroundKey; intensity?: number; emotion?: Emotion }) {
+  function toggleAccessory(id: string) {
+    setSelectedAccessories((prev) => prev.includes(id)
+      ? prev.filter((item) => item !== id)
+      : prev.length < 3 ? [...prev, id] : prev);
+  }
+
+  async function patch(next: { line?: string; prop?: PropKey; background?: BackgroundKey; intensity?: number; emotion?: Emotion }, requireSave = false) {
     const { emotion: e, ...rest } = next;
     if (e) setEmotion(e);
     const merged = { ...frame, ...rest, ...(e ? { emotion: e } : {}) };
@@ -60,13 +70,15 @@ export function FrameEditor({
         body: JSON.stringify({ ...rest, ...(e ? { emotion: e } : {}) }),
       });
       const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json?.error?.message ?? '편집 내용을 저장하지 못했어요');
       if (json.ok) {
         // 서버 값으로 맞추되, 이미 그려진 이미지 URL 은 유지한다
         setFrame((prev) => ({ ...json.frame, spec: { ...json.frame.spec, imageUrl: prev.spec.imageUrl } }));
         setSavedAt(formatKstTime(new Date()));
       }
-    } catch {
-      /* 오프라인 편집 유지 */
+    } catch (e) {
+      if (requireSave) throw e;
+      setRedrawError((e as Error).message || '편집 내용을 저장하지 못했어요');
     }
   }
 
@@ -81,10 +93,11 @@ export function FrameEditor({
     }
     setRedrawing(true);
     try {
-      await patch({ line: frame.line, emotion });
+      await patch({ line: frame.line, emotion }, true);
       const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true, accessoryIds: selectedAccessories }, photo);
       setFrame((prev) => ({ ...prev, spec: { ...prev.spec, imageUrl: url } }));
-      setDrawn({ line: frame.line, emotion });
+      setDrawn({ line: frame.line, emotion, accessories: selectedAccessories });
+      setFrame((prev) => ({ ...prev, accessoryIds: selectedAccessories }));
       track('frame_redraw', { emotion });
     } catch (e) {
       setRedrawError((e as Error).message);
@@ -169,14 +182,14 @@ export function FrameEditor({
           <div className="card p-5">
             <p className="text-sm font-black">AI로 다시 그리기</p>
             <p className="mt-1 text-[12px] leading-relaxed text-sub">
-              대사나 표정을 바꾼 뒤 다시 그리면, 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸리며, 1크레딧이 차감됩니다. 생성에 실패하면 자동으로 환불돼요.
+              대사, 표정 또는 악세사리를 바꾼 뒤 다시 그리면 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸립니다. {unlimited ? '관리자는 크레딧이 차감되지 않습니다.' : '1크레딧이 차감되며, 생성 실패 시 환불됩니다.'}
             </p>
             <button
               className="btn-primary mt-3 w-full !py-3 text-sm"
               disabled={redrawing || (!dirty && !needPhoto)}
               onClick={redraw}
             >
-              {redrawing ? 'AI가 그리는 중…' : dirty ? '바뀐 내용으로 다시 그리기 · 1크레딧' : '대사나 표정을 바꾸면 활성화돼요'}
+              {redrawing ? 'AI가 그리는 중…' : dirty ? `바뀐 내용으로 다시 그리기 · ${unlimited ? '관리자 무제한' : '1크레딧'}` : '대사·표정·악세사리를 바꾸면 활성화돼요'}
             </button>
             {needPhoto ? (
               <label className="btn-ghost mt-2 w-full cursor-pointer !py-2 text-center text-xs">
@@ -271,6 +284,33 @@ export function FrameEditor({
           </div>
         </div>
 
+        {aiPack ? (
+          <div className="card p-5">
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-black">악세사리</p>
+              <span className="text-xs font-bold text-sub">{selectedAccessories.length} / 3</span>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed text-sub">최대 3개를 선택하고 위의 다시 그리기를 눌러 적용하세요. 선택 해제도 다시 그려야 반영됩니다. 별도의 악세사리 비용은 없습니다.</p>
+            <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="악세사리 선택">
+              {ACCESSORIES.map((accessory) => {
+                const selected = selectedAccessories.includes(accessory.id);
+                return (
+                  <button
+                    key={accessory.id}
+                    type="button"
+                    aria-pressed={selected}
+                    disabled={redrawing || (!selected && selectedAccessories.length >= 3)}
+                    onClick={() => toggleAccessory(accessory.id)}
+                    className={clsx('rounded-xl border-2 px-3 py-3 text-left text-xs font-bold transition disabled:opacity-50', selected ? 'border-ink bg-lemon/50 text-ink' : 'border-line bg-paper text-sub hover:border-ink')}
+                  >
+                    <span aria-hidden="true" className="mr-2 text-lg">{accessory.emoji}</span>{accessory.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : null}
+
         {!aiPack ? (
           <div className="card p-5">
             <p className="text-sm font-black">소품</p>
@@ -316,7 +356,7 @@ export function FrameEditor({
           {aiPack ? (
             <>
               대사와 표정은 <strong className="text-ink">AI가 그린 컷 안에</strong> 반영됩니다. 바꾼 뒤 다시 그리기를 눌러 주세요.
-              소품·배경 편집은 AI 컷에서는 지원하지 않습니다.
+              악세사리도 다시 그리기로 적용할 수 있습니다. AI 컷의 배경 편집은 지원하지 않습니다.
             </>
           ) : (
             <>
