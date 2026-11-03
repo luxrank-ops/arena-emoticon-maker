@@ -45,7 +45,7 @@ export function PackViewer({
     if (!aiPack) return;
     const missing = frames.filter((f) => !f.spec.imageUrl && !genErrors[f.id]).map((f) => f.id);
     if (missing.length === 0) return;
-    const photo = loadPhoto();
+    const photo = loadPhoto(`pack:${initialPack.id}`);
     if (!photo) {
       setPhotoMissing(true);
       return;
@@ -82,7 +82,7 @@ export function PackViewer({
 
   async function onPickPhoto(file: File) {
     try {
-      savePhoto(await compressPhotoFile(file));
+      savePhoto(await compressPhotoFile(file), `pack:${initialPack.id}`);
       setPhotoMissing(false);
       setGenRound((r) => r + 1);
     } catch (e) {

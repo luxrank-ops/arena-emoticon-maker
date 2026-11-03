@@ -32,8 +32,8 @@ export default function PrivacyPage() {
                   <td className="py-2">생성 후 24시간 이내 파기</td>
                 </tr>
                 <tr className="border-b border-line">
-                  <td className="py-2 font-bold text-ink">생성된 컷 이미지</td>
-                  <td className="py-2">내 팩 제공, 굿즈 제작, 답장·브리핑에 재사용</td>
+                  <td className="py-2 font-bold text-ink">생성된 시안·컷 이미지</td>
+                  <td className="py-2">내 팩 제공, 컷 생성 시 선택한 시안 참조, 굿즈 제작, 답장·브리핑에 재사용</td>
                   <td className="py-2">팩 삭제 시까지 (4항 참고)</td>
                 </tr>
                 <tr className="border-b border-line">
@@ -58,7 +58,7 @@ export default function PrivacyPage() {
             <strong className="text-ink">원본 사진의 흐름</strong>은 다음과 같습니다. ① 사진은 이용자의 브라우저 탭에만
             임시 보관되며, 탭을 닫으면 사라집니다. ② 얼굴 분석 지표(색상·품질)는 브라우저에서 계산합니다.
             ③ 컷을 만들 때에만 사진이 서버를 거쳐 AI 제공자(Google Gemini API)로 전송됩니다. ④ 서버는 응답을 받은 뒤
-            원본 사진을 저장하지 않습니다. 저장되는 것은 생성된 컷 이미지뿐입니다.
+            원본 사진을 저장하지 않습니다. 팩의 컷을 만들거나 다시 그릴 때는 선택한 생성 시안도 일관성 유지를 위한 참조 이미지로 Google에 전송될 수 있습니다.
           </p>
         </section>
 
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
           </p>
           <ul className="mt-2 space-y-1">
             <li>· 이전받는 자: Google LLC (Gemini API)</li>
-            <li>· 이전 항목: 컷 생성 요청 시 셀카 사진, 생성 지시문(표정·대사·화풍)</li>
+            <li>· 이전 항목: 컷 생성 요청 시 셀카 사진, 선택한 생성 시안 이미지, 생성 지시문(표정·대사·화풍)</li>
             <li>· 이전 국가·시기·방법: 미국 / 컷 생성 요청 시점 / 암호화된 네트워크(HTTPS) 전송</li>
             <li>· 이용 목적: 이미지 생성</li>
             <li>· 보유 기간: 회사 서버는 응답 후 즉시 폐기합니다. 제공자 측 처리·보관 정책은 Google API 약관을 따르며, 이 부분은 법률 검토 중입니다.</li>

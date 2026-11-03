@@ -5,7 +5,7 @@ import { getCurrentUser } from '@/lib/session';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 import { RenderError, renderWithGemini } from '@/lib/ai/gemini-render';
-import { deleteImage, encodeWebp, newImageId, saveImage } from '@/lib/images';
+import { deleteImage, encodeWebp, loadImage, newImageId, saveImage } from '@/lib/images';
 import { applyCredits, CreditError } from '@/lib/credits';
 import type { Emotion, Tone } from '@/lib/types';
 
@@ -18,8 +18,8 @@ const REDRAW_COST = 1;
 
 const SHEET_NOTES = [
   'natural balanced proportions, closest to the original photo',
-  'slightly rounder and softer features, cute proportions',
-  'a cooler, sharper and more stylish look',
+  'softer colors and a gentle presentation, preserving the same facial proportions',
+  'a more stylish presentation, preserving the same facial proportions',
 ];
 
 const schema = z.object({
@@ -76,6 +76,8 @@ export async function POST(req: Request) {
         const pack = db.packs.find((p) => p.userId === user.id && p.frames.some((f) => f.id === target.frameId));
         if (!pack) throw Object.assign(new Error('컷을 찾을 수 없습니다'), { code: 'FRAME_NOT_FOUND' });
         const frame = pack.frames.find((f) => f.id === target.frameId)!;
+        const sheet = db.sheets.find((s) => s.id === pack.sheetId && s.userId === user.id);
+        const chosenImageId = pack.characterReferenceImageId ?? sheet?.variants.find((variant) => variant.key === sheet.chosenKey)?.imageId;
         if (frame.imageId && !target.force) return { existing: frame.imageId as string };
         return {
           kind: 'frame' as const,
@@ -86,6 +88,7 @@ export async function POST(req: Request) {
           emotion: frame.emotion as Emotion,
           line: frame.line,
           accessoryIds: target.accessoryIds ?? frame.accessoryIds ?? [],
+          chosenImageId,
           variantNote: undefined as string | undefined,
           charged: !!target.force && user.role !== 'admin',
           previousImageId: frame.imageId as string | undefined,
@@ -106,6 +109,7 @@ export async function POST(req: Request) {
         emotion: 'joy' as Emotion,
         line: '',
         accessoryIds: [] as string[],
+        chosenImageId: undefined as string | undefined,
         variantNote: SHEET_NOTES[variantIndex] ?? SHEET_NOTES[0],
         charged: false,
         previousImageId: undefined as string | undefined,
@@ -141,9 +145,15 @@ export async function POST(req: Request) {
         .map((id) => ACCESSORIES.find((a) => a.id === id)?.promptAddition)
         .filter(Boolean) as string[];
 
+      // 시안은 이미 저장된 생성 이미지다. 원본 사진은 계속 요청에서만 사용한다.
+      const reference = plan.chosenImageId ? await loadImage(plan.chosenImageId) : null;
+      const characterReference = reference?.userId === user.id
+        ? { mimeType: 'image/webp', base64: reference.data.toString('base64') }
+        : undefined;
       const png = await renderWithGemini({
         photoBase64,
         mimeType,
+        characterReference,
         tone: plan.tone,
         mode: plan.mode,
         emotion: plan.emotion,

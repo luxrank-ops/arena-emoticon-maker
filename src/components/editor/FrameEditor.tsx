@@ -85,7 +85,7 @@ export function FrameEditor({
   // 대사·표정을 저장한 뒤 같은 사진으로 컷을 다시 그린다
   async function redraw() {
     setRedrawError(null);
-    const photo = loadPhoto();
+    const photo = loadPhoto(`pack:${packId}`);
     if (!photo) {
       setNeedPhoto(true);
       setRedrawError('이 탭에 사진이 없어요. 같은 셀카를 다시 올려 주세요.');
@@ -108,7 +108,7 @@ export function FrameEditor({
 
   async function onPickPhoto(file: File) {
     try {
-      savePhoto(await compressPhotoFile(file));
+      savePhoto(await compressPhotoFile(file), `pack:${packId}`);
       setNeedPhoto(false);
       setRedrawError(null);
     } catch (e) {

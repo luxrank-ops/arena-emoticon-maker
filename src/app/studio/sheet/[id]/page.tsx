@@ -61,7 +61,7 @@ export default async function SheetPage({ params }: { params: { id: string } }) 
         <h1 className="h2">어떤 얼굴로 만들까요?</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">
           선택한 시안의 얼굴이 <strong className="text-ink">{TONES[sheet.tone].label}</strong> 스타일로
-          12컷 내내 유지됩니다. 다시 만들면 표정이 조금씩 달라져요.
+          컷을 만들 때 참조됩니다. AI 결과는 사진이나 시안과 다소 다를 수 있어요.
         </p>
       </div>
 

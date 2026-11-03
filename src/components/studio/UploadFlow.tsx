@@ -6,7 +6,7 @@ import clsx from 'clsx';
 import { analyzeSelfie, type FaceAnalysis } from '@/lib/face/analyze';
 import { TONES } from '@/lib/art/sticker';
 import { track } from '@/lib/analytics';
-import { compressPhotoFile, loadPhoto, savePhoto } from '@/lib/studio/photo';
+import { compressPhotoFile, linkPhoto, loadPhoto, savePhoto } from '@/lib/studio/photo';
 import type { Tone } from '@/lib/types';
 
 const CONSENT_VERSION = 'v1.0';
@@ -37,13 +37,14 @@ export function UploadFlow({
   const onFile = useCallback(async (file: File) => {
     setError(null);
     setBusy(true);
+    setAnalysis(null);
     setFileName(file.name);
     try {
       const result = await analyzeSelfie(file);
-      setAnalysis(result);
       track('photo_analyzed', { ok: result.ok });
       // 생성 단계에서 쓸 사진을 이 탭에만 임시 보관 (서버 저장 없음)
-      savePhoto(await compressPhotoFile(file));
+      savePhoto(await compressPhotoFile(file), 'draft');
+      setAnalysis(result);
     } catch {
       setError('사진을 읽지 못했어요. 다른 사진으로 시도해 주세요.');
     } finally {
@@ -56,7 +57,7 @@ export function UploadFlow({
 
   async function submit() {
     if (!analysis) return;
-    if (!loadPhoto()) {
+    if (!loadPhoto('draft')) {
       setError('사진을 다시 선택해 주세요. 탭을 새로 열면 사진 보관이 초기화돼요.');
       return;
     }
@@ -84,6 +85,7 @@ export function UploadFlow({
       const sheetJson = await sheetRes.json();
       if (!sheetRes.ok) throw new Error(sheetJson?.error?.message ?? '캐릭터 시트를 만들지 못했어요');
 
+      linkPhoto('draft', `sheet:${sheetJson.sheet.id}`);
       track('sheet_created', { tone, credits });
       router.push(`/studio/sheet/${sheetJson.sheet.id}`);
     } catch (e) {
@@ -148,8 +150,8 @@ export function UploadFlow({
               </div>
               <p className="text-lg font-black">정면 셀카 한 장을 올려주세요</p>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-sub">
-                밝은 곳에서, 안경·모자 없이, 얼굴이 화면의 절반 정도 차게. 사진은
-                <strong className="text-ink"> AI 생성 요청 때만 전송되고 서버에 저장되지 않습니다</strong>.
+                밝은 곳에서, 안경·모자 없이, 얼굴이 화면의 절반 정도 차게. 원본 사진은
+                <strong className="text-ink"> AI 생성 요청 때만 전송되고 서버에 저장되지 않습니다</strong>. 선택한 생성 시안은 저장되며 컷 생성 시 참조됩니다.
               </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
                 <button className="btn-primary" onClick={() => galleryInputRef.current?.click()} disabled={busy}>
@@ -204,7 +206,7 @@ export function UploadFlow({
               </div>
 
               <p className="mt-4 rounded-xl border border-line bg-cream px-3 py-2 text-left text-[11px] leading-relaxed text-sub">
-                원본 사진은 서버에 저장되지 않습니다. 이 탭에만 임시 보관되며, 컷 생성 요청 시에만 AI(Google Gemini)로 전송됩니다.
+                원본 사진은 서버에 저장되지 않습니다. 이 탭에만 임시 보관되며, 컷 생성 시 사진과 선택한 생성 시안이 AI(Google Gemini)로 전송될 수 있습니다.
               </p>
             </div>
           )}
@@ -217,7 +219,7 @@ export function UploadFlow({
             {[
               { key: 'terms' as const, label: '서비스 이용약관 동의', href: '/terms' },
               { key: 'privacy' as const, label: '개인정보 수집·이용 동의 (생성 요청 시 사진 일시 처리, 원본 미저장)', href: '/privacy' },
-              { key: 'overseas' as const, label: '개인정보 국외이전 동의 (Google LLC · 생성 목적)', href: '/privacy' },
+              { key: 'overseas' as const, label: '개인정보 국외이전 동의 (사진·선택한 시안, Google LLC · 생성 목적)', href: '/privacy' },
             ].map((c) => (
               <label key={c.key} className="flex items-start gap-2 leading-snug">
                 <input

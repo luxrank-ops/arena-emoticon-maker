@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { TONES } from '@/lib/art/sticker';
-import { compressPhotoFile, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
+import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import type { Palette, SheetVariant, StickerSpec, Tone } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
@@ -45,7 +45,7 @@ export function SheetPicker({
   const [photoTick, setPhotoTick] = useState(0);
 
   async function generate(keys: string[]) {
-    const photo = loadPhoto();
+    const photo = loadPhoto(`sheet:${sheetId}`);
     if (!photo) {
       setNeedPhoto(true);
       return;
@@ -78,7 +78,7 @@ export function SheetPicker({
   async function onPickPhoto(file: File) {
     setError(null);
     try {
-      savePhoto(await compressPhotoFile(file));
+      savePhoto(await compressPhotoFile(file), `sheet:${sheetId}`);
       setNeedPhoto(false);
       setPhotoTick((t) => t + 1);
     } catch (e) {
@@ -123,6 +123,12 @@ export function SheetPicker({
       });
       const packJson = await packRes.json();
       if (!packRes.ok) throw new Error(packJson?.error?.message ?? '팩을 만들지 못했어요');
+      // 시안 생성 시 사용한 사진만 새 팩에 연결한다.
+      try {
+        if (loadPhoto(`sheet:${sheetId}`)) linkPhoto(`sheet:${sheetId}`, `pack:${packJson.packId}`);
+      } catch {
+        // 팩은 이미 생성되었으므로 중복 결제를 유발하지 않도록 이동한다. 팩에서 사진을 다시 올릴 수 있다.
+      }
       router.push(`/studio/pack/${packJson.packId}`);
     } catch (e) {
       setError((e as Error).message);
