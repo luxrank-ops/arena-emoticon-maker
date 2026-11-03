@@ -1,6 +1,7 @@
 import { ACCESSORIES } from '@/lib/accessories';
 import { createHash } from 'node:crypto';
 import { preparedSchema } from '@/lib/ai/consistency';
+import { comicExpressionById } from '@/lib/comic-expressions';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
@@ -98,7 +99,7 @@ export async function POST(req: Request) {
           tone: pack.tone as Tone,
           mode: pack.mode ?? 'face',
           emotion: frame.emotion as Emotion,
-          sceneAction: pack.tone === 'photo-sticker' ? PHOTO_STICKER_SCENES.find((s) => s.id === frame.templateId && s.emotion === frame.emotion)?.action : undefined,
+          sceneAction: frame.comicExpressionId ? comicExpressionById(frame.comicExpressionId)?.action : pack.tone === 'photo-sticker' ? PHOTO_STICKER_SCENES.find((s) => s.id === frame.templateId && s.emotion === frame.emotion)?.action : undefined,
           line: frame.line,
           accessoryIds: target.accessoryIds ?? frame.accessoryIds ?? [],
           chosenImageId,

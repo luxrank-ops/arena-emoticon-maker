@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
 import { TONES } from '@/lib/art/sticker';
+import { COMIC_EXPRESSIONS } from '@/lib/comic-expressions';
 import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import type { Palette, SheetVariant, StickerSpec, Tone } from '@/lib/types';
 
@@ -35,6 +36,8 @@ export function SheetPicker({
   const router = useRouter();
   const [chosen, setChosen] = useState<string | null>(alreadyChosen);
   const [size, setSize] = useState<12 | 16 | 24>(12);
+  const [comicMode, setComicMode] = useState(false);
+  const [comicIds, setComicIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<Record<string, string>>(() =>
@@ -120,7 +123,7 @@ export function SheetPicker({
       const packRes = await fetch('/api/packs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId, size }),
+        body: JSON.stringify({ sheetId, size, ...(comicMode ? { comicExpressionIds: comicIds } : {}) }),
       });
       const packJson = await packRes.json();
       if (!packRes.ok) throw new Error(packJson?.error?.message ?? '팩을 만들지 못했어요');
@@ -243,7 +246,7 @@ export function SheetPicker({
             {(tone === 'photo-sticker' ? [12, 16] as const : [12, 24] as const).map((s) => (
               <button
                 key={s}
-                onClick={() => setSize(s)}
+                onClick={() => { setSize(s); if (comicMode) setComicIds(COMIC_EXPRESSIONS.slice(0, s).map((item) => item.id)); }}
                 className={clsx(
                   'rounded-xl border-2 px-4 py-2 text-sm font-black transition',
                   size === s ? 'border-ink bg-ink text-cream' : 'border-line bg-paper hover:border-ink',
@@ -254,6 +257,20 @@ export function SheetPicker({
               </button>
             ))}
           </div>
+        </div>
+
+        <div className="mt-5 rounded-xl border-2 border-line p-4">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div><p className="text-sm font-black">코믹 감정 표현</p><p className="mt-1 text-xs text-sub">일상에서 쓰기 좋은 오리지널 코믹 반응 24종. 원하는 컷을 직접 골라 주세요.</p></div>
+            <button type="button" aria-pressed={comicMode} onClick={() => { setComicMode(!comicMode); if (!comicMode) setComicIds(COMIC_EXPRESSIONS.slice(0, size).map((item) => item.id)); }} className="btn-ghost !px-3 !py-2 text-xs">{comicMode ? '기본 자동 구성으로' : '코믹 구성 선택'}</button>
+          </div>
+          {comicMode ? <>
+            <p className="mt-3 text-xs font-bold text-sub">{comicIds.length} / {size}개 선택 · 선택 순서대로 개별 이미지 생성</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="코믹 감정 표현 선택">
+              {COMIC_EXPRESSIONS.map((item) => { const selected = comicIds.includes(item.id); return <button key={item.id} type="button" aria-pressed={selected} disabled={!selected && comicIds.length >= size} onClick={() => setComicIds((prev) => selected ? prev.filter((id) => id !== item.id) : [...prev, item.id])} className={clsx('rounded-xl border-2 p-2 text-left text-xs font-bold disabled:opacity-40', selected ? 'border-ink bg-lemon/30 text-ink' : 'border-line bg-paper text-sub')}><span aria-hidden="true">{item.emoji}</span> {item.label} <span className="block pt-1 text-[10px] font-normal">{item.line}</span></button>; })}
+            </div>
+            {comicIds.length !== size ? <p className="mt-2 text-xs font-bold text-coralink">{size}개를 선택해야 팩을 만들 수 있어요.</p> : null}
+          </> : null}
         </div>
 
         <div className="mt-4 rounded-xl border border-line bg-cream px-4 py-3 text-[12px] leading-relaxed text-sub">
@@ -268,7 +285,7 @@ export function SheetPicker({
           </p>
         ) : null}
 
-        <button className="btn-primary mt-4 w-full !py-4" disabled={!chosenReady || busy} onClick={create}>
+        <button className="btn-primary mt-4 w-full !py-4" disabled={!chosenReady || busy || (comicMode && comicIds.length !== size)} onClick={create}>
           {busy
             ? '팩 만드는 중…'
             : chosenReady

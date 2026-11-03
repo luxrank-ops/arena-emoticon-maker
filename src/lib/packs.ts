@@ -17,6 +17,7 @@ import { applyCredits, CreditError } from '@/lib/credits';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { PLANS } from '@/lib/pricing';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
+import { comicExpressionById } from '@/lib/comic-expressions';
 import { loadImage } from '@/lib/images';
 
 const FRAME_INTERVAL_MS = 850;
@@ -104,7 +105,7 @@ export async function chooseSheet(userId: string, sheetId: string, variantKey: s
   });
 }
 
-export async function createPack(userId: string, sheetId: string, size: number, title?: string, unlimited = false) {
+export async function createPack(userId: string, sheetId: string, size: number, title?: string, unlimited = false, comicExpressionIds?: string[]) {
   const { sheet, face } = await withDB((db) => {
     const s = db.sheets.find((x) => x.id === sheetId && x.userId === userId);
     if (!s) throw new PackError('SHEET_NOT_FOUND', '캐릭터 시트를 찾을 수 없습니다');
@@ -130,7 +131,8 @@ export async function createPack(userId: string, sheetId: string, size: number, 
 
   if (sheet.tone === 'photo-sticker' && size !== 12 && size !== 16) throw new PackError('INVALID_SIZE', '실사 카톡 스티커는 12컷 또는 16컷을 선택해 주세요');
   if (size === 16 && sheet.tone !== 'photo-sticker') throw new PackError('INVALID_SIZE', '16컷은 실사 카톡 스티커에서만 선택할 수 있습니다');
-  const templates = sheet.tone === 'photo-sticker'
+  if (comicExpressionIds && (comicExpressionIds.length !== size || new Set(comicExpressionIds).size !== size || comicExpressionIds.some((id) => !comicExpressionById(id)))) throw new PackError('INVALID_COMIC_SELECTION', '선택한 코믹 표정을 컷 수에 맞게 확인해 주세요.');
+  const templates = comicExpressionIds ? comicExpressionIds.map((id) => { const item = comicExpressionById(id)!; return { ...item, id: `comic-${id}` }; }) : sheet.tone === 'photo-sticker'
     ? PHOTO_STICKER_SCENES.slice(0, size)
     : composePackTemplates(size, new Date(), recent);
   const packId = uid('pack');
@@ -143,6 +145,7 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     emotion: t.emotion,
     intensity: t.emotion === 'king' || t.emotion === 'angry' ? 88 : t.emotion === 'laugh' ? 82 : 62,
     templateId: t.id,
+    ...(comicExpressionIds ? { comicExpressionId: comicExpressionIds[i] } : {}),
     label: t.label,
     line: t.line,
     prop: 'none',
@@ -296,6 +299,7 @@ export async function composeFrame(
     background?: Frame['background'];
     intensity?: number;
     emotion?: Frame['emotion'];
+    comicExpressionId?: string | null;
   },
 ): Promise<FrameView> {
   return withDB((db) => {
@@ -307,6 +311,8 @@ export async function composeFrame(
     if (patch.background) frame.background = patch.background;
     if (typeof patch.intensity === 'number') frame.intensity = Math.max(0, Math.min(100, Math.round(patch.intensity)));
     if (patch.emotion) frame.emotion = patch.emotion;
+    if (patch.comicExpressionId === null) delete frame.comicExpressionId;
+    else if (patch.comicExpressionId !== undefined) frame.comicExpressionId = patch.comicExpressionId;
 
     const identity = identityOf(db, pack) ?? fallbackIdentity(pack.tone);
     logEvent(db, userId, 'frame_composed', { frameId, packId: pack.id });
