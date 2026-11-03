@@ -8,7 +8,7 @@ import { KAKAO_RULES, validateKakaoFiles, type PackValidation } from '@/lib/pack
 // 브라우저 내보내기 — PNG / GIF / ZIP (서버 왕복 없음)
 // ─────────────────────────────────────────────────────────────
 
-const SIZE = 720;
+const SIZE: number = KAKAO_RULES.size;
 
 function svgUrl(svg: string) {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;

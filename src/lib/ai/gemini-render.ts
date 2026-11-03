@@ -87,6 +87,7 @@ export function buildRenderPrompt(input: RenderInput): string {
   const parts = [
     `Create ${STYLE_DIRECTIONS[input.tone]} of the person in the reference photo, showing ${EMOTION_PROMPTS[input.emotion]}.`,
     IDENTITY_RULES,
+    'Compose for a 360 by 360 pixel messaging sticker: prioritize clear facial expression, clean edges, and readable large lettering at small display size; avoid tiny details.',
     input.tone === 'photo-sticker'
       ? (input.mode === 'full'
         ? 'Exactly one individual sticker, one person shown from head to feet, with space around the whole figure on a clean white square background. A narrow white sticker-cutout outline hugs the figure. No grid, collage, panels, multiple people or multiple expressions.'

@@ -178,8 +178,8 @@ export async function POST(req: Request) {
         sceneAction: plan.sceneAction,
       });
 
-      // 4) WebP 로 줄여 저장 → DB 에 연결
-      const webp = await encodeWebp(png);
+      // 4) 컷은 360px로 선명하게 저장하고 시안은 참조용 512px를 유지한다.
+      const webp = await encodeWebp(png, { kind: plan.kind, pixelArt: plan.tone === 'pixel-art' });
       const imageId = newImageId();
       await saveImage(imageId, user.id, webp);
 
