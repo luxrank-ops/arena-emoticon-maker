@@ -1,6 +1,7 @@
 'use client';
 
 import { ACCESSORIES } from '@/lib/accessories';
+import { COMIC_EXPRESSIONS } from '@/lib/comic-expressions';
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
@@ -38,8 +39,9 @@ export function FrameEditor({
   const [exporting, setExporting] = useState<string | null>(null);
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [emotion, setEmotion] = useState<Emotion>(initial.emotion);
+  const [comicId, setComicId] = useState<string | null>(initial.comicExpressionId ?? null);
   // 마지막으로 그려진(또는 처음 받은) 대사·표정 — 이와 다르면 "다시 그리기" 를 연다
-  const [drawn, setDrawn] = useState({ line: initial.line, emotion: initial.emotion, accessories: initial.accessoryIds ?? [] });
+  const [drawn, setDrawn] = useState({ line: initial.line, emotion: initial.emotion, accessories: initial.accessoryIds ?? [], comicId: initial.comicExpressionId ?? null });
   const [redrawing, setRedrawing] = useState(false);
   const [redrawError, setRedrawError] = useState<string | null>(null);
   const [needPhoto, setNeedPhoto] = useState(false);
@@ -50,7 +52,7 @@ export function FrameEditor({
     [frame, emotion],
   );
 
-  const dirty = aiPack && (frame.line !== drawn.line || emotion !== drawn.emotion ||
+  const dirty = aiPack && (frame.line !== drawn.line || emotion !== drawn.emotion || comicId !== drawn.comicId ||
     selectedAccessories.length !== drawn.accessories.length || selectedAccessories.some((id) => !drawn.accessories.includes(id)));
 
   function toggleAccessory(id: string) {
@@ -59,10 +61,10 @@ export function FrameEditor({
       : prev.length < 3 ? [...prev, id] : prev);
   }
 
-  async function patch(next: { line?: string; prop?: PropKey; background?: BackgroundKey; intensity?: number; emotion?: Emotion }, requireSave = false) {
+  async function patch(next: { line?: string; prop?: PropKey; background?: BackgroundKey; intensity?: number; emotion?: Emotion; comicExpressionId?: string | null }, requireSave = false) {
     const { emotion: e, ...rest } = next;
     if (e) setEmotion(e);
-    const merged = { ...frame, ...rest, ...(e ? { emotion: e } : {}) };
+    const merged = { ...frame, ...rest, comicExpressionId: rest.comicExpressionId === null ? undefined : rest.comicExpressionId ?? frame.comicExpressionId, ...(e ? { emotion: e } : {}) };
     setFrame(merged);
     try {
       const res = await fetch(`/api/frames/${frame.id}`, {
@@ -94,10 +96,10 @@ export function FrameEditor({
     }
     setRedrawing(true);
     try {
-      await patch({ line: frame.line, emotion }, true);
+      await patch({ line: frame.line, emotion, comicExpressionId: comicId }, true);
       const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true, accessoryIds: selectedAccessories }, photo, `pack:${packId}`);
       setFrame((prev) => ({ ...prev, spec: { ...prev.spec, imageUrl: url } }));
-      setDrawn({ line: frame.line, emotion, accessories: selectedAccessories });
+      setDrawn({ line: frame.line, emotion, accessories: selectedAccessories, comicId });
       setFrame((prev) => ({ ...prev, accessoryIds: selectedAccessories }));
       track('frame_redraw', { emotion });
     } catch (e) {
@@ -275,7 +277,7 @@ export function FrameEditor({
             {(Object.keys(EMOTIONS) as Emotion[]).map((e) => (
               <button
                 key={e}
-                onClick={() => patch({ emotion: e })}
+                onClick={() => { setComicId(null); void patch({ emotion: e, comicExpressionId: null }); }}
                 className={clsx(
                   'rounded-lg border-2 px-1 py-1.5 text-[11px] font-bold transition',
                   emotion === e ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-sub hover:border-ink',
@@ -286,6 +288,14 @@ export function FrameEditor({
             ))}
           </div>
         </div>
+
+        {aiPack ? <div className="card p-5">
+          <p className="text-sm font-black">코믹 감정 표현 24종</p>
+          <p className="mt-1 text-xs leading-relaxed text-sub">선택하면 표정과 추천 문구가 바뀝니다. 위의 다시 그리기를 눌러 개별 이미지에 적용해 주세요. {unlimited ? '관리자는 크레딧이 차감되지 않습니다.' : '다시 그리기는 1크레딧입니다.'}</p>
+          <div className="mt-3 grid grid-cols-2 gap-2" role="group" aria-label="코믹 감정 표현 선택">
+            {COMIC_EXPRESSIONS.map((item) => <button type="button" key={item.id} aria-pressed={comicId === item.id} disabled={redrawing} onClick={() => { setComicId(item.id); setEmotion(item.emotion); setFrame((prev) => ({ ...prev, line: item.line })); }} className={clsx('rounded-xl border-2 px-3 py-2 text-left text-xs font-bold', comicId === item.id ? 'border-ink bg-lemon/30 text-ink' : 'border-line text-sub')}><span aria-hidden="true">{item.emoji}</span> {item.label}</button>)}
+          </div>
+        </div> : null}
 
         {aiPack ? (
           <div className="card p-5">

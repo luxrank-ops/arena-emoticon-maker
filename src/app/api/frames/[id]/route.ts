@@ -1,10 +1,12 @@
 import { z } from 'zod';
+import { comicExpressionById } from '@/lib/comic-expressions';
 import { handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { composeFrame } from '@/lib/packs';
 
 const schema = z.object({
   line: z.string().max(34).optional(),
+  comicExpressionId: z.string().refine((id) => !!comicExpressionById(id)).nullable().optional(),
   prop: z.enum(['none', 'coffee', 'laptop', 'phone', 'tissue', 'cake', 'crown', 'heart', 'sweat']).optional(),
   background: z.enum(['transparent', 'cream', 'mint', 'sky', 'pink', 'lemon', 'dark']).optional(),
   intensity: z.number().min(0).max(100).optional(),
