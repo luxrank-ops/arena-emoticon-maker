@@ -184,6 +184,8 @@ export interface Frame {
   seed: number;
   readyAt: number;
   usageCount: number;
+  /** 마지막으로 생성한 이미지에 적용한 AI 악세사리 */
+  accessoryIds?: string[];
   /** AI 생성 이미지 ID (`/api/images/<id>`) */
   imageId?: string;
 }
