@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { SectionHead } from '@/components/ui';
 import { EMOTIONS, TONES } from '@/lib/art/sticker';
 import { GOODS, PLANS, won } from '@/lib/pricing';
+import { ACCESSORIES } from '@/lib/accessories';
 
 // 실제 AI 생성 컷 샘플 (public/samples, 같은 셀카로 생성)
 const HERO_IMG = [
@@ -59,6 +60,9 @@ export default function LandingPage() {
               <Link href="/reply" className="btn-ghost !px-5 !py-4">
                 톡 붙여넣어 답장 받기
               </Link>
+              <a href="#accessory-guide" className="text-sm font-black text-coralink underline underline-offset-4">
+                악세사리 사용 방법 ↓
+              </a>
             </div>
 
             <ul className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-[13px] font-bold text-sub">
@@ -246,7 +250,7 @@ export default function LandingPage() {
             {[
               { n: '01', t: '셀카 1장', d: '정면 사진이면 충분해요. 얼굴 품질은 브라우저에서 바로 검사합니다.' },
               { n: '02', t: '캐릭터 확정', d: '3가지 시안 중 마음에 드는 얼굴을 고르세요. 이 얼굴이 24컷 내내 유지됩니다.' },
-              { n: '03', t: '대사만 바꿔 쓰기', d: '감정선 다이얼, 소품, 배경, 대사. 편집기는 진짜로 3초입니다.' },
+              { n: '03', t: '컷 편집하기', d: '완성된 팩에서 컷을 골라 대사와 표정, 악세사리를 바꾸고 다시 그릴 수 있어요.' },
             ].map((s) => (
               <div key={s.n} className="card p-6">
                 <span className="text-3xl font-black text-coral">{s.n}</span>
@@ -259,6 +263,46 @@ export default function LandingPage() {
             <Link href="/studio/upload" className="btn-dark !px-7 !py-4">
               지금 시작하기 — 12크레딧 무료
             </Link>
+          </div>
+        </div>
+      </section>
+
+      {/* ── 악세사리 사용 안내 ─────────────────────────────── */}
+      <section id="accessory-guide" className="scroll-mt-20 border-t-2 border-ink bg-paper py-16" aria-labelledby="accessory-guide-title">
+        <div className="wrap">
+          <span className="chip mb-3 !border-ink/20 !bg-lemon/40 !text-ink">컷 편집 가이드</span>
+          <h2 id="accessory-guide-title" className="h2">악세사리로 내 컷 꾸미기</h2>
+          <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-sub">
+            이모티콘 팩을 만든 뒤 컷마다 선글라스, 고양이 귀 같은 악세사리를 더해 보세요.
+            선택한 내용은 AI로 다시 그린 후 이미지에 반영됩니다.
+          </p>
+          <ol className="mt-7 grid gap-3 md:grid-cols-3">
+            {[
+              { n: '01', title: '내 팩에서 컷 고르기', text: '이모티콘 팩을 만든 뒤 내 팩에서 꾸미고 싶은 컷의 ‘편집’을 누르세요.' },
+              { n: '02', title: '악세사리 선택하기', text: '편집 화면의 ‘악세사리’에서 원하는 항목을 최대 3개까지 선택하세요. 다시 누르면 선택이 해제됩니다.' },
+              { n: '03', title: 'AI로 다시 그리기', text: '위쪽의 ‘바뀐 내용으로 다시 그리기’를 누르면 선택한 악세사리가 적용된 새 컷이 만들어집니다.' },
+            ].map((step) => (
+              <li key={step.n} className="card p-5">
+                <span className="text-2xl font-black text-coral">{step.n}</span>
+                <h3 className="mt-2 text-base font-black">{step.title}</h3>
+                <p className="mt-2 text-sm leading-relaxed text-sub">{step.text}</p>
+              </li>
+            ))}
+          </ol>
+          <div className="mt-5 flex flex-wrap gap-2" aria-label="악세사리 예시">
+            {ACCESSORIES.slice(0, 4).map((accessory) => (
+              <span key={accessory.id} className="chip !bg-cream">
+                <span aria-hidden="true">{accessory.emoji}</span> {accessory.name}
+              </span>
+            ))}
+          </div>
+          <div className="mt-5 rounded-2xl border-2 border-line bg-cream p-4 text-sm leading-relaxed text-sub">
+            <p>악세사리 자체는 무료이며, 다시 그리기는 일반 사용자 1크레딧입니다. 관리자는 차감되지 않고, 생성 실패 시에는 환불됩니다.</p>
+            <p className="mt-1">선택 해제도 다시 그려야 반영됩니다. 사진이 이 탭에 없으면 같은 셀카를 다시 올려 주세요.</p>
+          </div>
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Link href="/billing" className="btn-dark !px-5 !py-3 text-sm">내 팩 열기 →</Link>
+            <Link href="/studio/upload" className="btn-ghost !px-5 !py-3 text-sm">새 팩 만들기</Link>
           </div>
         </div>
       </section>
