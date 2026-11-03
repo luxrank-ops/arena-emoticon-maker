@@ -94,7 +94,7 @@ export function FrameEditor({
     setRedrawing(true);
     try {
       await patch({ line: frame.line, emotion }, true);
-      const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true, accessoryIds: selectedAccessories }, photo);
+      const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true, accessoryIds: selectedAccessories }, photo, `pack:${packId}`);
       setFrame((prev) => ({ ...prev, spec: { ...prev.spec, imageUrl: url } }));
       setDrawn({ line: frame.line, emotion, accessories: selectedAccessories });
       setFrame((prev) => ({ ...prev, accessoryIds: selectedAccessories }));
@@ -200,7 +200,8 @@ export function FrameEditor({
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f) void onPickPhoto(f);
+                    if (f && window.confirm('사진은 이미지 생성 전에 일관성 확인을 위해 두 차례, 이후 생성 시 Google Gemini로 전송됩니다. 이에 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
+                    e.target.value = '';
                   }}
                 />
               </label>

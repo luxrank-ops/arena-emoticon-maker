@@ -1,4 +1,6 @@
 import { ACCESSORIES } from '@/lib/accessories';
+import { createHash } from 'node:crypto';
+import { preparedSchema } from '@/lib/ai/consistency';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
@@ -29,6 +31,7 @@ const schema = z.object({
     .string()
     .max(4_000_000)
     .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, '사진 형식을 확인해 주세요'),
+  consistency: preparedSchema,
   target: z.discriminatedUnion('kind', [
     z.object({
       kind: z.literal('frame'),
@@ -65,6 +68,14 @@ export async function POST(req: Request) {
     const mimeType = match[1];
     const photoBase64 = match[2];
 
+    const hash = (s: string) => createHash('sha256').update(s).digest('hex');
+    const identityGuidance = await withDB((db) => {
+      const now = Date.now();
+      db.consistencyPreparations = db.consistencyPreparations.filter((entry) => entry.expiresAt > now);
+      const entry = db.consistencyPreparations.find((item) => item.tokenHash === hash(body.consistency.token) && item.userId === user.id && item.photoHash === hash(body.photo));
+      return entry?.features ?? null;
+    });
+    if (!identityGuidance) return fail('CONSISTENCY_REQUIRED', '사진이 바뀌었거나 준비가 만료됐어요. 사진을 다시 확인해 주세요.', 409);
     const target = body.target;
 
     if (target.kind === 'frame' && target.accessoryIds && !target.force) {
@@ -156,6 +167,7 @@ export async function POST(req: Request) {
       const png = await renderWithGemini({
         photoBase64,
         mimeType,
+        identityGuidance,
         characterReference,
         tone: plan.tone,
         mode: plan.mode,
