@@ -14,7 +14,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'brief', RATE_LIMITS.brief);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
     const date = kstDateKey();
 
     const existing = await withDB((db) =>

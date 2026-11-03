@@ -24,7 +24,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'goods', RATE_LIMITS.goods);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
     if (paymentsUnavailable()) return paymentsUnavailableResponse();
     const body = schema.parse(await req.json());
     const goods = GOODS.find((g) => g.sku === body.goodsSku);

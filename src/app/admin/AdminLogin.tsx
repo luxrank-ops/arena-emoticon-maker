@@ -4,11 +4,8 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 export function AdminLogin({
-  demoHint = true,
   disabled = false,
 }: {
-  /** 데모 코드 안내 노출 여부 */
-  demoHint?: boolean;
   /** 운영자 코드(ADMIN_PASSCODE) 미설정 상태 */
   disabled?: boolean;
 } = {}) {
@@ -42,8 +39,6 @@ export function AdminLogin({
         <p className="mt-1 rounded-lg border border-coral/40 bg-coral/10 px-2 py-1.5 text-[11px] font-bold text-coralink">
           운영자 코드(ADMIN_PASSCODE)가 설정되지 않아 로그인이 차단되었습니다.
         </p>
-      ) : demoHint ? (
-        <p className="mt-1 text-xs text-sub">데모 코드: emotime-demo</p>
       ) : null}
       <input
         type="password"

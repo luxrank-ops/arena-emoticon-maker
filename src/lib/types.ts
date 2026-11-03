@@ -157,7 +157,10 @@ export interface SheetVariant {
   imageId?: string;
 }
 
+export type CompositionMode = 'face' | 'full';
+
 export interface CharacterSheet {
+  mode?: CompositionMode;
   id: string;
   userId: string;
   faceId: string;
@@ -191,6 +194,7 @@ export interface FrameView extends Frame {
 }
 
 export interface Pack {
+  mode?: CompositionMode;
   id: string;
   userId: string;
   sheetId: string;

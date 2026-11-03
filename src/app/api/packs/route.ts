@@ -15,9 +15,9 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'packs', RATE_LIMITS.packs);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
     const body = schema.parse(await req.json());
-    const pack = await createPack(user.id, body.sheetId, body.size, body.title);
+    const pack = await createPack(user.id, body.sheetId, body.size, body.title, user.role === 'admin');
     void captureServer('pack_created', user.id, { size: pack.size, cost: pack.creditsSpent });
     return ok({ packId: pack.id, size: pack.size, cost: pack.creditsSpent });
   } catch (e) {

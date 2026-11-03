@@ -39,7 +39,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'generate', RATE_LIMITS.generate);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
 
     const body = schema.parse(await req.json());
 

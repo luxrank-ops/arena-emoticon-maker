@@ -17,7 +17,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'reply', RATE_LIMITS.reply);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
     const { text } = schema.parse(await req.json());
     const result = analyzeConversation(text);
 

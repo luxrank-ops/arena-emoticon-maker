@@ -31,7 +31,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'faceAnalyze', RATE_LIMITS.faceAnalyze);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
     const body = schema.parse(await req.json());
     const id = uid('face');
     const now = new Date();

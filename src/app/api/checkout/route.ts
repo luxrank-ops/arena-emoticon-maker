@@ -13,7 +13,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'checkout', RATE_LIMITS.checkout);
-    if (limited) return limited;
+    if (limited && user.role !== 'admin') return limited;
     if (paymentsUnavailable()) return paymentsUnavailableResponse();
     const { sku } = schema.parse(await req.json());
     const item = SKUS[sku];

@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 export default async function UploadPage() {
   const user = await getCurrentUser();
-  const tones = tonesForPlan(user.plan);
+  const tones = tonesForPlan(user.role === 'admin' ? 'STUDIO' : user.plan);
 
   return (
     <div className="wrap py-10">
@@ -36,7 +36,7 @@ export default async function UploadPage() {
         </div>
       </div>
 
-      <UploadFlow allowedTones={tones} credits={user.credits} planName={PLANS[user.plan].name} />
+      <UploadFlow allowedTones={tones} credits={user.credits} planName={user.role === 'admin' ? '관리자' : PLANS[user.plan].name} unlimited={user.role === 'admin'} />
 
       <div className="mt-10 rounded-2xl border-2 border-dashed border-line p-4 text-center text-xs text-sub">
         사진이 서버에 저장되나요? <strong className="text-ink">아니요.</strong> 생성 요청 때만 전송되고 응답 후 버려집니다. 자세한 내용은 <Link href="/privacy" className="text-coralink underline">개인정보처리방침</Link>.
