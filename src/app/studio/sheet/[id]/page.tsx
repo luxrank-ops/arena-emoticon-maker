@@ -54,7 +54,7 @@ export default async function SheetPage({ params }: { params: { id: string } }) 
         <Link href="/studio/upload" className="hover:text-ink">만들기</Link>
         <span>/</span>
         <span className="text-ink">캐릭터 선택</span>
-        <span className="ml-auto chip">STEP 2 / 3</span>
+        <span className="ml-auto chip">STEP 3 / 4</span>
       </nav>
 
       <div className="mb-8">

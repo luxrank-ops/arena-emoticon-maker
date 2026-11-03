@@ -71,6 +71,11 @@ export function loadPhoto(scope: PhotoScope): string | null {
   }
 }
 
+/** 현재 스코프의 임시 사진 식별자. 분석 정보가 다른 사진과 섞이지 않도록 사용한다. */
+export function photoScopeId(scope: PhotoScope): string | null {
+  try { return sessionStorage.getItem(scopeKey(scope)); } catch { return null; }
+}
+
 /** 사진 자체를 복사하지 않고 시트·팩을 같은 탭의 사진에 연결한다. */
 export function linkPhoto(from: PhotoScope, to: PhotoScope) {
   try {
