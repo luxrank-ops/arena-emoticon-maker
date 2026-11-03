@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
+import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
 import { TONES } from '@/lib/art/sticker';
 import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import type { Palette, SheetVariant, StickerSpec, Tone } from '@/lib/types';
@@ -140,6 +141,7 @@ export function SheetPicker({
 
   return (
     <div className="space-y-6">
+      <ConsistencyNotice scope={`sheet:${sheetId}`} />
       {needPhoto ? (
         <div className="card flex flex-wrap items-center justify-between gap-3 p-5">
           <div>
@@ -156,7 +158,7 @@ export function SheetPicker({
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f && window.confirm('사진은 이미지 생성 전에 일관성 확인을 위해 두 차례, 이후 생성 시 Google Gemini로 전송됩니다. 이에 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
+                if (f && window.confirm('사진은 이미지 생성 전 확인과 생성 시 Google Gemini로 전송됩니다. AI 확인이 어려우면 파일만 확인하는 기본 방식으로 진행하며 일관성은 보장되지 않습니다. 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
                     e.target.value = '';
               }}
             />

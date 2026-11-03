@@ -57,6 +57,7 @@ export function savePhoto(dataUrl: string, scope: PhotoScope) {
       throw error;
     }
     removeIfUnused(old);
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('emotime:consistency-updated'));
   } catch {
     throw new Error('사진을 임시 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요');
   }
@@ -84,6 +85,7 @@ export function linkPhoto(from: PhotoScope, to: PhotoScope) {
     const old = sessionStorage.getItem(scopeKey(to));
     sessionStorage.setItem(scopeKey(to), id);
     removeIfUnused(old);
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('emotime:consistency-updated'));
   } catch {
     throw new Error('사진을 연결하지 못했어요. 같은 사진을 다시 선택해 주세요');
   }
@@ -117,7 +119,10 @@ export async function ensurePhotoConsistency(photo: string, scope: PhotoScope): 
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.prepared) throw new Error(json?.error?.message ?? '일관성 준비를 완료하지 못했어요.');
     if (sessionStorage.getItem(scopeKey(scope)) !== id || sessionStorage.getItem(dataKey(id)) !== photo) throw new Error('준비 중 사진이 변경됐어요. 다시 시작해 주세요.');
-    try { sessionStorage.setItem(profileKey, JSON.stringify(json.prepared)); }
+    try {
+      sessionStorage.setItem(profileKey, JSON.stringify(json.prepared));
+      if (typeof window !== 'undefined') window.dispatchEvent(new Event('emotime:consistency-updated'));
+    }
     catch { throw new Error('일관성 기준을 임시 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); }
     return json.prepared as PreparedIdentity;
   })();
@@ -125,7 +130,18 @@ export async function ensurePhotoConsistency(photo: string, scope: PhotoScope): 
   try { return await task; } finally { preparing.delete(id); }
 }
 
-/** 이미지 생성 전에 두 단계 사진 검토가 끝나야 요청한다. */
+/** 현재 사진의 준비 방식(유효기간이 끝난 경우 제외). */
+export function photoConsistencyMethod(scope: PhotoScope): 'ai' | 'basic' | null {
+  try {
+    const id = sessionStorage.getItem(scopeKey(scope));
+    if (!id) return null;
+    const prepared = JSON.parse(sessionStorage.getItem(`${PREFIX}guidance:${id}`) || 'null') as PreparedIdentity | null;
+    if (!prepared || prepared.createdAt <= Date.now() - PREPARED_TTL_MS || prepared.createdAt > Date.now()) return null;
+    return prepared.method ?? 'ai';
+  } catch { return null; }
+}
+
+/** 이미지 생성 전에 사진 준비가 끝나야 요청한다. */
 export async function renderImage(target: RenderTarget, photo: string, scope: PhotoScope): Promise<string> {
   let consistency = await ensurePhotoConsistency(photo, scope);
   for (let attempt = 0; attempt < 2; attempt++) {

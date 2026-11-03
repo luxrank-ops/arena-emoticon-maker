@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { enforceRateLimit } from '@/lib/ratelimit';
-import { ConsistencyError, prepareConsistency } from '@/lib/ai/consistency';
+import { ConsistencyError, prepareWithFallback } from '@/lib/ai/consistency';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -19,7 +19,7 @@ export async function POST(req: Request) {
     if (limited && user.role !== 'admin') return limited;
     const { photo } = schema.parse(await req.json());
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(photo)!;
-    const guidance = await prepareConsistency({ mimeType: match[1], base64: match[2] });
+    const { guidance, method } = await prepareWithFallback({ mimeType: match[1], base64: match[2] });
     const now = Date.now();
     const token = randomBytes(32).toString('hex');
     const hash = (s: string) => createHash('sha256').update(s).digest('hex');
@@ -27,7 +27,7 @@ export async function POST(req: Request) {
       db.consistencyPreparations = db.consistencyPreparations.filter((item) => item.expiresAt > now);
       db.consistencyPreparations.push({ tokenHash: hash(token), userId: user.id, photoHash: hash(photo), features: guidance.features, expiresAt: now + 60 * 60_000 });
     });
-    return ok({ prepared: { token, createdAt: now } });
+    return ok({ prepared: { token, createdAt: now, method } });
   } catch (e) {
     if (e instanceof ConsistencyError) return fail(e.code, e.message, e.code === 'PHOTO_NEEDS_REVIEW' ? 422 : 503);
     return handleError(e);
