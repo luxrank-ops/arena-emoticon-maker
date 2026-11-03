@@ -6,6 +6,7 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
+import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
 import { BACKGROUNDS, EMOTIONS, PROPS } from '@/lib/art/sticker';
 import { downloadBlob, renderGifBlob, renderPngBlob } from '@/lib/export';
 import { track } from '@/lib/analytics';
@@ -180,6 +181,7 @@ export function FrameEditor({
       <div className="space-y-4">
         { (aiPack || frame.spec.imageUrl) ? (
           <div className="card p-5">
+            <ConsistencyNotice scope={`pack:${packId}`} />
             <p className="text-sm font-black">AI로 다시 그리기</p>
             <p className="mt-1 text-[12px] leading-relaxed text-sub">
               대사, 표정 또는 악세사리를 바꾼 뒤 다시 그리면 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸립니다. {unlimited ? '관리자는 크레딧이 차감되지 않습니다.' : '1크레딧이 차감되며, 생성 실패 시 환불됩니다.'}
@@ -200,7 +202,7 @@ export function FrameEditor({
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f && window.confirm('사진은 이미지 생성 전에 일관성 확인을 위해 두 차례, 이후 생성 시 Google Gemini로 전송됩니다. 이에 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
+                    if (f && window.confirm('사진은 이미지 생성 전 확인과 생성 시 Google Gemini로 전송됩니다. AI 확인이 어려우면 파일만 확인하는 기본 방식으로 진행하며 일관성은 보장되지 않습니다. 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
                     e.target.value = '';
                   }}
                 />

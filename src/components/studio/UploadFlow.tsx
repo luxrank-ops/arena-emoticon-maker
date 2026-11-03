@@ -106,7 +106,7 @@ export function UploadFlow({
     setBusy(true);
     setError(null);
     try {
-      setStage('이미지 생성 전에 사진의 일관성 기준을 두 번 확인하고 있어요…');
+      setStage('이미지 생성 전에 사진을 확인하고 있어요. AI 확인이 어려우면 기본 확인으로 전환합니다…');
       await ensurePhotoConsistency(photo, 'draft');
       setStage('사진 분석 정보를 준비하고 있어요…');
       const faceRes = await fetch('/api/face/analyze', {
@@ -254,7 +254,7 @@ export function UploadFlow({
               </div>
 
               <p className="mt-4 rounded-xl border border-line bg-cream px-3 py-2 text-left text-[11px] leading-relaxed text-sub">
-                원본 사진은 서버에 저장되지 않습니다. 생성 전에 사진을 두 차례 확인하고, 컷 생성 시 사진과 선택한 시안이 Google Gemini로 전송됩니다.
+                원본 사진은 서버에 저장되지 않습니다. 생성 전 AI가 사진을 확인합니다. AI 확인이 어려우면 파일만 확인하는 기본 방식으로 진행하며 일관성은 보장되지 않습니다. 컷 생성 시 사진과 선택한 시안이 Google Gemini로 전송됩니다.
               </p>
             </div>
           )}
@@ -329,7 +329,7 @@ export function UploadFlow({
         <Link href="/studio/upload" aria-disabled={busy} onClick={(e) => { if (busy) e.preventDefault(); }} className="btn-ghost text-center sm:flex-1">← 사진 선택</Link>
         <button className="btn-primary !py-4 text-base sm:flex-[2]" disabled={!ready} onClick={submit}>{busy ? '처리 중…' : '다음 · 캐릭터 시안 만들기 →'}</button>
       </div>
-      <p className="text-center text-[11px] text-sub">생성 전에 사진을 두 차례 확인합니다 · 보유 크레딧 {unlimited ? '무제한' : credits}</p>
+      <p className="text-center text-[11px] text-sub">생성 전 사진을 확인합니다. AI 확인이 어려우면 기본 확인으로 진행합니다 · 보유 크레딧 {unlimited ? '무제한' : credits}</p>
     </div>
   );
 }
