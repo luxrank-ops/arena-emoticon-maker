@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react';
 import * as Sentry from '@sentry/nextjs';
+import { BUSINESS } from '@/lib/business';
 
 // App Router 전역 에러 바운더리 — 렌더 단계에서 터진 에러도 Sentry 로 보낸다.
 // (DSN 이 없으면 SDK 가 no-op 이므로 로컬에서도 안전)
@@ -26,7 +27,7 @@ export default function GlobalError({ error, reset }: { error: Error & { digest?
           >
             다시 시도
           </button>
-          <p className="mt-4 text-xs text-[#9B9B9B]">계속되면 고객센터로 알려주세요. (support@emotime.app)</p>
+          <p className="mt-4 text-xs text-[#9B9B9B]">계속되면 고객센터로 알려주세요. ({BUSINESS.email})</p>
         </div>
       </body>
     </html>

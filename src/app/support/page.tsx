@@ -1,14 +1,15 @@
 import type { Metadata } from 'next';
+import { BUSINESS } from '@/lib/business';
 
 export const metadata: Metadata = { title: '고객센터 · 이모티미' };
 
 export default function SupportPage() {
-  const email = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
-  const phone = process.env.NEXT_PUBLIC_BUSINESS_TEL;
+  const email = BUSINESS.email;
+  const phone = BUSINESS.tel;
   return (
     <div className="wrap max-w-3xl py-12">
       <h1 className="h2">고객센터</h1>
-      <p className="mt-2 text-sm text-sub">평일 10:00–18:00 (점심 12:30–13:30) · 주말·공휴일 휴무</p>
+      <p className="mt-2 text-sm text-sub">이용 중 궁금한 점이나 결제·환불 문의를 접수해 주세요.</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <div className="card p-5">
@@ -18,7 +19,7 @@ export default function SupportPage() {
         </div>
         <div className="card p-5">
           <p className="text-sm font-black">전화 상담</p>
-          <p className="mt-1 text-xs text-sub">평일 10:00–18:00</p>
+          <p className="mt-1 text-xs text-sub">문의 전화를 이용하실 수 있습니다.</p>
           {phone ? <a href={`tel:${phone.replace(/[^0-9+]/g, '')}`} className="btn-ghost mt-3 w-full !py-2.5 text-xs">{phone}</a> : <p className="mt-3 text-xs font-bold text-coralink">전화 접수처를 설정 중입니다.</p>}
         </div>
       </div>
