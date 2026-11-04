@@ -1,97 +1,87 @@
 import { z } from 'zod';
-import { paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
+import { validateAuthRequest } from '@/lib/auth-api';
 import { fail, handleError, ok } from '@/lib/api';
+import { paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
 import { getCurrentUser } from '@/lib/session';
-import { applyCredits } from '@/lib/credits';
-import { logEvent, withDB } from '@/lib/store';
-import { captureServer } from '@/lib/analytics-server';
-import type { Order } from '@/lib/types';
+import { logEvent, uid, withPaymentDB } from '@/lib/store';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
-const schema = z.object({
-  orderId: z.string().min(3),
-  // 토스페이먼츠 승인 정보 (mock 결제에서는 생략)
-  paymentKey: z.string().optional(),
-  amount: z.number().optional(),
-  agreeDigital: z.literal(true), // 청약철회 제한 고지 동의 (필수)
-});
+const schema = z.object({ orderId: z.string().min(6).max(64), paymentKey: z.string().min(1).max(200), amount: z.number().int().positive() });
+export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
   try {
+    const forbidden = validateAuthRequest(req); if (forbidden) return forbidden;
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'confirm', RATE_LIMITS.confirm);
     if (limited && user.role !== 'admin') return limited;
     if (paymentsUnavailable()) return paymentsUnavailableResponse();
     const body = schema.parse(await req.json());
-
-    const order = await withDB((db) => db.orders.find((o) => o.id === body.orderId && o.userId === user.id) ?? null);
-    if (!order) return fail('ORDER_NOT_FOUND', '주문을 찾을 수 없습니다');
-    if (order.status === 'PAID') return ok({ order, alreadyPaid: true, credits: user.credits });
-
-    // 금액 위변조 검증
-    if (body.amount !== undefined && body.amount !== order.amount) {
-      return fail('AMOUNT_MISMATCH', '결제 금액이 주문 금액과 일치하지 않습니다', 409);
-    }
-
-    // 토스페이먼츠 라이브 승인 (키가 있을 때만)
-    const provider = process.env.PAYMENT_PROVIDER ?? 'mock';
-    let providerRef = `mock_${Date.now().toString(36)}`;
-    if (provider === 'toss' && process.env.TOSS_SECRET_KEY && body.paymentKey) {
-      const res = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
-        method: 'POST',
-        headers: {
-          Authorization: `Basic ${Buffer.from(`${process.env.TOSS_SECRET_KEY}:`).toString('base64')}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ paymentKey: body.paymentKey, orderId: order.id, amount: order.amount }),
-      });
-      if (!res.ok) return fail('PAYMENT_FAILED', '결제 승인에 실패했습니다', 402);
-      const data = (await res.json()) as { paymentKey?: string };
-      providerRef = data.paymentKey ?? providerRef;
-    }
-
-    await applyCredits({
-      userId: user.id,
-      delta: order.credits,
-      reason: order.kind === 'subscription' ? 'SUBSCRIPTION_GRANT' : 'PURCHASE',
-      refType: 'order',
-      refId: order.id,
+    const provider = paymentProvider();
+    // 검증된 주문과 결제키를 먼저 영속 저장한다. 타임아웃 후 같은 키로 안전하게 재시도할 수 있다.
+    const reserved = await withPaymentDB((db) => {
+      const order = db.orders.find((o) => o.id === body.orderId && o.userId === user.id);
+      if (!order || order.kind !== 'credits' || order.provider !== provider) return { error: 'ORDER_NOT_FOUND' as const };
+      if (order.amount !== body.amount) return { error: 'AMOUNT_MISMATCH' as const };
+      if (!order.consentAt) return { error: 'CONSENT_REQUIRED' as const };
+      if (order.paymentKey && order.paymentKey !== body.paymentKey) return { error: 'KEY_MISMATCH' as const };
+      if (order.status === 'PAID') return { paid: true as const, order, balance: db.users.find((u) => u.id === user.id)?.credits ?? 0 };
+      if (order.status !== 'PENDING') return { error: 'ORDER_UNAVAILABLE' as const };
+      if (!db.users.some((u) => u.id === user.id)) return { error: 'ORDER_NOT_FOUND' as const };
+      order.paymentKey = body.paymentKey;
+      return { paid: false as const, order };
     });
+    if ('error' in reserved) return fail(reserved.error ?? 'ORDER_UNAVAILABLE', '주문 또는 결제 정보를 확인해 주세요.', reserved.error === 'ORDER_NOT_FOUND' ? 404 : 409);
+    if (reserved.paid) return ok({ orderId: reserved.order.id, alreadyPaid: true, credits: reserved.balance });
 
-    const paid: Order = {
-      ...order,
-      status: 'PAID',
-      paidAt: new Date().toISOString(),
-      provider: providerRef,
-    };
-
-    await withDB((db) => {
-      const idx = db.orders.findIndex((o) => o.id === order.id);
-      if (idx >= 0) db.orders[idx] = paid;
-      const u = db.users.find((x) => x.id === user.id);
-      if (u && order.plan) {
-        u.plan = order.plan;
-        u.lastGrantAt = new Date().toISOString();
+    if (provider === 'toss') {
+      let response: Response;
+      try {
+        response = await fetch('https://api.tosspayments.com/v1/payments/confirm', {
+          method: 'POST',
+          headers: {
+            Authorization: `Basic ${Buffer.from(`${process.env.TOSS_SECRET_KEY}:`).toString('base64')}`,
+            'Content-Type': 'application/json',
+            'Idempotency-Key': reserved.order.id,
+          },
+          body: JSON.stringify({ paymentKey: body.paymentKey, orderId: reserved.order.id, amount: reserved.order.amount }),
+          signal: AbortSignal.timeout(15_000), cache: 'no-store',
+        });
+      } catch { return fail('PAYMENT_RETRY', '승인 결과를 확인하지 못했어요. 다시 확인하거나 고객센터에 문의해 주세요.', 503); }
+      // 승인 응답을 놓쳤거나 멱등 응답이 만료된 경우, 결제키로 기존 승인 상태를 조회해 복구한다.
+      if (!response.ok) {
+        try {
+          response = await fetch(`https://api.tosspayments.com/v1/payments/${encodeURIComponent(body.paymentKey)}`, {
+            headers: { Authorization: `Basic ${Buffer.from(`${process.env.TOSS_SECRET_KEY}:`).toString('base64')}` },
+            signal: AbortSignal.timeout(15_000), cache: 'no-store',
+          });
+        } catch { return fail('PAYMENT_RETRY', '승인 결과를 확인하지 못했어요. 다시 확인하거나 고객센터에 문의해 주세요.', 503); }
       }
-      const paidRec = db.orders.find((o) => o.id === order.id) as (typeof db.orders)[number] & { consentAt?: string };
-      if (paidRec) paidRec.consentAt = new Date().toISOString();
+      if (!response.ok) return fail('PAYMENT_RETRY', '결제 승인 결과를 확인하지 못했어요. 다시 확인하거나 고객센터에 문의해 주세요.', 503);
+      const data = await response.json().catch(() => null) as { paymentKey?: string; orderId?: string; totalAmount?: number; status?: string; method?: string } | null;
+      if (!data || data.paymentKey !== body.paymentKey || data.orderId !== body.orderId || data.totalAmount !== body.amount || data.status !== 'DONE' || !['카드', '간편결제'].includes(data.method ?? '')) {
+        return fail('PAYMENT_REVIEW', '결제 상태를 자동 확인할 수 없어요. 고객센터에 주문번호를 알려 주세요.', 409);
+      }
+    } else if (provider !== 'mock' || process.env.NODE_ENV === 'production' || !body.paymentKey.startsWith('mock_')) {
+      return paymentsUnavailableResponse();
+    }
+
+    // 승인 후 주문 상태, 크레딧 원장과 잔액을 한 번의 CAS 트랜잭션에 반영한다.
+    const settled = await withPaymentDB((db) => {
+      const order = db.orders.find((o) => o.id === body.orderId && o.userId === user.id);
+      const account = db.users.find((u) => u.id === user.id);
+      if (!order || !account || order.paymentKey !== body.paymentKey || order.provider !== provider || order.amount !== body.amount) return null;
+      if (order.status === 'PAID') return { alreadyPaid: true, balance: account.credits };
+      if (order.status !== 'PENDING') return null;
+      if (db.credits.some((c) => c.userId === user.id && c.reason === 'PURCHASE' && c.refType === 'order' && c.refId === order.id)) return null;
+      account.credits += order.credits;
+      const now = new Date().toISOString();
+      db.credits.push({ id: uid('cr'), userId: user.id, delta: order.credits, reason: 'PURCHASE', refType: 'order', refId: order.id, balanceAfter: account.credits, createdAt: now });
+      order.status = 'PAID'; order.paidAt = now;
       logEvent(db, user.id, 'order_paid', { orderId: order.id, amount: order.amount, provider });
+      return { alreadyPaid: false, balance: account.credits };
     });
-
-    void captureServer('order_paid', user.id, {
-      orderId: order.id,
-      kind: order.kind,
-      amount: order.amount,
-      credits: order.credits,
-      plan: order.plan ?? null,
-    });
-
-    return ok({ order: paid, credits: await balanceOf(user.id), granted: order.credits });
-  } catch (e) {
-    return handleError(e);
-  }
-}
-
-async function balanceOf(userId: string) {
-  return withDB((db) => db.users.find((u) => u.id === userId)?.credits ?? 0);
+    if (!settled) return fail('PAYMENT_REVIEW', '결제 확인이 필요합니다. 고객센터에 문의해 주세요.', 409);
+    return ok({ orderId: body.orderId, alreadyPaid: settled.alreadyPaid, credits: settled.balance });
+  } catch (e) { return handleError(e); }
 }

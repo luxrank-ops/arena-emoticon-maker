@@ -262,6 +262,8 @@ export interface Order {
   provider: string;
   createdAt: string;
   paidAt?: string;
+  consentAt?: string;
+  paymentKey?: string;
 }
 
 export interface GoodsOrder extends Order {

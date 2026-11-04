@@ -327,9 +327,9 @@ async function save(db: DB) {
  *    오인하면 멀쩡한 원격 저장소를 15초간 버리고 파일 스냅샷으로 덮어써 데이터가 사라진다.
  *  · CAS 충돌 시 최신 스냅샷으로 fn 을 다시 적용한다 (fn 은 부수효과 없는 순수 함수여야 한다).
  */
-async function withRemote<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
+async function withRemote<T>(fn: (db: DB) => T | Promise<T>, strict = false): Promise<T> {
   const driver = DRIVER;
-  if (!driver) return fallbackLocal(fn);
+  if (!driver) { if (strict) throw new StoreBusyError(); return fallbackLocal(fn); }
 
   // 동시 쓰기가 몰리면 CAS 가 계속 깨질 수 있다 → 지터를 섞은 지수 백오프로 재시도.
   // 스냅샷 1건 CAS 는 사실상 락이라, 경합이 심하면 재시도를 넉넉히 줘야 유실이 없다.
@@ -342,6 +342,7 @@ async function withRemote<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
     } catch (e) {
       // 인프라 장애 → 잠시 파일/메모리로 서비스 (자동 복구)
       markRemoteDown(e);
+      if (strict) throw new StoreBusyError();
       return fallbackLocal(fn);
     }
 
@@ -357,6 +358,8 @@ async function withRemote<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
           handover = true;
         }
       } catch {
+        // 결제에서는 승계 실패를 빈 데이터베이스로 오인하지 않는다.
+        if (strict) throw new StoreBusyError();
         // KV 가 이미 정리됐거나 장애 → 승계 없이 새 저장소로 시작 (다음 요청에서 재시도)
       }
     }
@@ -367,6 +370,7 @@ async function withRemote<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
     } catch (e) {
       // 저장값이 깨졌다 → 덮어쓰지 않고 장애로 취급 (데이터 보존 우선)
       markRemoteDown(new Error(`corrupt store: ${(e as Error).message}`));
+      if (strict) throw new StoreBusyError();
       return fallbackLocal(fn);
     }
 
@@ -384,6 +388,7 @@ async function withRemote<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
       }
     } catch (e) {
       markRemoteDown(e);
+      if (strict) throw new StoreBusyError();
       await save(db);
       return result;
     }
@@ -432,6 +437,23 @@ export function withDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
   const run = state.chain.then(async () => {
     if (remoteUsable()) return withRemote(fn);
     return fallbackLocal(fn);
+  });
+  state.chain = run.catch(() => undefined);
+  return run;
+}
+
+/** 결제·원장은 원격 CAS 실패 시 절대 로컬/메모리로 폴백하지 않는다. */
+export function withPaymentDB<T>(fn: (db: DB) => T): Promise<T> {
+  const run = state.chain.then(async () => {
+    if (DRIVER) return withRemote(fn, true);
+    // 단일 프로세스 로컬 개발 외에는 파일 저장소를 결제에 사용하지 않는다.
+    if (process.env.NODE_ENV === 'production') throw new StoreBusyError();
+    const db = structuredClone(await load());
+    const result = fn(db);
+    await save(db);
+    if (state.mode !== 'persistent') throw new StoreBusyError();
+    state.cache = db;
+    return result;
   });
   state.chain = run.catch(() => undefined);
   return run;
