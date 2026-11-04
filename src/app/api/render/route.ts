@@ -1,4 +1,4 @@
-import { ACCESSORIES } from '@/lib/accessories';
+﻿import { ACCESSORIES } from '@/lib/accessories';
 import { createHash } from 'node:crypto';
 import { preparedSchema } from '@/lib/ai/consistency';
 import { comicExpressionById } from '@/lib/comic-expressions';
@@ -9,7 +9,7 @@ import { getCurrentUser } from '@/lib/session';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 import { RenderError, renderWithGemini } from '@/lib/ai/gemini-render';
-import { deleteImage, encodeWebp, loadImage, newImageId, saveImage } from '@/lib/images';
+import { deleteImage, loadImage, newImageId, saveImage } from '@/lib/images';
 import { applyCredits, CreditError } from '@/lib/credits';
 import type { Emotion, Tone } from '@/lib/types';
 
@@ -144,7 +144,7 @@ export async function POST(req: Request) {
     if (plan.kind === 'frame' && (!reference || reference.userId !== user.id)) {
       return fail('REFERENCE_REQUIRED', '선택한 시안을 불러올 수 없어 컷을 만들 수 없어요. 시안을 다시 선택해 새 팩을 만들어 주세요.', 409);
     }
-    const characterReference = reference ? { mimeType: 'image/webp', base64: reference.data.toString('base64') } : undefined;
+    const characterReference = reference ? { mimeType: 'image/webp', base64: Buffer.from(reference.data).toString('base64') } : undefined;
 
     // 2) 다시 그리기면 먼저 차감 (잔액 부족이면 생성하지 않는다)
     const chargeRef = uid('rd');
@@ -188,9 +188,9 @@ export async function POST(req: Request) {
       });
 
       // 4) 컷은 360px로 선명하게 저장하고 시안은 참조용 512px를 유지한다.
-      const webp = await encodeWebp(png, { kind: plan.kind, pixelArt: plan.tone === 'pixel-art' });
+      const imageData = new Uint8Array(png);
       const imageId = newImageId();
-      await saveImage(imageId, user.id, webp);
+      await saveImage(imageId, user.id, imageData);
 
       await withDB((db) => {
         if (plan.kind === 'frame') {
@@ -210,7 +210,7 @@ export async function POST(req: Request) {
           tone: plan.tone,
           redraw: plan.charged,
           provider: 'gemini',
-          bytes: webp.length,
+          bytes: imageData.length,
         });
       });
 

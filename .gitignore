@@ -44,3 +44,5 @@ uploads/
 reports/
 .vinext/
 .cloudflare/
+
+.wrangler/
