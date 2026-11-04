@@ -1,6 +1,7 @@
 'use client';
 
 import type { PreparedIdentity } from '@/lib/ai/consistency';
+import type { SubjectKind } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
 // 브라우저 측 사진 보관 & 생성 요청 도우미
@@ -43,6 +44,7 @@ function removeIfUnused(id: string | null) {
   }
   sessionStorage.removeItem(dataKey(id));
   sessionStorage.removeItem(`${PREFIX}guidance:${id}`);
+  sessionStorage.removeItem(`${PREFIX}guidance:${id}:pet`);
 }
 
 export function savePhoto(dataUrl: string, scope: PhotoScope) {
@@ -99,10 +101,10 @@ export type RenderTarget =
 const preparing = new Map<string, Promise<PreparedIdentity>>();
 const PREPARED_TTL_MS = 60 * 60_000;
 
-export async function ensurePhotoConsistency(photo: string, scope: PhotoScope): Promise<PreparedIdentity> {
+export async function ensurePhotoConsistency(photo: string, scope: PhotoScope, subjectKind: SubjectKind = 'person'): Promise<PreparedIdentity> {
   const id = sessionStorage.getItem(scopeKey(scope));
   if (!id || sessionStorage.getItem(dataKey(id)) !== photo) throw new Error('사진이 변경됐어요. 같은 사진으로 다시 시작해 주세요.');
-  const profileKey = `${PREFIX}guidance:${id}`;
+  const profileKey = `${PREFIX}guidance:${id}${subjectKind === 'pet' ? ':pet' : ''}`;
   try {
     const raw = sessionStorage.getItem(profileKey);
     if (raw) {
@@ -110,11 +112,11 @@ export async function ensurePhotoConsistency(photo: string, scope: PhotoScope): 
       if (cached.createdAt > Date.now() - PREPARED_TTL_MS && cached.createdAt <= Date.now() && /^[a-f0-9]{64}$/.test(cached.token)) return cached;
     }
   } catch { /* 손상된 캐시는 다시 준비한다 */ }
-  const existing = preparing.get(id);
+  const existing = preparing.get(profileKey);
   if (existing) return existing;
   const task = (async () => {
     const res = await fetch('/api/face/consistency', {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo, consent: true }),
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo, consent: true, subjectKind }),
     });
     const json = await res.json().catch(() => null);
     if (!res.ok || !json?.prepared) throw new Error(json?.error?.message ?? '일관성 준비를 완료하지 못했어요.');
@@ -126,24 +128,24 @@ export async function ensurePhotoConsistency(photo: string, scope: PhotoScope): 
     catch { throw new Error('일관성 기준을 임시 저장하지 못했어요. 브라우저 저장 공간을 확인해 주세요.'); }
     return json.prepared as PreparedIdentity;
   })();
-  preparing.set(id, task);
-  try { return await task; } finally { preparing.delete(id); }
+  preparing.set(profileKey, task);
+  try { return await task; } finally { preparing.delete(profileKey); }
 }
 
 /** 현재 사진의 준비 방식(유효기간이 끝난 경우 제외). */
-export function photoConsistencyMethod(scope: PhotoScope): 'ai' | 'basic' | null {
+export function photoConsistencyMethod(scope: PhotoScope, subjectKind: SubjectKind = 'person'): 'ai' | 'basic' | null {
   try {
     const id = sessionStorage.getItem(scopeKey(scope));
     if (!id) return null;
-    const prepared = JSON.parse(sessionStorage.getItem(`${PREFIX}guidance:${id}`) || 'null') as PreparedIdentity | null;
+    const prepared = JSON.parse(sessionStorage.getItem(`${PREFIX}guidance:${id}${subjectKind === 'pet' ? ':pet' : ''}`) || 'null') as PreparedIdentity | null;
     if (!prepared || prepared.createdAt <= Date.now() - PREPARED_TTL_MS || prepared.createdAt > Date.now()) return null;
     return prepared.method ?? 'ai';
   } catch { return null; }
 }
 
 /** 이미지 생성 전에 사진 준비가 끝나야 요청한다. */
-export async function renderImage(target: RenderTarget, photo: string, scope: PhotoScope): Promise<string> {
-  let consistency = await ensurePhotoConsistency(photo, scope);
+export async function renderImage(target: RenderTarget, photo: string, scope: PhotoScope, subjectKind: SubjectKind = 'person'): Promise<string> {
+  let consistency = await ensurePhotoConsistency(photo, scope, subjectKind);
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await fetch('/api/render', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -157,8 +159,8 @@ export async function renderImage(target: RenderTarget, photo: string, scope: Ph
     if (attempt === 0 && json && 'error' in json && json.error?.code === 'CONSISTENCY_REQUIRED') {
       // 인증 세션이 바뀌었거나 준비가 만료됐을 때만 이미지 생성 전에 다시 준비한다.
       const id = sessionStorage.getItem(scopeKey(scope));
-      if (id) sessionStorage.removeItem(`${PREFIX}guidance:${id}`);
-      consistency = await ensurePhotoConsistency(photo, scope);
+      if (id) sessionStorage.removeItem(`${PREFIX}guidance:${id}${subjectKind === 'pet' ? ':pet' : ''}`);
+      consistency = await ensurePhotoConsistency(photo, scope, subjectKind);
       continue;
     }
     throw new Error((json && 'error' in json && json.error?.message) || 'AI 생성에 실패했어요. 다시 시도해 주세요');

@@ -8,7 +8,7 @@ import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
 import { TONES } from '@/lib/art/sticker';
 import { COMIC_EXPRESSIONS } from '@/lib/comic-expressions';
 import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
-import type { Palette, SheetVariant, StickerSpec, Tone } from '@/lib/types';
+import type { Palette, SheetVariant, StickerSpec, Tone, SubjectKind } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
 // 캐릭터 시안 선택 (AI 생성본)
@@ -18,6 +18,7 @@ import type { Palette, SheetVariant, StickerSpec, Tone } from '@/lib/types';
 
 export function SheetPicker({
   sheetId,
+  subjectKind = 'person',
   variants,
   palette,
   tone,
@@ -26,6 +27,7 @@ export function SheetPicker({
   alreadyChosen,
 }: {
   sheetId: string;
+  subjectKind?: SubjectKind;
   variants: SheetVariant[];
   palette: Palette;
   tone: Tone;
@@ -62,7 +64,7 @@ export function SheetPicker({
     setPending((prev) => ({ ...prev, ...Object.fromEntries(keys.map((k) => [k, true])) }));
     await runLimited(keys, 3, async (key) => {
       try {
-        const url = await renderImage({ kind: 'sheet', sheetId, variantKey: key }, photo, `sheet:${sheetId}`);
+        const url = await renderImage({ kind: 'sheet', sheetId, variantKey: key }, photo, `sheet:${sheetId}`, subjectKind);
         setImages((prev) => ({ ...prev, [key]: url }));
       } catch (e) {
         setFailed((prev) => ({ ...prev, [key]: (e as Error).message }));
@@ -144,17 +146,17 @@ export function SheetPicker({
 
   return (
     <div className="space-y-6">
-      <ConsistencyNotice scope={`sheet:${sheetId}`} />
+      <ConsistencyNotice scope={`sheet:${sheetId}`} subjectKind={subjectKind} />
       {needPhoto ? (
         <div className="card flex flex-wrap items-center justify-between gap-3 p-5">
           <div>
             <p className="text-sm font-black">이 탭에 사진이 없어요</p>
             <p className="text-xs text-sub">
-              사진은 탭을 닫으면 지워집니다. 같은 셀카를 한 번 더 올려 주세요.
+              사진은 탭을 닫으면 지워집니다. 같은 원본 사진을 한 번 더 올려 주세요.
             </p>
           </div>
           <label className="btn-primary cursor-pointer !py-2 text-xs">
-            셀카 다시 올리기
+            사진 다시 올리기
             <input
               type="file"
               accept="image/*"
@@ -220,7 +222,7 @@ export function SheetPicker({
                   <p className="text-sm font-black">
                     시안 {v.key} · {v.label}
                   </p>
-                  <p className="text-[11px] text-sub">{TONES[tone].label} · 같은 얼굴 기준</p>
+                  <p className="text-[11px] text-sub">{TONES[tone].label} · 같은 사진 기준</p>
                 </div>
                 <span
                   className={clsx(

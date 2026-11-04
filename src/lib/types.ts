@@ -159,8 +159,10 @@ export interface SheetVariant {
 }
 
 export type CompositionMode = 'face' | 'full';
+export type SubjectKind = 'person' | 'pet';
 
 export interface CharacterSheet {
+  subjectKind?: SubjectKind;
   mode?: CompositionMode;
   id: string;
   userId: string;
@@ -199,6 +201,7 @@ export interface FrameView extends Frame {
 }
 
 export interface Pack {
+  subjectKind?: SubjectKind;
   mode?: CompositionMode;
   id: string;
   userId: string;

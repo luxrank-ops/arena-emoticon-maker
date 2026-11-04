@@ -18,7 +18,7 @@ export async function UploadPageContent({ step }: { step: 'photo' | 'settings' }
       <div className="mx-auto mb-8 max-w-3xl">
         <h1 className="h2">{isPhoto ? '어떤 사진으로 만들까요?' : '이모티콘 스타일을 골라주세요'}</h1>
         <p className="mt-2 text-sm leading-relaxed text-sub">
-          {isPhoto ? '셀카 한 장을 선택하면 브라우저에서 사진 품질을 확인합니다.' : '구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.'}
+          {isPhoto ? '사람 또는 반려동물을 선택하고 사진 한 장으로 시작해요.' : '구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.'}
         </p>
         <ol aria-label="제작 진행 단계" className="mt-5 grid grid-cols-4 gap-1 text-center text-xs font-bold sm:gap-2 sm:text-sm">
           {['사진 선택', '스타일·동의', '시안 선택', '팩 완성'].map((label, index) => <li key={label} aria-current={index === (isPhoto ? 0 : 1) ? 'step' : undefined} className={`rounded-xl border-2 px-1 py-2 ${index === (isPhoto ? 0 : 1) ? 'border-ink bg-lemon/30 text-ink' : 'border-line text-sub'}`}>{index + 1}. {label}</li>)}

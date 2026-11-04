@@ -534,3 +534,16 @@ export async function analyzeSelfie(file: File): Promise<FaceAnalysis> {
     return FALLBACK;
   }
 }
+
+/** 반려동물 사진은 사람 얼굴 랜드마크를 사용하지 않는다. 파일을 읽을 수 있는지만 확인한다. */
+export async function analyzePetPhoto(file: File): Promise<FaceAnalysis> {
+  if (!file.type.startsWith('image/')) return { ...FALLBACK, issues: [{ code: 'TYPE', label: '이미지 파일만 올릴 수 있어요', blocking: true }] };
+  if (file.size > 8 * 1024 * 1024) return { ...FALLBACK, issues: [{ code: 'SIZE', label: '8MB 이하 사진을 사용해 주세요', blocking: true }] };
+  try {
+    const bitmap = await createImageBitmap(file);
+    const valid = bitmap.width >= 64 && bitmap.height >= 64 && bitmap.width * bitmap.height <= 24_000_000;
+    bitmap.close();
+    if (!valid) return { ...FALLBACK, issues: [{ code: 'DIMENSIONS', label: '64픽셀 이상, 2,400만 픽셀 이하의 사진을 사용해 주세요', blocking: true }] };
+    return { ...FALLBACK, ok: true, metrics: { ...FALLBACK.metrics, faceDetected: false }, issues: [] };
+  } catch { return FALLBACK; }
+}
