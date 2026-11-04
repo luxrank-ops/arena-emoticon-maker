@@ -7,7 +7,7 @@ export default defineConfig({
     workersDev: false,
     previewUrls: false,
     domains: ["emotihak.com"],
-    entrypoint: "vinext/server/fetch-handler",
+    entrypoint: "./worker/index.ts",
     compatibilityDate: "2026-11-04",
     compatibilityFlags: ["nodejs_compat"],
     assets: {
@@ -26,6 +26,7 @@ export default defineConfig({
       RATE_LIMIT_DISABLED: bindings.text("1"),
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
+      STORE_KV: bindings.kv({ id: "cf10a2fa249a4c80b1163ea04948162e" }),
     },
   }),
 });

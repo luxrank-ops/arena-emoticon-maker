@@ -134,15 +134,47 @@ const firestoreDriver: RemoteDriver = {
   },
 };
 
+function getCFKV(): any {
+  if (typeof globalThis !== 'undefined' && (globalThis as any).STORE_KV) return (globalThis as any).STORE_KV;
+  if (typeof process !== 'undefined' && (process.env as any)?.STORE_KV) return (process.env as any).STORE_KV;
+  return null;
+}
+
+const cfKvDriver: RemoteDriver = {
+  backend: 'kv',
+  label: 'cloudflare-kv:emotime-store',
+  async read() {
+    const kv = getCFKV();
+    if (!kv) return { raw: null, version: '' };
+    const raw = await kv.get('emotime:store');
+    return { raw, version: raw ?? '' };
+  },
+  async cas(_version, _raw, next) {
+    const kv = getCFKV();
+    if (!kv) return false;
+    await kv.put('emotime:store', next);
+    return true;
+  },
+};
+
+/** 어떤 원격 백엔드를 쓸지 동적 결정 (Cloudflare KV 최우선) */
+function getDriver(): RemoteDriver | null {
+  const cfKv = getCFKV();
+  if (cfKv) return cfKvDriver;
+  return DRIVER;
+}
+
 /** 어떤 원격 백엔드를 쓸지 모듈 로드 시 1회 결정 */
 function pickDriver(): RemoteDriver | null {
+  const cfKv = getCFKV();
+  if (cfKv) return cfKvDriver;
   const forced = (process.env.STORE_BACKEND || 'auto').toLowerCase();
   if (forced === 'file' || forced === 'none' || forced === 'local') return null;
   const fs = hasFirestore() ? firestoreDriver : null;
   const kv = KV_URL && KV_TOKEN ? kvDriver : null;
   if (forced === 'firestore') return fs;
-  if (forced === 'kv') return kv;
-  return fs ?? kv;
+  if (forced === 'kv') return cfKv ?? kv;
+  return cfKv ?? fs ?? kv;
 }
 
 const DRIVER: RemoteDriver | null = pickDriver();
@@ -150,21 +182,22 @@ const DRIVER: RemoteDriver | null = pickDriver();
 const HANDOVER_KV: RemoteDriver | null = KV_URL && KV_TOKEN ? kvDriver : null;
 
 export function hasRemoteStore(): boolean {
-  return !!DRIVER;
+  return !!getDriver();
 }
 
 /** 현재 저장 백엔드 이름 (file | kv | firestore) */
 export function storeBackend(): 'file' | 'kv' | 'firestore' {
-  return DRIVER?.backend ?? 'file';
+  return getDriver()?.backend ?? 'file';
 }
 
 /** 원격이 최근에 실패했는지 (일정 시간 후 자동 재시도) */
 function remoteUsable(): boolean {
-  return !!DRIVER && Date.now() >= state.remoteDownUntil;
+  return !!getDriver() && Date.now() >= state.remoteDownUntil;
 }
 
 function markRemoteDown(e: unknown) {
-  state.lastError = (e as Error)?.message ?? `${DRIVER?.backend ?? 'remote'} error`;
+  const driver = getDriver();
+  state.lastError = (e as Error)?.message ?? `${driver?.backend ?? 'remote'} error`;
   state.remoteDownUntil = Date.now() + 15_000;
 }
 
@@ -262,10 +295,11 @@ export function storeStatus(): {
   fallbackWrites: number;
   importedFrom: 'kv' | null;
 } {
-  if (DRIVER) {
+  const driver = getDriver();
+  if (driver) {
     return {
-      dir: DRIVER.label,
-      backend: DRIVER.backend,
+      dir: driver.label,
+      backend: driver.backend,
       // 원격 장애로 파일/메모리로 내려간 상태는 degraded(memory)로 알린다
       mode: remoteUsable() ? 'remote' : 'memory',
       lastError: state.lastError,
@@ -328,7 +362,7 @@ async function save(db: DB) {
  *  · CAS 충돌 시 최신 스냅샷으로 fn 을 다시 적용한다 (fn 은 부수효과 없는 순수 함수여야 한다).
  */
 async function withRemote<T>(fn: (db: DB) => T | Promise<T>, strict = false): Promise<T> {
-  const driver = DRIVER;
+  const driver = getDriver();
   if (!driver) { if (strict) throw new StoreBusyError(); return fallbackLocal(fn); }
 
   // 동시 쓰기가 몰리면 CAS 가 계속 깨질 수 있다 → 지터를 섞은 지수 백오프로 재시도.
@@ -403,7 +437,7 @@ async function withRemote<T>(fn: (db: DB) => T | Promise<T>, strict = false): Pr
 
 /** 원격 장애 시에만 쓰는 로컬 경로 (파일 → 메모리) */
 async function fallbackLocal<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
-  if (DRIVER) state.fallbackWrites += 1;
+  if (getDriver()) state.fallbackWrites += 1;
   const db = await load();
   const result = await fn(db);
   await save(db);
@@ -445,7 +479,7 @@ export function withDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
 /** 결제·원장은 원격 CAS 실패 시 절대 로컬/메모리로 폴백하지 않는다. */
 export function withPaymentDB<T>(fn: (db: DB) => T): Promise<T> {
   const run = state.chain.then(async () => {
-    if (DRIVER) return withRemote(fn, true);
+    if (getDriver()) return withRemote(fn, true);
     // 단일 프로세스 로컬 개발 외에는 파일 저장소를 결제에 사용하지 않는다.
     if (process.env.NODE_ENV === 'production') throw new StoreBusyError();
     const db = structuredClone(await load());
