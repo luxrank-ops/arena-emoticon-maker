@@ -7,5 +7,6 @@ export const BUSINESS = {
   address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS || '부산광역시 강서구 명지오션시티2로 71, 107동 5층 501호',
   tel: process.env.NEXT_PUBLIC_BUSINESS_TEL || '010-2846-8906',
   email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL || 'luxrank@gmail.com',
+  supportHours: '평일 10:00~18:00 (점심시간 없음) · 주말·공휴일 휴무',
   mailOrder: process.env.NEXT_PUBLIC_MAIL_ORDER_NO || null,
 } as const;
