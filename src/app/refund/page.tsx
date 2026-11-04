@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
+import { BUSINESS } from '@/lib/business';
 
 export const metadata: Metadata = { title: '환불·청약철회 정책 · 이모티미' };
 
 export default function RefundPage() {
-  const email = process.env.NEXT_PUBLIC_SUPPORT_EMAIL;
+  const email = BUSINESS.email;
   return (
     <div className="wrap max-w-3xl py-12">
       <h1 className="h2">환불 · 청약철회 정책</h1>

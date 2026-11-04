@@ -1,15 +1,6 @@
 import Link from 'next/link';
 
-// PG(카드사) 심사 필수 노출 항목 — 값은 운영 시 .env 로 주입
-const BIZ = {
-  name: process.env.NEXT_PUBLIC_BUSINESS_NAME ?? '이모티미',
-  owner: process.env.NEXT_PUBLIC_BUSINESS_OWNER ?? '홍길동',
-  regNo: process.env.NEXT_PUBLIC_BUSINESS_REG_NO ?? '000-00-00000',
-  address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS ?? '서울특별시 강남구 테헤란로 0, 3층',
-  tel: process.env.NEXT_PUBLIC_BUSINESS_TEL,
-  mailOrder: process.env.NEXT_PUBLIC_MAIL_ORDER_NO ?? '제2026-서울강남-0000호',
-  email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-};
+import { BUSINESS as BIZ } from '@/lib/business';
 
 export function SiteFooter() {
   return (
@@ -59,11 +50,11 @@ export function SiteFooter() {
             <span>상호 {BIZ.name}</span>
             <span>대표 {BIZ.owner}</span>
             <span>사업자등록번호 {BIZ.regNo}</span>
-            <span>통신판매업신고 {BIZ.mailOrder}</span>
+            <span>통신판매업신고 {BIZ.mailOrder || '정보 미입력'}</span>
           </div>
           <div className="space-x-2">
             <span>주소 {BIZ.address}</span>
-            {BIZ.tel ? <span>유선 {BIZ.tel}</span> : null}
+            {BIZ.tel ? <span>연락처 {BIZ.tel}</span> : null}
           </div>
         </div>
         <div className="wrap pb-8 text-[11px] text-sub">

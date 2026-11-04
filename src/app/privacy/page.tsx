@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { BUSINESS } from '@/lib/business';
 
 export const metadata: Metadata = { title: '개인정보처리방침 · 이모티미' };
 
@@ -99,7 +100,7 @@ export default function PrivacyPage() {
           <h2 className="text-sm font-black text-ink">4. 파기 절차 및 방법</h2>
           <p className="mt-2">
             얼굴 분석 지표는 생성 후 24시간이 지나면 자동 파기됩니다. 원본 사진은 저장하지 않으므로 파기 대상이 아닙니다.
-            생성된 컷 이미지는 팩 상세 화면의 "팩 삭제"로 즉시 영구 삭제할 수 있습니다. 삭제된 이미지는 복구할 수 없습니다. 삭제만으로 자동 환불되지는 않으며 환불 가능 여부는 환불 정책과 관련 법령에 따라 확인합니다. 계정 전체 삭제나 앱에서 처리할 수 없는 요청은 support@emotime.app 으로 접수하면 수동으로 처리합니다. 전자적 파일은 복구 불가능한 방법으로 삭제하고, 처리 기록을 남깁니다.
+            생성된 컷 이미지는 팩 상세 화면의 "팩 삭제"로 즉시 영구 삭제할 수 있습니다. 삭제된 이미지는 복구할 수 없습니다. 삭제만으로 자동 환불되지는 않으며 환불 가능 여부는 환불 정책과 관련 법령에 따라 확인합니다. 계정 전체 삭제나 앱에서 처리할 수 없는 요청은 {BUSINESS.email}으로 접수하면 수동으로 처리합니다. 전자적 파일은 복구 불가능한 방법으로 삭제하고, 처리 기록을 남깁니다.
           </p>
         </section>
 
@@ -107,7 +108,7 @@ export default function PrivacyPage() {
           <h2 className="text-sm font-black text-ink">5. 이용자의 권리</h2>
           <p className="mt-2">
             이용자는 언제든지 자신의 개인정보 열람·정정·삭제·처리정지를 요청할 수 있습니다. 요청은
-            support@emotime.app 으로 접수하며, 10일 이내 처리합니다.
+            {BUSINESS.email}으로 접수하며, 10일 이내 처리합니다.
           </p>
         </section>
 
@@ -120,9 +121,9 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-sm font-black text-ink">7. 개인정보 보호책임자</h2>
+          <h2 className="text-sm font-black text-ink">7. 개인정보 보호 문의</h2>
           <p className="mt-2">
-            성명: 홍길동 · 직책: 개인정보보호책임자 · 연락처: support@emotime.app / 02-000-0000
+            문의처: {BUSINESS.email} / {BUSINESS.tel} · 개인정보 보호책임자 정보는 확인 후 등록합니다.
           </p>
         </section>
       </div>

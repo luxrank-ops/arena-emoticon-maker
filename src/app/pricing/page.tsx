@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { BUSINESS } from '@/lib/business';
 import { CheckoutButton } from '@/components/payments/CheckoutButton';
 import { PLANS, SKUS, won } from '@/lib/pricing';
 import { getCurrentUser } from '@/lib/session';
@@ -120,14 +121,15 @@ export default async function PricingPage() {
         <div className="card p-5">
           <h2 className="text-lg font-black">사업자 정보</h2>
           <p className="mt-2 text-xs leading-relaxed text-sub">
-            상호: {process.env.NEXT_PUBLIC_BUSINESS_NAME ?? '이모티미'}
+            상호: {BUSINESS.name}
             <br />
-            대표: {process.env.NEXT_PUBLIC_BUSINESS_OWNER ?? '홍길동'} · 사업자등록번호:{' '}
-            {process.env.NEXT_PUBLIC_BUSINESS_REG_NO ?? '000-00-00000'}
+            대표: {BUSINESS.owner} · 사업자등록번호:{' '}
+            {BUSINESS.regNo}
             <br />
-            통신판매업신고: {process.env.NEXT_PUBLIC_MAIL_ORDER_NO ?? '제2026-서울강남-0000호'}
+            통신판매업신고: {BUSINESS.mailOrder || '정보 미입력'}
             <br />
-            고객센터: {process.env.NEXT_PUBLIC_BUSINESS_TEL ?? '02-000-0000'}
+            사업장 주소: {BUSINESS.address}<br />
+            고객센터: {BUSINESS.tel} · {BUSINESS.email}
           </p>
           <div className="mt-4 rounded-xl border border-line bg-cream p-3 text-[11px] leading-relaxed text-sub">
             <strong className="text-ink">청약철회 제한 안내</strong>
