@@ -16,7 +16,7 @@ export function PaymentSuccess() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message || '결제를 확인하지 못했어요.');
       try { sessionStorage.removeItem(KEY); } catch { /* 저장소를 사용하지 못해도 결제는 완료됐다 */ }
-      setState('success'); setMessage('결제가 완료되고 크레딧이 지급되었습니다.');
+      setState('success'); setMessage(json.kind === 'goods' ? '결제가 완료되어 굿즈 주문이 접수되었습니다. 운영자가 주문을 확인합니다.' : '결제가 완료되고 크레딧이 지급되었습니다.');
     } catch (e) { setState('error'); setMessage((e as Error).message || '결제를 확인하지 못했어요.'); }
   }, []);
   useEffect(() => {

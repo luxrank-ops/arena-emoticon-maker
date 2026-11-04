@@ -17,7 +17,7 @@ export async function POST(req: Request) {
     const { orderId } = schema.parse(await req.json());
     const result = await withPaymentDB((db) => {
       const order = db.orders.find((o) => o.id === orderId && o.userId === user.id);
-      if (!order || order.provider !== paymentProvider() || order.kind !== 'credits') return 'not_found';
+      if (!order || order.provider !== paymentProvider() || (order.kind !== 'credits' && order.kind !== 'goods')) return 'not_found';
       if (order.status !== 'PENDING' || order.paymentKey) return 'unavailable';
       order.consentAt = new Date().toISOString();
       return 'ok';
