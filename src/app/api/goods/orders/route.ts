@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
+import { paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { GOODS, PLANS, won } from '@/lib/pricing';
@@ -25,7 +25,8 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'goods', RATE_LIMITS.goods);
     if (limited && user.role !== 'admin') return limited;
-    if (paymentsUnavailable()) return paymentsUnavailableResponse();
+    // 실제 굿즈 결제·제작 연동 전에는 운영 주문을 받지 않는다.
+    if (process.env.NODE_ENV === 'production' || paymentProvider() !== 'mock' || paymentsUnavailable()) return paymentsUnavailableResponse();
     const body = schema.parse(await req.json());
     const goods = GOODS.find((g) => g.sku === body.goodsSku);
     if (!goods) return fail('GOODS_NOT_FOUND', '상품을 찾을 수 없습니다');

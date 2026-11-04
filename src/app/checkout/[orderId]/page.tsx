@@ -2,13 +2,14 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PayPanel } from '@/components/payments/PayPanel';
 import { getCurrentUser } from '@/lib/session';
-import { withDB } from '@/lib/store';
+import { withPaymentDB } from '@/lib/store';
+import { paymentProvider, paymentsUnavailable } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
 export default async function CheckoutPage({ params }: { params: { orderId: string } }) {
   const user = await getCurrentUser();
-  const order = await withDB((db) => db.orders.find((o) => o.id === params.orderId && o.userId === user.id) ?? null);
+  const order = await withPaymentDB((db) => db.orders.find((o) => o.id === params.orderId && o.userId === user.id) ?? null);
   if (!order) notFound();
 
   return (
@@ -26,11 +27,13 @@ export default async function CheckoutPage({ params }: { params: { orderId: stri
         amount={order.amount}
         title={order.title}
         credits={order.credits}
-        provider={process.env.PAYMENT_PROVIDER ?? 'mock'}
+        provider={paymentProvider()}
+        clientKey={process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || ''}
+        available={!paymentsUnavailable() && order.status === 'PENDING' && order.provider === paymentProvider() && order.kind === 'credits' && !order.paymentKey}
       />
 
       <div className="mt-6 space-y-2 text-[11px] leading-relaxed text-sub">
-        <p>· 결제는 토스페이먼츠를 통해 처리되며, 카드 정보는 이모티미에 저장되지 않습니다.</p>
+        <p>· 결제 승인이 완료되어야 크레딧이 지급됩니다. 카드 정보는 이모티미에 저장되지 않습니다.</p>
         <p>· 크레딧은 결제 완료 즉시 지급됩니다.</p>
         <p>
           · 환불 규정은 <Link href="/refund" className="text-coralink underline">환불·청약철회 정책</Link>을

@@ -60,8 +60,7 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="wrap pb-8 text-[11px] text-sub">
-          © {new Date().getFullYear()} 이모티미. 생성 결과물은 AI가 만들었습니다. · 결제는 토스페이먼츠를 통해
-          안전하게 처리됩니다.
+          © {new Date().getFullYear()} 이모티미. 생성 결과물은 AI가 만들었습니다.
         </div>
       </div>
     </footer>

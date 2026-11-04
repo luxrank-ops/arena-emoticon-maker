@@ -126,17 +126,21 @@ assert(laughReply.json?.result?.mood === 'laugh', 'ㅋㅋ 대화 → 웃김 감�
 console.log('\n[5] 결제 · 크레딧');
 const order = await req('/api/checkout', { method: 'POST', body: JSON.stringify({ sku: 'credits-20' }) });
 assert(order.json?.order?.amount === 4900, '서버가 금액 산정 (4900)');
+const prep = await req('/api/checkout/prepare', { method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, agreeDigital: true }) });
+assert(prep.status === 200, '결제 전 동의 저장');
 const confirm = await req('/api/checkout/confirm', {
   method: 'POST',
-  body: JSON.stringify({ orderId: order.json.order.id, amount: 4900, agreeDigital: true }),
+  body: JSON.stringify({ orderId: order.json.order.id, amount: 4900, paymentKey: `mock_${order.json.order.id}` }),
 });
-assert(confirm.json?.granted === 20, 'confirm → 20 크레딧 지급');
-
+assert(confirm.status === 200 && confirm.json?.alreadyPaid === false, 'confirm → 크레딧 지급');
+const repeated = await req('/api/checkout/confirm', {
+  method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, amount: 4900, paymentKey: `mock_${order.json.order.id}` }),
+});
+assert(repeated.json?.alreadyPaid === true && repeated.json?.credits === confirm.json?.credits, '중복 지급 방지');
 const badAmount = await req('/api/checkout/confirm', {
-  method: 'POST',
-  body: JSON.stringify({ orderId: order.json.order.id, amount: 100, agreeDigital: true }),
+  method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, amount: 100, paymentKey: `mock_${order.json.order.id}` }),
 });
-assert(badAmount.status === 200 || badAmount.status === 409, '금액 위변조 차단 또는 멱등 처리');
+assert(badAmount.status === 409, '금액 위변조 차단');
 
 console.log('\n[6] 굿즈');
 const goods = await req('/api/goods/orders', {

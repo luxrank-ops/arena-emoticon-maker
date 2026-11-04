@@ -13,7 +13,7 @@ const FAQ = [
   },
   {
     q: '구독을 중간에 바꿀 수 있나요?',
-    a: '네. 다음 결제일부터 변경된 플랜이 적용됩니다. 이미 지급된 크레딧은 소멸하지 않습니다.',
+    a: '구독 결제와 플랜 변경 기능은 준비 중입니다.',
   },
   {
     q: '환불 규정은?',
@@ -21,7 +21,7 @@ const FAQ = [
   },
   {
     q: '결제 수단은?',
-    a: '토스페이먼츠를 통해 카드·토스페이·카카오페이로 결제됩니다. 앱스토어 앱에서는 인앱결제(IAP)로만 결제됩니다.',
+    a: '카드 기반 결제는 토스페이먼츠를 통해 제공할 예정입니다. 제공 가능한 결제수단은 계약 및 설정에 따라 달라집니다.',
   },
 ];
 
@@ -69,7 +69,8 @@ export default async function PricingPage() {
                 ) : sku ? (
                   <CheckoutButton
                     sku={sku}
-                    label={`${p.name} 시작하기`}
+                    label="구독 준비 중"
+                    disabled
                     className={p.highlight ? 'btn-primary w-full' : 'btn-ghost w-full'}
                   />
                 ) : (
