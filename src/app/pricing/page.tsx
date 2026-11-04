@@ -16,7 +16,7 @@ const FAQ = [
   },
   {
     q: '환불 규정은?',
-    a: '결제일로부터 7일 이내에 크레딧을 한 번도 사용하지 않았다면 전액 환불됩니다. 사용 이력이 있으면 디지털 콘텐츠 제공이 개시된 것으로 보아 환불이 제한됩니다.',
+    a: '결제 후 7일 이내 미사용 유료 크레딧은 청약철회를 신청할 수 있습니다. 일부를 사용했더라도 가분적인 미사용 부분은 별도로 확인합니다. 자세한 내용은 환불 정책을 확인해 주세요.',
   },
   {
     q: '결제 수단은?',
@@ -132,7 +132,7 @@ export default async function PricingPage() {
           <div className="mt-4 rounded-xl border border-line bg-cream p-3 text-[11px] leading-relaxed text-sub">
             <strong className="text-ink">청약철회 제한 안내</strong>
             <br />
-            크레딧·구독 상품은 디지털 콘텐츠로, 생성이 시작되면 청약철회가 제한됩니다. 자세한 내용은{' '}
+            사용이 시작된 부분의 청약철회는 법령에 따라 제한될 수 있습니다. 가분적인 미사용 부분과 법령상 권리는 별도로 확인합니다. 자세한 내용은{' '}
             <Link href="/refund" className="text-coralink underline">환불 정책</Link>을 확인하세요.
           </div>
         </div>

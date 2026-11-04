@@ -6,9 +6,9 @@ const BIZ = {
   owner: process.env.NEXT_PUBLIC_BUSINESS_OWNER ?? '홍길동',
   regNo: process.env.NEXT_PUBLIC_BUSINESS_REG_NO ?? '000-00-00000',
   address: process.env.NEXT_PUBLIC_BUSINESS_ADDRESS ?? '서울특별시 강남구 테헤란로 0, 3층',
-  tel: process.env.NEXT_PUBLIC_BUSINESS_TEL ?? '02-000-0000',
+  tel: process.env.NEXT_PUBLIC_BUSINESS_TEL,
   mailOrder: process.env.NEXT_PUBLIC_MAIL_ORDER_NO ?? '제2026-서울강남-0000호',
-  email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL ?? 'support@emotime.app',
+  email: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
 };
 
 export function SiteFooter() {
@@ -24,11 +24,8 @@ export function SiteFooter() {
             사진 한 장으로 나만의 이모티콘을 만들고, 표정을 골라 편집하고 저장해 보세요.
           </p>
           <p className="mt-4 text-xs text-sub">
-            고객센터 <strong className="text-ink">{BIZ.tel}</strong> · 평일 10:00–18:00
-            <br />
-            <a className="underline" href={`mailto:${BIZ.email}`}>
-              {BIZ.email}
-            </a>
+            고객센터 {BIZ.tel ? <strong className="text-ink">{BIZ.tel}</strong> : null}
+            {BIZ.email ? <><br /><a className="underline" href={`mailto:${BIZ.email}`}>{BIZ.email}</a></> : <span> · 연락처 설정 중</span>}
           </p>
         </div>
 
@@ -66,7 +63,7 @@ export function SiteFooter() {
           </div>
           <div className="space-x-2">
             <span>주소 {BIZ.address}</span>
-            <span>유선 {BIZ.tel}</span>
+            {BIZ.tel ? <span>유선 {BIZ.tel}</span> : null}
           </div>
         </div>
         <div className="wrap pb-8 text-[11px] text-sub">

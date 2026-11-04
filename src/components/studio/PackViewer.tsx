@@ -65,7 +65,7 @@ export function PackViewer({
 
   async function deletePackNow() {
     const ok = window.confirm(
-      '이 팩과 컷 이미지를 모두 삭제할까요?\n삭제한 이미지는 복구할 수 없고, 사용한 크레딧은 환불되지 않습니다.',
+      '이 팩과 컷 이미지를 모두 삭제할까요?\n삭제한 이미지는 복구할 수 없고, 삭제만으로 자동 환불되지는 않습니다. 환불 가능 여부는 정책을 확인해 주세요.',
     );
     if (!ok) return;
     setDeleting(true);
