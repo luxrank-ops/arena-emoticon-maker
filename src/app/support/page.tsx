@@ -10,6 +10,7 @@ export default function SupportPage() {
     <div className="wrap max-w-3xl py-12">
       <h1 className="h2">고객센터</h1>
       <p className="mt-2 text-sm text-sub">이용 중 궁금한 점이나 결제·환불 문의를 접수해 주세요.</p>
+      <p className="mt-1 text-xs text-sub">고객센터 운영시간: 확인 중</p>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <div className="card p-5">
