@@ -5,13 +5,13 @@ import { SiteFooter } from '@/components/SiteFooter';
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
 
 export const metadata: Metadata = {
-  title: '이모티미 · 내 얼굴로 만드는 3초 이모티콘',
+  title: '이모티미 · 내 얼굴로 만드는 이모티콘',
   description:
-    '사진 한 장으로 내 얼굴 이모티콘 24컷. 오늘 쓸 답장을 매일 추천하고, 실물 굿즈까지. 이모티미.',
+    '사진 한 장으로 나만의 이모티콘을 만들고, 다양한 표정을 골라 편집하고 저장해 보세요.',
   keywords: ['이모티콘 만들기', '내 얼굴 이모티콘', 'AI 이모티콘', '실사 표정 스티커', '카카오 이모티콘'],
   openGraph: {
-    title: '이모티미 · 내 얼굴로 만드는 3초 이모티콘',
-    description: '사진 1장 → 24컷 이모티콘 → 매일 아침 오늘의 답장 추천',
+    title: '이모티미 · 내 얼굴로 만드는 이모티콘',
+    description: '사진 한 장으로 나만의 이모티콘을 만들고 편집해 보세요.',
     type: 'website',
   },
   robots: { index: true, follow: true },

@@ -29,7 +29,7 @@ export default async function BillingPage() {
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="h2">크레딧 · 플랜</h1>
-          <p className="mt-1 text-sm text-sub">팩 1개 = 컷 수만큼 차감, 편집은 무료입니다.</p>
+          <p className="mt-1 text-sm text-sub">팩 생성은 컷당 1크레딧이며, AI로 다시 그릴 때도 1크레딧이 필요합니다. 관리자는 차감되지 않습니다.</p>
         </div>
         <Link href="/pricing" className="btn-primary !px-4 !py-2 text-xs">플랜 변경</Link>
       </div>
@@ -49,7 +49,7 @@ export default async function BillingPage() {
             <Link href="/studio/upload" className="btn-dark !py-2 text-xs">팩 만들기</Link>
           </div>
           <div className="mt-5 rounded-xl border border-line bg-cream p-3 text-[11px] leading-relaxed text-sub">
-            원장 기준 잔액과 표시 잔액은 항상 일치하도록 설계되었습니다(append-only ledger).
+            최근 크레딧 사용 내역을 이 페이지에서 확인할 수 있어요.
           </div>
         </div>
 
@@ -99,7 +99,7 @@ export default async function BillingPage() {
         </div>
 
         <div className="card p-5">
-          <p className="text-sm font-black">내 팩</p>
+          <div className="flex items-center justify-between gap-2"><p className="text-sm font-black">최근 팩</p><Link href="/studio/packs" className="text-xs font-bold text-coralink underline">전체 보기 →</Link></div>
           {packs.length === 0 ? (
             <div className="py-6 text-center text-xs text-sub">
               아직 팩이 없습니다.{' '}
