@@ -1,20 +1,7 @@
 ﻿import { bindings, defineConfig, defineWorker } from "cf/config";
-import { createWorkersResponseStoreServiceBindingConfig } from "@vinext/cloudflare/cache/config";
-
-const responseStore = await createWorkersResponseStoreServiceBindingConfig({
-  worker: {
-    name: "emotime-response-store",
-    compatibilityDate: "2026-11-04",
-    compatibilityFlags: ["nodejs_compat"],
-  },
-  bucket: "emotime-response-store-cache-bodies",
-});
-
-export const responseStoreServiceBinding = responseStore.serviceBindingWorker;
 
 export default defineConfig({
   worker: defineWorker({
-    ...responseStore.applicationWorker,
     name: "arena-emoticon-maker",
     // 대시보드 설정과 맞춘다 (workers.dev 끔, 프리뷰 URL 끔, 커스텀 도메인 emotihak.com)
     workersDev: false,
@@ -29,7 +16,6 @@ export default defineConfig({
       runWorkerFirst: ["/*", "!/_next/static/*", "!/*/_next/static/*"],
     },
     env: {
-      ...responseStore.applicationWorker.env,
       // 비밀이 아닌 운영 설정 (API 키는 여기에 넣지 않고 Secret 으로 관리)
       DEMO_MODE: bindings.text("0"),
       GEMINI_PHOTO_MODEL: bindings.text("gemini-3-pro-image-preview"),
