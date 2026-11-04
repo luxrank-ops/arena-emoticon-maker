@@ -121,9 +121,9 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-sm font-black text-ink">7. 개인정보 보호 문의</h2>
+          <h2 className="text-sm font-black text-ink">7. 개인정보 보호책임자</h2>
           <p className="mt-2">
-            문의처: {BUSINESS.email} / {BUSINESS.tel} · 개인정보 보호책임자 정보는 확인 후 등록합니다.
+            성명: {BUSINESS.owner} · 직책: 대표자 · 연락처: {BUSINESS.email} / {BUSINESS.tel}
           </p>
         </section>
       </div>
