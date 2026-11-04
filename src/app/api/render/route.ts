@@ -74,7 +74,7 @@ export async function POST(req: Request) {
       const now = Date.now();
       db.consistencyPreparations = db.consistencyPreparations.filter((entry) => entry.expiresAt > now);
       const entry = db.consistencyPreparations.find((item) => item.tokenHash === hash(body.consistency.token) && item.userId === user.id && item.photoHash === hash(body.photo));
-      return entry?.features ?? null;
+      return entry ?? null;
     });
     if (!identityGuidance) return fail('CONSISTENCY_REQUIRED', '사진이 바뀌었거나 준비가 만료됐어요. 사진을 다시 확인해 주세요.', 409);
     const target = body.target;
@@ -94,6 +94,7 @@ export async function POST(req: Request) {
         if (frame.imageId && !target.force) return { existing: frame.imageId as string };
         return {
           kind: 'frame' as const,
+          subjectKind: pack.subjectKind ?? 'person',
           packId: pack.id,
           frameId: frame.id,
           tone: pack.tone as Tone,
@@ -116,6 +117,7 @@ export async function POST(req: Request) {
       if (variant.imageId) return { existing: variant.imageId as string };
       return {
         kind: 'sheet' as const,
+        subjectKind: sheet.subjectKind ?? 'person',
         sheetId: sheet.id,
         variantKey: variant.key,
         tone: sheet.tone as Tone,
@@ -134,6 +136,8 @@ export async function POST(req: Request) {
     if ('existing' in plan) {
       return ok({ imageId: plan.existing, imageUrl: `/api/images/${plan.existing}` });
     }
+
+    if ((identityGuidance.subjectKind ?? 'person') !== plan.subjectKind) return fail('CONSISTENCY_REQUIRED', '사진을 대상에 맞게 다시 확인해 주세요.', 409);
 
     // 시안이 누락되면 원본 사진만으로 조용히 진행하지 않는다. 차감 전 확인한다.
     const reference = plan.kind === 'frame' && plan.chosenImageId ? await loadImage(plan.chosenImageId) : null;
@@ -171,7 +175,8 @@ export async function POST(req: Request) {
       const png = await renderWithGemini({
         photoBase64,
         mimeType,
-        identityGuidance,
+        identityGuidance: identityGuidance.features,
+        subjectKind: plan.subjectKind,
         characterReference,
         tone: plan.tone,
         mode: plan.mode,

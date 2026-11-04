@@ -28,7 +28,7 @@ export interface DB {
   sessions: { tokenHash: string; userId: string; expiresAt: string }[];
   adminLoginAttempts: number[];
   /** 원본을 저장하지 않는 단기 일관성 기준. 기한 이후 파기한다. */
-  consistencyPreparations: { tokenHash: string; userId: string; photoHash: string; features: string[]; expiresAt: number }[];
+  consistencyPreparations: { tokenHash: string; userId: string; photoHash: string; subjectKind?: 'person' | 'pet'; features: string[]; expiresAt: number }[];
   faces: FaceProfile[];
   sheets: CharacterSheet[];
   packs: Pack[];

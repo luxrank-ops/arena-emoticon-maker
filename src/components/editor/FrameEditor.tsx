@@ -13,13 +13,14 @@ import { downloadBlob, renderGifBlob, renderPngBlob } from '@/lib/export';
 import { track } from '@/lib/analytics';
 import { formatKstTime } from '@/lib/time';
 import { compressPhotoFile, loadPhoto, renderImage, savePhoto } from '@/lib/studio/photo';
-import type { BackgroundKey, Emotion, FrameView, PropKey, StickerSpec } from '@/lib/types';
+import type { BackgroundKey, Emotion, FrameView, PropKey, StickerSpec, SubjectKind } from '@/lib/types';
 
 const QUICK_LINES = ['ㅇㅋ', '킹받네', '출근합니다', '퇴근!!', '고마워!', '배고파아', 'ㅋㅋㅋㅋ', 'ㅠㅠ'];
 
 export function FrameEditor({
   frame: initial,
   packId,
+  subjectKind = 'person',
   watermark,
   index,
   total,
@@ -28,6 +29,7 @@ export function FrameEditor({
 }: {
   frame: FrameView;
   packId: string;
+  subjectKind?: SubjectKind;
   watermark: boolean;
   index: number;
   total: number;
@@ -91,13 +93,13 @@ export function FrameEditor({
     const photo = loadPhoto(`pack:${packId}`);
     if (!photo) {
       setNeedPhoto(true);
-      setRedrawError('이 탭에 사진이 없어요. 같은 셀카를 다시 올려 주세요.');
+      setRedrawError('이 탭에 사진이 없어요. 같은 원본 사진을 다시 올려 주세요.');
       return;
     }
     setRedrawing(true);
     try {
       await patch({ line: frame.line, emotion, comicExpressionId: comicId }, true);
-      const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true, accessoryIds: selectedAccessories }, photo, `pack:${packId}`);
+      const url = await renderImage({ kind: 'frame', frameId: frame.id, force: true, accessoryIds: selectedAccessories }, photo, `pack:${packId}`, subjectKind);
       setFrame((prev) => ({ ...prev, spec: { ...prev.spec, imageUrl: url } }));
       setDrawn({ line: frame.line, emotion, accessories: selectedAccessories, comicId });
       setFrame((prev) => ({ ...prev, accessoryIds: selectedAccessories }));
@@ -183,7 +185,7 @@ export function FrameEditor({
       <div className="space-y-4">
         { (aiPack || frame.spec.imageUrl) ? (
           <div className="card p-5">
-            <ConsistencyNotice scope={`pack:${packId}`} />
+            <ConsistencyNotice scope={`pack:${packId}`} subjectKind={subjectKind} />
             <p className="text-sm font-black">AI로 다시 그리기</p>
             <p className="mt-1 text-[12px] leading-relaxed text-sub">
               대사, 표정 또는 악세사리를 바꾼 뒤 다시 그리면 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸립니다. {unlimited ? '관리자는 크레딧이 차감되지 않습니다.' : '1크레딧이 차감되며, 실패 시 자동 복구를 시도합니다.'}
@@ -197,7 +199,7 @@ export function FrameEditor({
             </button>
             {needPhoto ? (
               <label className="btn-ghost mt-2 w-full cursor-pointer !py-2 text-center text-xs">
-                셀카 다시 올리기
+                사진 다시 올리기
                 <input
                   type="file"
                   accept="image/*"

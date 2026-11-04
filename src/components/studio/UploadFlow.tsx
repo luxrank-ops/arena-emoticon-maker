@@ -4,11 +4,11 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
-import { analyzeSelfie, type FaceAnalysis } from '@/lib/face/analyze';
+import { analyzeSelfie, analyzePetPhoto, type FaceAnalysis } from '@/lib/face/analyze';
 import { TONES } from '@/lib/art/sticker';
 import { track } from '@/lib/analytics';
 import { compressPhotoFile, ensurePhotoConsistency, linkPhoto, loadPhoto, photoScopeId, savePhoto } from '@/lib/studio/photo';
-import type { Tone } from '@/lib/types';
+import type { SubjectKind, Tone } from '@/lib/types';
 
 const CONSENT_VERSION = 'v1.2';
 const DRAFT_KEY = 'emotime:studio:draft:v1';
@@ -34,6 +34,7 @@ export function UploadFlow({
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [subjectKind, setSubjectKind] = useState<SubjectKind>('person');
   const [mode, setMode] = useState<'face' | 'full'>('face');
   const [tone, setTone] = useState<Tone>(allowedTones[0] ?? '2d-cute');
   const [consent, setConsent] = useState({ terms: false, privacy: false, overseas: false });
@@ -46,6 +47,7 @@ export function UploadFlow({
       if (saved?.analysis && saved.photoId && saved.photoId === photoScopeId('draft') && loadPhoto('draft')) {
         setAnalysis(saved.analysis);
         setFileName(saved.fileName || '');
+        setSubjectKind(saved.subjectKind === 'pet' ? 'pet' : 'person');
         setMode(saved.mode === 'full' ? 'full' : 'face');
         if (allowedTones.includes(saved.tone)) setTone(saved.tone);
         if (saved.consent) setConsent(saved.consent);
@@ -58,16 +60,16 @@ export function UploadFlow({
     if (!hydrated || !analysis) return;
     try {
       const photoId = photoScopeId('draft');
-      if (photoId) sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId }));
+      if (photoId) sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind }));
     } catch { /* 다음 단계로 이동할 때 저장 실패를 알린다 */ }
-  }, [hydrated, analysis, fileName, mode, tone, consent]);
+  }, [hydrated, analysis, fileName, mode, tone, consent, subjectKind]);
 
   function goToSettings() {
     if (!analysis?.ok || busy) return;
     try {
       const photoId = photoScopeId('draft');
       if (!photoId || !loadPhoto('draft')) throw new Error();
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId }));
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind }));
       router.push('/studio/upload/settings');
     } catch { setError('임시 정보를 저장하지 못했어요. 사진을 다시 선택해 주세요.'); }
   }
@@ -81,8 +83,9 @@ export function UploadFlow({
     setAnalysis(null);
     setFileName(file.name);
     try {
-      const result = await analyzeSelfie(file);
+      const result = subjectKind === 'pet' ? await analyzePetPhoto(file) : await analyzeSelfie(file);
       track('photo_analyzed', { ok: result.ok });
+      if (!result.ok) { setAnalysis(result); return; }
       // 생성 단계에서 쓸 사진을 이 탭에만 임시 보관 (서버 저장 없음)
       savePhoto(await compressPhotoFile(file), 'draft');
       setAnalysis(result);
@@ -91,7 +94,7 @@ export function UploadFlow({
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [subjectKind]);
 
   const ready = analysis?.ok && consent.terms && consent.privacy && consent.overseas && !busy;
 
@@ -107,7 +110,7 @@ export function UploadFlow({
     setError(null);
     try {
       setStage('이미지 생성 전에 사진을 확인하고 있어요. AI 확인이 어려우면 기본 확인으로 전환합니다…');
-      await ensurePhotoConsistency(photo, 'draft');
+      await ensurePhotoConsistency(photo, 'draft', subjectKind);
       setStage('사진 분석 정보를 준비하고 있어요…');
       const faceRes = await fetch('/api/face/analyze', {
         method: 'POST',
@@ -125,7 +128,7 @@ export function UploadFlow({
       const sheetRes = await fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ faceId: faceJson.faceId, tone, mode }),
+        body: JSON.stringify({ faceId: faceJson.faceId, tone, mode, subjectKind }),
       });
       const sheetJson = await sheetRes.json();
       if (!sheetRes.ok) throw new Error(sheetJson?.error?.message ?? '캐릭터 시트를 만들지 못했어요');
@@ -149,6 +152,16 @@ export function UploadFlow({
   const errorNotice = error ? <p role="alert" className="rounded-xl border-2 border-coral/50 bg-coral/10 px-4 py-3 text-sm font-bold text-coralink">{error}</p> : null;
   if (step === 'photo') return (
     <div className="mx-auto max-w-2xl space-y-4">
+        <div role="group" aria-label="사진 대상 선택" className="card flex gap-2 p-3">
+          {([['person', '사람'], ['pet', '반려동물']] as const).map(([kind, label]) => (
+            <button key={kind} type="button" disabled={busy} aria-pressed={subjectKind === kind} onClick={() => {
+              if (kind === subjectKind) return;
+              setSubjectKind(kind); setAnalysis(null); setFileName(''); setError(null);
+              setConsent({ terms: false, privacy: false, overseas: false });
+              try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* 임시 저장소 이용 불가 */ }
+            }} className={clsx('flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black', subjectKind === kind ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-ink')}>{label}</button>
+          ))}
+        </div>
         <div
           onDragOver={(e) => {
             e.preventDefault();
@@ -178,12 +191,12 @@ export function UploadFlow({
               e.target.value = '';
             }}
           />
-          {/* 카메라로 찍기: capture="user" → 전면 카메라 바로 열림 */}
+          {/* 사람은 전면 카메라, 반려동물은 후면 카메라를 우선한다. */}
           <input
             ref={cameraInputRef}
             type="file"
             accept="image/*"
-            capture="user"
+            capture={subjectKind === 'pet' ? 'environment' : 'user'}
             className="sr-only"
             onChange={(e) => {
               const f = e.target.files?.[0];
@@ -196,9 +209,9 @@ export function UploadFlow({
               <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl border-2 border-ink bg-cream text-3xl shadow-card">
                 📸
               </div>
-              <p className="text-lg font-black">정면 셀카 한 장을 올려주세요</p>
+              <p className="text-lg font-black">{subjectKind === 'pet' ? '반려동물 사진 한 장을 올려주세요' : '정면 셀카 한 장을 올려주세요'}</p>
               <p className="mx-auto mt-2 max-w-sm text-sm leading-relaxed text-sub">
-                밝은 곳에서, 안경·모자 없이, 얼굴이 화면의 절반 정도 차게. 원본 사진은
+                {subjectKind === 'pet' ? '반려동물 한 마리의 얼굴과 무늬가 잘 보이는 밝은 사진을 선택해 주세요. ' : '밝은 곳에서, 안경·모자 없이, 얼굴이 화면의 절반 정도 차게. '}원본 사진은
                 <strong className="text-ink"> 생성 전 확인 및 생성 요청 때 AI로 전송되며 서버에 저장되지 않습니다</strong>. 선택한 생성 시안은 저장되며 컷 생성 시 참조됩니다.
               </p>
               <div className="mt-5 flex flex-wrap justify-center gap-2">
@@ -215,11 +228,10 @@ export function UploadFlow({
               <div className="flex items-center justify-between gap-3 text-left">
                 <div>
                   <p className="text-sm font-black">
-                    {analysis.ok ? '얼굴 인식 완료' : '얼굴을 확인해 주세요'}
+                    {subjectKind === 'pet' ? (analysis.ok ? '사진 파일 확인 완료' : '사진을 확인해 주세요') : (analysis.ok ? '사진 확인 완료' : '사진을 확인해 주세요')}
                   </p>
                   <p className="text-xs text-sub">
-                    {fileName} · {analysis.metrics.faceDetected ? '얼굴 1명' : '얼굴 미검출'} · 커버리지{' '}
-                    {(analysis.metrics.coverage * 100).toFixed(1)}%
+                    {fileName}{subjectKind === 'pet' ? ' · 파일 형식과 크기만 확인했어요. 동물 인식은 보장되지 않아요.' : ` · ${analysis.metrics.faceDetected ? '얼굴 검출' : '얼굴 미검출'} · 커버리지 ${(analysis.metrics.coverage * 100).toFixed(1)}%`}
                   </p>
                 </div>
                 <button className="chip hover:border-ink" disabled={busy} onClick={() => galleryInputRef.current?.click()}>
@@ -229,7 +241,7 @@ export function UploadFlow({
 
               <ul className="mt-3 space-y-1.5 text-left text-[13px]">
                 {analysis.issues.length === 0 ? (
-                  <li className="font-bold text-mint">✓ 품질 좋아요. 바로 만들 수 있습니다.</li>
+                  <li className="font-bold text-mint">{subjectKind === 'pet' ? '✓ 사진 파일을 확인했어요.' : '✓ 사진 확인을 마쳤어요.'}</li>
                 ) : (
                   analysis.issues.map((i) => (
                     <li key={i.code} className={i.blocking ? 'font-bold text-coralink' : 'text-sub'}>
@@ -239,7 +251,7 @@ export function UploadFlow({
                 )}
               </ul>
 
-              <div className="mt-4 flex items-center gap-2 text-left">
+              {subjectKind === 'person' ? <div className="mt-4 flex items-center gap-2 text-left">
                 <span className="text-xs font-bold text-sub">추출된 팔레트</span>
                 <div className="flex gap-1">
                   {Object.entries(analysis.palette).map(([k, v]) => (
@@ -251,8 +263,7 @@ export function UploadFlow({
                     />
                   ))}
                 </div>
-              </div>
-
+              </div> : null}
               <p className="mt-4 rounded-xl border border-line bg-cream px-3 py-2 text-left text-[11px] leading-relaxed text-sub">
                 원본 사진은 서버에 저장되지 않습니다. 생성 전 AI가 사진을 확인합니다. AI 확인이 어려우면 파일만 확인하는 기본 방식으로 진행하며 일관성은 보장되지 않습니다. 컷 생성 시 사진과 선택한 시안이 Google Gemini로 전송됩니다.
               </p>

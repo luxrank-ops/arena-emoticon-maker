@@ -54,7 +54,7 @@ export function PackViewer({
     setGenerating(true);
     void runLimited(missing, 3, async (id) => {
       try {
-        const url = await renderImage({ kind: 'frame', frameId: id }, photo, `pack:${initialPack.id}`);
+        const url = await renderImage({ kind: 'frame', frameId: id }, photo, `pack:${initialPack.id}`, initialPack.subjectKind ?? 'person');
         setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, spec: { ...f.spec, imageUrl: url } } : f)));
       } catch (e) {
         setGenErrors((prev) => ({ ...prev, [id]: (e as Error).message }));
@@ -145,7 +145,7 @@ export function PackViewer({
 
   return (
     <div className="space-y-6">
-      {aiPack ? <ConsistencyNotice scope={`pack:${initialPack.id}`} /> : null}
+      {aiPack ? <ConsistencyNotice scope={`pack:${initialPack.id}`} subjectKind={initialPack.subjectKind ?? 'person'} /> : null}
       <div className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -202,10 +202,10 @@ export function PackViewer({
           {photoMissing ? (
             <>
               <p className="text-sm font-bold">
-                이 탭에 사진이 없어 컷을 그릴 수 없어요. 같은 셀카를 다시 올려 주세요.
+                이 탭에 사진이 없어 컷을 그릴 수 없어요. 같은 원본 사진을 다시 올려 주세요.
               </p>
               <label className="btn-primary cursor-pointer !py-2 text-xs">
-                셀카 다시 올리기
+                사진 다시 올리기
                 <input
                   type="file"
                   accept="image/*"

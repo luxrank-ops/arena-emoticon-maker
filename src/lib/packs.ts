@@ -1,6 +1,7 @@
 import type {
   CharacterSheet,
   CompositionMode,
+  SubjectKind,
   FaceProfile,
   Frame,
   FrameView,
@@ -50,7 +51,7 @@ export function tonesForPlan(plan: 'FREE' | 'PLUS' | 'STUDIO'): Tone[] {
       ];
 }
 
-export async function createSheet(userId: string, faceId: string, tone: Tone, mode: CompositionMode = 'face') {
+export async function createSheet(userId: string, faceId: string, tone: Tone, mode: CompositionMode = 'face', subjectKind: SubjectKind = 'person') {
   return withDB((db) => {
     const face = db.faces.find((f) => f.id === faceId && f.userId === userId);
     if (!face) throw new PackError('FACE_NOT_FOUND', '얼굴 정보를 찾을 수 없습니다');
@@ -84,6 +85,7 @@ export async function createSheet(userId: string, faceId: string, tone: Tone, mo
       faceId,
       tone,
       mode,
+      subjectKind,
       variants,
       chosenKey: null,
       createdAt: new Date().toISOString(),
@@ -175,6 +177,7 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     id: packId,
     userId,
     sheetId,
+    subjectKind: sheet.subjectKind ?? 'person',
     characterReferenceImageId: chosen?.imageId,
     tone: sheet.tone,
     mode: sheet.mode ?? 'face',

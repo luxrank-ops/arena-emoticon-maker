@@ -58,15 +58,16 @@ export default async function SheetPage({ params }: { params: { id: string } }) 
       </nav>
 
       <div className="mb-8">
-        <h1 className="h2">어떤 얼굴로 만들까요?</h1>
+        <h1 className="h2">{sheet.subjectKind === 'pet' ? '어떤 반려동물 캐릭터로 만들까요?' : '어떤 얼굴로 만들까요?'}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">
-          선택한 시안의 얼굴이 <strong className="text-ink">{TONES[sheet.tone].label}</strong> 스타일로
+          선택한 시안의 {sheet.subjectKind === 'pet' ? '모습이' : '얼굴이'} <strong className="text-ink">{TONES[sheet.tone].label}</strong> 스타일로
           컷을 만들 때 참조됩니다. AI 결과는 사진이나 시안과 다소 다를 수 있어요.
         </p>
       </div>
 
       <SheetPicker
         sheetId={sheet.id}
+        subjectKind={sheet.subjectKind ?? 'person'}
         variants={sheet.variants}
         palette={face.palette}
         tone={sheet.tone}
@@ -76,7 +77,7 @@ export default async function SheetPage({ params }: { params: { id: string } }) 
       />
 
       <p className="mt-8 text-center text-[11px] text-sub">
-        생성된 컷은 팩과 함께 보관됩니다 · 원본 사진은 저장하지 않습니다 · 얼굴 파생 정보 기한 <strong className="text-ink">{formatKstDate(face.purgedAt)}</strong>
+        생성된 컷은 팩과 함께 보관됩니다 · 원본 사진은 저장하지 않습니다 · 사진 분석 정보 기한 <strong className="text-ink">{formatKstDate(face.purgedAt)}</strong>
       </p>
     </div>
   );

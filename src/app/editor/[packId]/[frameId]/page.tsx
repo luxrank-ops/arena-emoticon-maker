@@ -41,6 +41,7 @@ export default async function EditorPage({
       <FrameEditor
         frame={frame}
         packId={params.packId}
+        subjectKind={view.pack.subjectKind ?? 'person'}
         watermark={view.watermark}
         index={frame.index}
         total={view.total}
