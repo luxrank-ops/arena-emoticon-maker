@@ -17,6 +17,8 @@ export function SiteFooter() {
           <p className="mt-4 text-xs text-sub">
             고객센터 {BIZ.tel ? <strong className="text-ink">{BIZ.tel}</strong> : null}
             {BIZ.email ? <><br /><a className="underline" href={`mailto:${BIZ.email}`}>{BIZ.email}</a></> : <span> · 연락처 설정 중</span>}
+            <br />
+            {BIZ.supportHours}
           </p>
         </div>
 
