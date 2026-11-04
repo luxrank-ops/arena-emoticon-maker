@@ -16,6 +16,10 @@ export default defineConfig({
   worker: defineWorker({
     ...responseStore.applicationWorker,
     name: "arena-emoticon-maker",
+    // 대시보드 설정과 맞춘다 (workers.dev 끔, 프리뷰 URL 끔, 커스텀 도메인 emotihak.com)
+    workersDev: false,
+    previewUrls: false,
+    domains: ["emotihak.com"],
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-04",
     compatibilityFlags: ["nodejs_compat"],
@@ -26,6 +30,14 @@ export default defineConfig({
     },
     env: {
       ...responseStore.applicationWorker.env,
+      // 비밀이 아닌 운영 설정 (API 키는 여기에 넣지 않고 Secret 으로 관리)
+      DEMO_MODE: "0",
+      GEMINI_PHOTO_MODEL: "gemini-3-pro-image-preview",
+      GEMINI_STYLE_MODEL: "gemini-3.1-flash-image-preview",
+      GEMINI_TEXT_MODEL: "gemini-2.5-flash",
+      PAYMENT_PROVIDER: "mock",
+      STORE_BACKEND: "auto",
+      RATE_LIMIT_DISABLED: "1",
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
     },
