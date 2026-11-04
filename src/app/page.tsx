@@ -80,7 +80,7 @@ export default function LandingPage() {
         <h2 id="accessory-guide-title" className="h2 mt-3">표정과 악세사리 바꾸기</h2>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">내 팩에서 컷의 편집을 누른 뒤 표정·문구·악세사리를 고르고 ‘다시 그리기’를 눌러 적용해요. 악세사리는 최대 3개까지 고를 수 있어요.</p>
         <div className="mt-4 flex flex-wrap gap-2" aria-label="악세사리 예시">{ACCESSORIES.slice(0, 4).map((item) => <span key={item.id} className="chip !bg-paper"><span aria-hidden="true">{item.emoji}</span> {item.name}</span>)}</div>
-        <p className="mt-4 text-xs leading-relaxed text-sub">다시 그리기는 일반 사용자 1크레딧이며 관리자는 차감되지 않습니다. 생성 실패 시 환불됩니다.</p>
+        <p className="mt-4 text-xs leading-relaxed text-sub">다시 그리기는 일반 사용자 1크레딧이며 관리자는 차감되지 않습니다. 다시 그리기 실패 시 크레딧 자동 복구를 시도합니다.</p>
         <Link href="/studio/packs" className="btn-ghost mt-5">내 팩에서 편집하기 →</Link>
       </section>
 

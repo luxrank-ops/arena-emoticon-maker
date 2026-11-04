@@ -186,7 +186,7 @@ export function FrameEditor({
             <ConsistencyNotice scope={`pack:${packId}`} />
             <p className="text-sm font-black">AI로 다시 그리기</p>
             <p className="mt-1 text-[12px] leading-relaxed text-sub">
-              대사, 표정 또는 악세사리를 바꾼 뒤 다시 그리면 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸립니다. {unlimited ? '관리자는 크레딧이 차감되지 않습니다.' : '1크레딧이 차감되며, 생성 실패 시 환불됩니다.'}
+              대사, 표정 또는 악세사리를 바꾼 뒤 다시 그리면 같은 사진을 참고해 이 컷을 새로 만듭니다. 보통 20~40초 걸립니다. {unlimited ? '관리자는 크레딧이 차감되지 않습니다.' : '1크레딧이 차감되며, 실패 시 자동 복구를 시도합니다.'}
             </p>
             <button
               className="btn-primary mt-3 w-full !py-3 text-sm"

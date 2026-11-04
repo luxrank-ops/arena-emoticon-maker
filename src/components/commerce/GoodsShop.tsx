@@ -180,8 +180,7 @@ export function GoodsShop({ frames, discount }: { frames: FrameOption[]; discoun
               onChange={(e) => setAgree(e.target.checked)}
             />
             <span>
-              <strong>[필수]</strong> 제작이 시작된 이후에는 단순 변심에 의한 취소·환불이 제한됨에 동의합니다.
-              (상품 하자 시 교환/환불 가능)
+              <strong>[필수]</strong> 개별 제작 상품은 제작이 시작된 뒤 법령상 요건을 충족하는 경우 단순 변심 취소가 제한될 수 있음을 확인합니다. 하자·오배송 및 법령상 권리는 별도로 적용됩니다.
             </span>
           </label>
 

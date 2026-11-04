@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { won } from '@/lib/pricing';
 
 export function PayPanel({
@@ -104,8 +105,7 @@ export function PayPanel({
           onChange={(e) => setAgree(e.target.checked)}
         />
         <span>
-          <strong>[필수]</strong> 디지털 콘텐츠(크레딧·구독)는 <strong>생성이 시작되면 청약철회가 제한</strong>됨을
-          확인했으며, 이에 동의합니다. (전자상거래법 제17조 제2항)
+          <strong>[필수]</strong> 디지털 콘텐츠의 사용이 시작된 부분은 법령에 따라 청약철회가 제한될 수 있습니다. 가분적인 미사용 부분과 법령상 권리는 별도로 적용됩니다. <Link href="/refund" target="_blank" className="font-bold text-coralink underline">환불·청약철회 안내</Link>를 확인했습니다.
         </span>
       </label>
 
