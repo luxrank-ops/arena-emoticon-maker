@@ -270,7 +270,10 @@ export interface GoodsOrder extends Order {
   frameId: string;
   frameThumb: string;
   shipping: { name: string; phone: string; address: string; memo?: string };
-  goodsStatus: 'PRODUCING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  goodsStatus: 'PENDING_PAYMENT' | 'AWAITING_FULFILLMENT' | 'PRODUCING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
+  productImageId?: string;
+  trackingCompany?: string;
+  trackingNumber?: string;
 }
 
 export interface BriefItem {

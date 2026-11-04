@@ -6,8 +6,8 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { won } from '@/lib/pricing';
 
-export function PayPanel({ orderId, amount, title, credits, provider, clientKey, available }: {
-  orderId: string; amount: number; title: string; credits: number; provider: string; clientKey: string; available: boolean;
+export function PayPanel({ orderId, amount, title, credits, provider, clientKey, available, kind }: {
+  orderId: string; amount: number; title: string; credits: number; provider: string; clientKey: string; available: boolean; kind: 'subscription' | 'credits' | 'goods';
 }) {
   const router = useRouter();
   const [agree, setAgree] = useState(false);
@@ -71,10 +71,10 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
     {available && provider === 'mock' ? <p className="mt-4 text-xs font-bold text-sub">개발용 모의 결제입니다. 실제 결제는 발생하지 않습니다.</p> : null}
     <label className="mt-4 flex items-start gap-2 rounded-xl border border-line bg-cream px-3 py-3 text-[11px] leading-relaxed text-sub">
       <input type="checkbox" className="mt-0.5 h-4 w-4 accent-coral" checked={agree} onChange={(e) => setAgree(e.target.checked)} />
-      <span><strong>[필수]</strong> 디지털 콘텐츠의 사용이 시작된 부분은 법령에 따라 청약철회가 제한될 수 있습니다. 가분적인 미사용 부분과 법령상 권리는 별도로 적용됩니다. <Link href="/refund" target="_blank" className="font-bold text-coralink underline">환불·청약철회 안내</Link>를 확인했습니다.</span>
+      <span><strong>[필수]</strong> {kind === 'goods' ? '개별 제작 상품의 단순 변심에 의한 취소는 법령상 요건을 충족할 때 제한될 수 있습니다. 하자·오배송과 법령상 권리는 별도로 적용됩니다.' : '디지털 콘텐츠의 사용이 시작된 부분은 법령에 따라 청약철회가 제한될 수 있습니다. 가분적인 미사용 부분과 법령상 권리는 별도로 적용됩니다.'} <Link href="/refund" target="_blank" className="font-bold text-coralink underline">환불·청약철회 안내</Link>를 확인했습니다.</span>
     </label>
     {error ? <p role="alert" className="mt-3 rounded-lg border-2 border-coral/50 bg-coral/10 p-3 text-xs font-bold text-coralink">{error}</p> : null}
     <button className="btn-primary mt-4 w-full !py-4" disabled={!available || !agree || busy || (provider === 'toss' && !ready)} onClick={pay}>{busy ? '결제 처리 중…' : `${won(amount)}원 결제하기`}</button>
-    <p className="mt-3 text-center text-[10px] text-sub">승인 완료 시 {credits}크레딧이 지급됩니다.</p>
+    <p className="mt-3 text-center text-[10px] text-sub">{kind === 'goods' ? '승인 완료 후 운영자가 주문을 확인합니다.' : `승인 완료 시 ${credits}크레딧이 지급됩니다.`}</p>
   </div>;
 }

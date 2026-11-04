@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { GOODS, won } from '@/lib/pricing';
@@ -14,13 +15,13 @@ interface FrameOption {
 }
 
 export function GoodsShop({ frames, discount }: { frames: FrameOption[]; discount: number }) {
+  const router = useRouter();
   const [frameId, setFrameId] = useState(frames[0]?.id ?? '');
   const [goodsSku, setGoodsSku] = useState(GOODS[0].sku);
   const [form, setForm] = useState({ name: '', phone: '', address: '', memo: '' });
   const [agree, setAgree] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ message: string; orderId: string } | null>(null);
 
   const frame = frames.find((f) => f.id === frameId) ?? frames[0];
   const goods = GOODS.find((g) => g.sku === goodsSku) ?? GOODS[0];
@@ -50,26 +51,12 @@ export function GoodsShop({ frames, discount }: { frames: FrameOption[]; discoun
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? '주문에 실패했습니다');
-      setDone({ message: json.message, orderId: json.order.id });
+      router.push(`/checkout/${json.orderId}`);
     } catch (e) {
       setError((e as Error).message);
     } finally {
       setBusy(false);
     }
-  }
-
-  if (done) {
-    return (
-      <div className="card p-8 text-center">
-        <div className="mx-auto grid h-14 w-14 place-items-center rounded-full border-2 border-ink bg-mint text-2xl">✓</div>
-        <p className="mt-4 text-xl font-black">주문이 접수됐어요</p>
-        <p className="mt-1 text-sm text-sub">{done.message}</p>
-        <p className="mt-1 text-[11px] text-sub">주문번호 {done.orderId}</p>
-        <button className="btn-ghost mt-5 !px-5 !py-2 text-xs" onClick={() => setDone(null)}>
-          다른 컷 주문하기
-        </button>
-      </div>
-    );
   }
 
   return (
@@ -190,11 +177,11 @@ export function GoodsShop({ frames, discount }: { frames: FrameOption[]; discoun
             </p>
           ) : null}
 
-          <button className="btn-primary mt-3 w-full !py-3.5" disabled={!valid || busy} onClick={order}>
-            {busy ? '주문 처리 중…' : `${won(amount)}원 주문하기`}
+          <button className="btn-primary mt-3 w-full !py-3.5" disabled={true} onClick={order}>
+            굿즈 주문 준비 중
           </button>
           <p className="mt-2 text-center text-[10px] text-sub">
-            테스트 모드: 실제 결제·배송이 발생하지 않습니다.
+            제작·배송 운영과 결제 검증이 완료되면 주문할 수 있어요.
           </p>
         </div>
       </div>

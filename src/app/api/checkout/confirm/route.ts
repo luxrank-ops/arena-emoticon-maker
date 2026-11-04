@@ -21,7 +21,7 @@ export async function POST(req: Request) {
     // 검증된 주문과 결제키를 먼저 영속 저장한다. 타임아웃 후 같은 키로 안전하게 재시도할 수 있다.
     const reserved = await withPaymentDB((db) => {
       const order = db.orders.find((o) => o.id === body.orderId && o.userId === user.id);
-      if (!order || order.kind !== 'credits' || order.provider !== provider) return { error: 'ORDER_NOT_FOUND' as const };
+      if (!order || (order.kind !== 'credits' && order.kind !== 'goods') || order.provider !== provider) return { error: 'ORDER_NOT_FOUND' as const };
       if (order.amount !== body.amount) return { error: 'AMOUNT_MISMATCH' as const };
       if (!order.consentAt) return { error: 'CONSENT_REQUIRED' as const };
       if (order.paymentKey && order.paymentKey !== body.paymentKey) return { error: 'KEY_MISMATCH' as const };
@@ -32,7 +32,7 @@ export async function POST(req: Request) {
       return { paid: false as const, order };
     });
     if ('error' in reserved) return fail(reserved.error ?? 'ORDER_UNAVAILABLE', '주문 또는 결제 정보를 확인해 주세요.', reserved.error === 'ORDER_NOT_FOUND' ? 404 : 409);
-    if (reserved.paid) return ok({ orderId: reserved.order.id, alreadyPaid: true, credits: reserved.balance });
+    if (reserved.paid) return ok({ orderId: reserved.order.id, alreadyPaid: true, credits: reserved.balance, kind: reserved.order.kind });
 
     if (provider === 'toss') {
       let response: Response;
@@ -73,6 +73,12 @@ export async function POST(req: Request) {
       if (!order || !account || order.paymentKey !== body.paymentKey || order.provider !== provider || order.amount !== body.amount) return null;
       if (order.status === 'PAID') return { alreadyPaid: true, balance: account.credits };
       if (order.status !== 'PENDING') return null;
+      if (order.kind === 'goods') {
+        if (!('goodsStatus' in order) || order.goodsStatus !== 'PENDING_PAYMENT' || !order.productImageId) return null;
+        order.status = 'PAID'; order.paidAt = new Date().toISOString(); order.goodsStatus = 'AWAITING_FULFILLMENT';
+        logEvent(db, user.id, 'order_paid', { orderId: order.id, amount: order.amount, provider });
+        return { alreadyPaid: false, balance: account.credits };
+      }
       if (db.credits.some((c) => c.userId === user.id && c.reason === 'PURCHASE' && c.refType === 'order' && c.refId === order.id)) return null;
       account.credits += order.credits;
       const now = new Date().toISOString();
@@ -82,6 +88,6 @@ export async function POST(req: Request) {
       return { alreadyPaid: false, balance: account.credits };
     });
     if (!settled) return fail('PAYMENT_REVIEW', '결제 확인이 필요합니다. 고객센터에 문의해 주세요.', 409);
-    return ok({ orderId: body.orderId, alreadyPaid: settled.alreadyPaid, credits: settled.balance });
+    return ok({ orderId: body.orderId, alreadyPaid: settled.alreadyPaid, credits: settled.balance, kind: reserved.order.kind });
   } catch (e) { return handleError(e); }
 }

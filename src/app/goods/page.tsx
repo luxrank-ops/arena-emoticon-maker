@@ -30,14 +30,13 @@ export default async function GoodsPage() {
           <span className="chip !border-ink !bg-mint/30">Sticker to Goods</span>
           <h1 className="h2 mt-3">내 얼굴 스티커, 손에 쥐기</h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-sub">
-            팩에서 컷 하나를 고르면 아크릴·포토카드·머그로 제작됩니다. 재고 없는 POD 위탁 제작이라
-            주문한 만큼만 만들어요. 선물용으로도 인기입니다.
+            팩에서 컷 하나를 골라 굿즈 주문을 신청할 수 있어요. 결제 후 운영자가 제작과 배송을 확인합니다.
           </p>
         </div>
         <div className="card-flat p-4 text-xs">
           <p className="font-black">배송 · 제작</p>
           <p className="mt-1 text-sub">
-            제작 1~2일 + 배송 1~2일 · 3만 원 이상 무료배송
+            제작·배송 일정은 주문 확인 후 안내
             <br />
             현재 플랜 할인: <strong className="text-ink">{PLANS[user.plan].goodsDiscount}%</strong>
           </p>
