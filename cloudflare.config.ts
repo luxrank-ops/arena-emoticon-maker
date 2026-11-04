@@ -15,7 +15,7 @@ export const responseStoreServiceBinding = responseStore.serviceBindingWorker;
 export default defineConfig({
   worker: defineWorker({
     ...responseStore.applicationWorker,
-    name: "emotime",
+    name: "arena-emoticon-maker",
     entrypoint: "vinext/server/fetch-handler",
     compatibilityDate: "2026-11-04",
     compatibilityFlags: ["nodejs_compat"],
