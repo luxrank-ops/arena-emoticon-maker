@@ -38,8 +38,7 @@ export default async function PackPage({ params }: { params: { id: string } }) {
       <div className="mb-8">
         <h1 className="h2">내 이모티콘 팩</h1>
         <p className="mt-2 text-sm text-sub">
-          컷을 눌러 편집하면 대사·감정선·소품을 바꿀 수 있어요. 생성은 <strong className="text-ink">재조합 방식</strong>이라
-          수정은 즉시 반영됩니다.
+          컷을 눌러 대사·표정·악세사리를 편집해 보세요. AI 이미지에 변경 사항을 적용하려면 다시 그리기가 필요합니다.
         </p>
       </div>
 

@@ -21,8 +21,7 @@ export function SiteFooter() {
             <span className="text-lg font-black tracking-[-0.04em]">이모티미</span>
           </div>
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-sub">
-            내 얼굴로 만드는 3초 이모티콘. 사진 1장으로 24컷을 만들고, 매일 아침 오늘 쓸 답장을 추천받고,
-            마음에 드는 컷은 실물 굿즈로.
+            사진 한 장으로 나만의 이모티콘을 만들고, 표정을 골라 편집하고 저장해 보세요.
           </p>
           <p className="mt-4 text-xs text-sub">
             고객센터 <strong className="text-ink">{BIZ.tel}</strong> · 평일 10:00–18:00
@@ -37,6 +36,7 @@ export function SiteFooter() {
           <p className="mb-3 font-black">서비스</p>
           <ul className="space-y-2 text-sub">
             <li><Link className="hover:text-ink" href="/studio/upload">이모티콘 만들기</Link></li>
+            <li><Link className="hover:text-ink" href="/studio/packs">내 팩</Link></li>
             <li><Link className="hover:text-ink" href="/reply">톡 답장 추천</Link></li>
             <li><Link className="hover:text-ink" href="/brief">오늘의 브리핑</Link></li>
             <li><Link className="hover:text-ink" href="/goods">굿즈 스토어</Link></li>

@@ -5,6 +5,7 @@ import { LogoutButton } from '@/components/LogoutButton';
 
 const NAV = [
   { href: '/studio/upload', label: '만들기' },
+  { href: '/studio/packs', label: '내 팩' },
   { href: '/reply', label: '톡 답장' },
   { href: '/brief', label: '오늘의 브리핑' },
   { href: '/goods', label: '굿즈' },
@@ -61,6 +62,17 @@ export async function SiteHeader() {
           <Link href="/studio/upload" className="btn-primary hidden !px-4 !py-2 text-xs lg:inline-flex">만들기</Link>
         </div>
       </div>
+      <nav aria-label="모바일 주요 메뉴" className="border-t border-line md:hidden">
+        <div className="wrap flex gap-1 overflow-x-auto whitespace-nowrap py-1">
+          {[
+            { href: '/studio/upload', label: '만들기' },
+            { href: '/studio/packs', label: '내 팩' },
+            { href: '/reply', label: '답장 추천' },
+            { href: '/pricing', label: '요금제' },
+            { href: '/support', label: '도움말' },
+          ].map((item) => <Link key={item.href} href={item.href} className="inline-flex min-h-10 shrink-0 items-center rounded-full px-3 text-xs font-bold text-ink hover:bg-paper focus-visible:bg-paper">{item.label}</Link>)}
+        </div>
+      </nav>
     </header>
   );
 }
