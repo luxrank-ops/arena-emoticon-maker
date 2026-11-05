@@ -32,14 +32,14 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b-2 border-ink/90 bg-cream/90 backdrop-blur">
       {/* Fixed rows and tracks keep every action visible without irregular wrapping. */}
-      <div className="wrap grid grid-cols-1 items-center gap-2 py-3 lg:min-h-16 lg:grid-cols-[minmax(190px,1fr)_minmax(560px,1.6fr)] lg:gap-4 lg:py-0">
+      <div className="wrap grid grid-cols-1 items-center gap-2 py-3 min-[360px]:gap-1 min-[360px]:py-2 lg:min-h-16 lg:grid-cols-[minmax(190px,1fr)_minmax(560px,1.6fr)] lg:gap-4 lg:py-0">
         <Link href={lp('/')} className="flex min-w-max items-center gap-2 whitespace-nowrap">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border-2 border-ink bg-lemon text-lg shadow-card">🙂</span>
-          <span className="whitespace-nowrap text-base font-black tracking-[-0.04em] min-[380px]:text-lg">{tr(locale, '이모티학', 'EmotiHak')}</span>
+          <span className="whitespace-nowrap text-base font-black tracking-[-0.04em] min-[360px]:text-lg">{tr(locale, '이모티학', 'EmotiHak')}</span>
           <span className="rounded-full border border-line px-2 py-0.5 text-[10px] font-bold text-sub">beta</span>
         </Link>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]">
+        <div className={`grid grid-cols-2 gap-2 ${locale === 'ko' ? 'min-[360px]:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]' : ''} sm:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]`}>
           <LanguageLink locale={locale} />
           <Link
             href={lp(locale === 'en' ? '/studio/packs' : '/billing')}
@@ -51,8 +51,8 @@ export async function SiteHeader() {
             <span className="whitespace-nowrap text-[10px] sm:text-xs">⚡ {credits}</span>
           </Link>
           {user.isAuthenticated ? (
-            <div className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-full border-2 border-line bg-paper px-2">
-              <span className="w-14 truncate whitespace-nowrap text-center text-xs font-bold sm:w-20" title={user.name}>{user.name}</span>
+            <div className="flex h-10 min-w-0 items-center justify-center gap-1 rounded-full border-2 border-line bg-paper px-1 sm:gap-2 sm:px-2">
+              <span className="w-7 truncate whitespace-nowrap text-center text-[10px] font-bold sm:w-20 sm:text-xs" title={user.name}>{user.name}</span>
               <LogoutButton locale={locale} />
             </div>
           ) : (
