@@ -41,7 +41,7 @@ export async function generateMetadata(): Promise<Metadata> {
   formatDetection: { telephone: false },
   other: {
     'mobile-web-app-capable': 'yes',
-    themeColor: '#FF6B5B',
+    themeColor: '#7C4DFF',
   },
   };
 }

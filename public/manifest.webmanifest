@@ -9,8 +9,8 @@
   "orientation": "portrait",
   "lang": "ko",
   "dir": "ltr",
-  "background_color": "#FFF3DF",
-  "theme_color": "#FF6B5B",
+  "background_color": "#F8F9FA",
+  "theme_color": "#7C4DFF",
   "icons": [
     {
       "src": "/icons/icon-192.png",

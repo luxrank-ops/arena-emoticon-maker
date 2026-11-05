@@ -148,6 +148,24 @@ export function PackViewer({
     }
   }
 
+  async function saveCaption(frameId: string, line: string) {
+    const res = await fetch(`/api/frames/${frameId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ line }),
+    });
+    const json = await res.json();
+    if (!res.ok || !json.ok) throw new Error(locale === 'en' ? 'Could not save the caption.' : (json?.error?.message ?? '대사를 저장하지 못했어요.'));
+    setFrames((previous) => previous.map((frame) => frame.id === frameId ? {
+      ...json.frame,
+      ready: frame.ready,
+      spec: { ...json.frame.spec, imageUrl: frame.spec.imageUrl },
+    } : frame));
+    setSheetNotice(aiPack
+      ? t('대사를 저장했어요. 표정·세부 편집에서 AI 컷을 다시 그려야 이미지에 반영됩니다.', 'Caption saved. Open expression and advanced editing to redraw the AI sticker.')
+      : t('대사를 저장하고 미리보기에 반영했어요.', 'Caption saved and applied to the preview.'));
+  }
+
   async function downloadZip() {
     setZipBusy(true);
     setNotice(null);
@@ -211,7 +229,7 @@ export function PackViewer({
             </span>
           </div>
         </div>
-        <div className="mt-3 h-3 w-full overflow-hidden rounded-full border-2 border-ink bg-cream">
+        <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-line/70">
           <div
             className="h-full rounded-full bg-coral transition-[width] duration-500"
             style={{ width: `${Math.round((ready / total) * 100)}%` }}
@@ -277,7 +295,11 @@ export function PackViewer({
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
         {visible.map((f) => (
-          <article key={f.id} className={clsx('card overflow-hidden p-0 transition', f.ready ? 'animate-pop' : 'opacity-60')}>
+          <article
+            key={f.id}
+            className={clsx('card overflow-hidden p-0 transition hover:shadow-pop', f.ready ? 'motion-safe:animate-grid-in' : 'opacity-60')}
+            style={f.ready ? { animationDelay: `${Math.min(f.index, 15) * 50}ms` } : undefined}
+          >
             <button
               type="button"
               disabled={!f.ready}
@@ -299,7 +321,7 @@ export function PackViewer({
               <div className="flex w-full flex-1 flex-col border-t-2 border-line p-3">
                 <p className="truncate text-[13px] font-black">{f.label}</p>
                 <p className="mt-0.5 truncate text-[11px] text-sub">“{f.line}”</p>
-                <span className="mt-2 flex min-h-12 w-full items-center justify-center gap-1 rounded-xl border-2 border-ink bg-paper px-2 py-2 text-center text-xs font-black transition group-hover:bg-lemon/35">
+                <span className="mt-2 flex min-h-12 w-full items-center justify-center gap-1 rounded-xl border border-line bg-paper px-2 py-2 text-center text-xs font-semibold transition group-hover:border-primary group-hover:bg-primary/5 group-hover:text-primary-dark">
                   {f.ready ? t('관리하기', 'Manage') : t('생성 중…', 'Generating…')}{f.ready ? <span aria-hidden="true">↑</span> : null}
                 </span>
               </div>
@@ -380,9 +402,11 @@ export function PackViewer({
           locale={locale}
           busy={actionBusy}
           notice={sheetNotice}
+          requiresRedraw={aiPack}
           onClose={closeSheet}
           onDownload={() => void downloadOne(selectedFrame)}
           onShare={() => void shareOne(selectedFrame)}
+          onSaveCaption={(line) => saveCaption(selectedFrame.id, line)}
         />
       ) : null}
     </div>

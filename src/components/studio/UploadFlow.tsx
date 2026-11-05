@@ -31,22 +31,22 @@ const EN_PHOTO_ISSUES: Record<string, string> = {
 
 function ModeIllustration({ mode }: { mode: 'face' | 'full' }) {
   return (
-    <svg viewBox="0 0 120 120" className="h-24 w-24" aria-hidden="true">
-      <circle cx="60" cy="60" r="52" fill="#FFF6CC" />
+    <svg viewBox="0 0 120 120" className="h-20 w-20" aria-hidden="true">
+      <circle cx="60" cy="60" r="52" fill="#EDE4FF" />
       {mode === 'face' ? (
         <>
-          <path d="M22 108c2-25 17-37 38-37s36 12 38 37" fill="#5AB8F5" stroke="#191512" strokeWidth="4" strokeLinecap="round" />
-          <ellipse cx="60" cy="49" rx="29" ry="32" fill="#F6D3B3" stroke="#191512" strokeWidth="4" />
-          <path d="M32 45c0-28 13-36 29-36 19 0 29 14 28 36-10-3-19-10-24-18-8 10-18 16-33 18Z" fill="#332621" stroke="#191512" strokeWidth="4" strokeLinejoin="round" />
-          <path d="M47 52h2m22 0h2M51 62c5 5 13 5 18 0" fill="none" stroke="#191512" strokeWidth="4" strokeLinecap="round" />
+          <path d="M22 108c2-25 17-37 38-37s36 12 38 37" fill="#7C4DFF" stroke="#1A237E" strokeWidth="4" strokeLinecap="round" />
+          <ellipse cx="60" cy="49" rx="29" ry="32" fill="#F6D3B3" stroke="#1A237E" strokeWidth="4" />
+          <path d="M32 45c0-28 13-36 29-36 19 0 29 14 28 36-10-3-19-10-24-18-8 10-18 16-33 18Z" fill="#332621" stroke="#1A237E" strokeWidth="4" strokeLinejoin="round" />
+          <path d="M47 52h2m22 0h2M51 62c5 5 13 5 18 0" fill="none" stroke="#1A237E" strokeWidth="4" strokeLinecap="round" />
         </>
       ) : (
         <>
-          <circle cx="60" cy="30" r="18" fill="#F6D3B3" stroke="#191512" strokeWidth="4" />
-          <path d="M43 27c0-17 8-23 18-23 12 0 18 9 17 23-8-2-14-7-17-13-5 7-10 11-18 13Z" fill="#332621" stroke="#191512" strokeWidth="4" />
-          <path d="M43 52h34l8 35H35l8-35Z" fill="#5AB8F5" stroke="#191512" strokeWidth="4" strokeLinejoin="round" />
-          <path d="m40 59-20 22m60-22 20 22M48 87l-7 25m31-25 7 25" fill="none" stroke="#191512" strokeWidth="5" strokeLinecap="round" />
-          <path d="M54 30h1m11 0h1M55 37c3 2 7 2 10 0" fill="none" stroke="#191512" strokeWidth="3" strokeLinecap="round" />
+          <circle cx="60" cy="30" r="18" fill="#F6D3B3" stroke="#1A237E" strokeWidth="4" />
+          <path d="M43 27c0-17 8-23 18-23 12 0 18 9 17 23-8-2-14-7-17-13-5 7-10 11-18 13Z" fill="#332621" stroke="#1A237E" strokeWidth="4" />
+          <path d="M43 52h34l8 35H35l8-35Z" fill="#7C4DFF" stroke="#1A237E" strokeWidth="4" strokeLinejoin="round" />
+          <path d="m40 59-20 22m60-22 20 22M48 87l-7 25m31-25 7 25" fill="none" stroke="#1A237E" strokeWidth="5" strokeLinecap="round" />
+          <path d="M54 30h1m11 0h1M55 37c3 2 7 2 10 0" fill="none" stroke="#1A237E" strokeWidth="3" strokeLinecap="round" />
         </>
       )}
     </svg>
@@ -74,6 +74,8 @@ export function UploadFlow({
   const toneOptions = tonesForLocale(locale);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const generationRunRef = useRef(0);
+  const busyRef = useRef(false);
   const [analysis, setAnalysis] = useState<FaceAnalysis | null>(null);
   const [fileName, setFileName] = useState<string>('');
   const [busy, setBusy] = useState(false);
@@ -82,6 +84,8 @@ export function UploadFlow({
   const [subjectKind, setSubjectKind] = useState<SubjectKind>('person');
   const [mode, setMode] = useState<'face' | 'full' | null>(null);
   const [photoPhase, setPhotoPhase] = useState<'mode' | 'upload'>('mode');
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [motion, setMotion] = useState<'forward' | 'back' | null>(null);
   const [progress, setProgress] = useState<number | undefined>(undefined);
   const [tone, setTone] = useState<Tone>(allowedTones[0] ?? '2d-cute');
   const [consent, setConsent] = useState({ terms: false, privacy: false, overseas: false });
@@ -94,19 +98,45 @@ export function UploadFlow({
   }, [step]);
 
   useEffect(() => {
+    busyRef.current = busy;
+  }, [busy]);
+
+  useEffect(() => {
     const onPopState = () => {
-      if (window.location.pathname.endsWith('/settings')) setCurrentStep('settings');
-      else if (window.location.pathname.endsWith('/upload')) { setCurrentStep('photo'); setPhotoPhase('upload'); }
+      if (busyRef.current) {
+        const leave = window.confirm(t(
+          '지금 이탈하시면 크레딧이 차감될 수 있으며 생성이 취소될 수 있어요. 그래도 이동할까요?',
+          'Leaving now may use credits and cancel generation. Do you want to leave?',
+        ));
+        if (!leave) {
+          window.history.go(1);
+          return;
+        }
+        generationRunRef.current += 1;
+        setBusy(false);
+        setStage('');
+        setProgress(undefined);
+      }
+      if (window.location.pathname.endsWith('/settings')) {
+        setMotion('forward');
+        setCurrentStep('settings');
+      } else if (window.location.pathname.endsWith('/upload')) {
+        setMotion('back');
+        setCurrentStep('photo');
+        setPhotoPhase('upload');
+      }
     };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
-  }, []);
+  }, [locale]);
 
   useEffect(() => {
     try {
       const saved = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null');
-      if (saved?.analysis && saved.photoId && saved.photoId === photoScopeId('draft') && loadPhoto('draft')) {
+      const draftPhoto = loadPhoto('draft');
+      if (saved?.analysis && saved.photoId && saved.photoId === photoScopeId('draft') && draftPhoto) {
         setAnalysis(saved.analysis);
+        setPhotoPreview(draftPhoto);
         setFileName(saved.fileName || '');
         setSubjectKind(saved.subjectKind === 'pet' ? 'pet' : 'person');
         setMode(saved.mode === 'full' ? 'full' : saved.mode === 'face' ? 'face' : null);
@@ -144,6 +174,7 @@ export function UploadFlow({
       if (!photoId || !loadPhoto('draft')) throw new Error();
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind }));
       setError(null);
+      setMotion('forward');
       setCurrentStep('settings');
       try { window.history.pushState(null, '', lp('/studio/upload/settings')); } catch { /* ignore */ }
     } catch { setError(t('임시 정보를 저장하지 못했어요. 사진을 다시 선택해 주세요.', 'We could not save this temporary draft. Please choose the photo again.')); }
@@ -152,6 +183,7 @@ export function UploadFlow({
   function goToPhoto() {
     if (busy) return;
     setError(null);
+    setMotion('back');
     setCurrentStep('photo');
     setPhotoPhase('upload');
     try { window.history.pushState(null, '', lp('/studio/upload')); } catch { /* ignore */ }
@@ -165,13 +197,16 @@ export function UploadFlow({
     try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* 저장 불가 시 다음 단계에서 안내 */ }
     setConsent({ terms: false, privacy: false, overseas: false });
     setAnalysis(null);
+    setPhotoPreview(null);
     setFileName(file.name);
     try {
       const result = subjectKind === 'pet' ? await analyzePetPhoto(file) : await analyzeSelfie(file);
       track('photo_analyzed', { ok: result.ok });
+      const compressed = await compressPhotoFile(file);
+      setPhotoPreview(compressed);
       if (!result.ok) { setAnalysis(result); return; }
       // 생성 단계에서 쓸 사진을 이 탭에만 임시 보관 (서버 저장 없음)
-      savePhoto(await compressPhotoFile(file), 'draft');
+      savePhoto(compressed, 'draft');
       setAnalysis(result);
     } catch {
       setError(t('사진을 읽지 못했어요. 다른 사진으로 시도해 주세요.', 'We could not read that photo. Please try another image.'));
@@ -190,12 +225,14 @@ export function UploadFlow({
       setError(t('사진을 다시 선택해 주세요. 탭을 새로 열면 사진 보관이 초기화돼요.', 'Please choose the photo again. Temporary photo storage resets in a new tab.'));
       return;
     }
+    const run = ++generationRunRef.current;
     setBusy(true);
     setError(null);
     setProgress(20);
     try {
       setStage(t('이미지 생성 전에 사진을 확인하고 있어요. AI 확인이 어려우면 기본 확인으로 전환합니다…', 'Checking your photo before generation. If AI review is unavailable, we will use basic checks…'));
       await ensurePhotoConsistency(photo, 'draft', subjectKind);
+      if (run !== generationRunRef.current) return;
       setProgress(50);
       setStage(t('사진 분석 정보를 준비하고 있어요…', 'Preparing your character settings…'));
       const faceRes = await fetch('/api/face/analyze', {
@@ -208,6 +245,7 @@ export function UploadFlow({
           consent: { accepted: true, version: CONSENT_VERSION, overseas: true },
         }),
       });
+      if (run !== generationRunRef.current) return;
       const faceJson = await faceRes.json();
       if (!faceRes.ok) throw new Error(locale === 'en' ? 'We could not prepare your photo. Please try again.' : (faceJson?.error?.message ?? '얼굴 정보를 저장하지 못했어요'));
       setProgress(75);
@@ -218,21 +256,24 @@ export function UploadFlow({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ faceId: faceJson.faceId, tone, mode, subjectKind }),
       });
+      if (run !== generationRunRef.current) return;
       const sheetJson = await sheetRes.json();
       if (!sheetRes.ok) throw new Error(locale === 'en' ? 'We could not create your character drafts. Please try again.' : (sheetJson?.error?.message ?? '캐릭터 시트를 만들지 못했어요'));
       setProgress(100);
       setStage(t('캐릭터 시안이 준비됐어요. 선택 화면으로 이동합니다…', 'Your character drafts are ready. Opening the selection screen…'));
 
+      if (run !== generationRunRef.current) return;
       linkPhoto('draft', `sheet:${sheetJson.sheet.id}`);
       track('sheet_created', { tone, credits });
       const targetUrl = lp(`/studio/sheet/${sheetJson.sheet.id}`);
       router.push(targetUrl);
       setTimeout(() => {
-        if (typeof window !== 'undefined' && window.location.pathname !== targetUrl) {
+        if (run === generationRunRef.current && typeof window !== 'undefined' && window.location.pathname !== targetUrl) {
           window.location.assign(targetUrl);
         }
       }, 1000);
     } catch (e) {
+      if (run !== generationRunRef.current) return;
       track('sheet_failed', { tone });
       setError(locale === 'en' ? 'We could not create your character drafts. Check the photo and try again.' : (e as Error).message);
       setBusy(false);
@@ -243,6 +284,7 @@ export function UploadFlow({
 
   const isPhoto = currentStep === 'photo';
   const isMode = isPhoto && photoPhase === 'mode';
+  const motionClass = motion === 'forward' ? 'motion-safe:animate-step-left' : motion === 'back' ? 'motion-safe:animate-step-right' : '';
   const stepHeader = (
     <>
       <nav className="mb-6 flex items-center gap-2 text-xs font-bold text-sub" aria-label={t('현재 위치', 'Breadcrumb')}>
@@ -260,12 +302,12 @@ export function UploadFlow({
       </nav>
       <div className="mx-auto mb-6 max-w-3xl sm:mb-8">
         <h1 className="h2 break-keep">{isMode ? t('어떤 스타일로 만들까요?', 'What would you like to create?') : isPhoto ? t('사진을 업로드해 주세요', 'Upload your photo') : t('이모티콘 스타일을 골라주세요', 'Choose your sticker style')}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-sub">
+        <p className="mt-2 text-base leading-relaxed text-sub">
           {isMode ? t('표정을 강조할지, 귀여운 포즈를 살릴지 선택해 주세요.', 'Choose expressive close-ups or cute full-body poses.') : isPhoto ? t('정면과 얼굴이 잘 보이는 사진 한 장이면 충분해요.', 'One clear, front-facing photo is all you need.') : t('구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.', 'Choose a composition and style, accept the required terms, and create your character drafts.')}
         </p>
         <ol aria-label={t('제작 진행 단계', 'Creation progress')} className="mt-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold sm:gap-2 sm:text-sm">
           {(locale === 'en' ? ['Mode & photo', 'Style', 'Character', 'Pack'] : ['구도·사진', '스타일·동의', '시안 선택', '팩 완성']).map((label, index) => (
-            <li key={label} aria-current={index === (isPhoto ? 0 : 1) ? 'step' : undefined} className={`rounded-xl border-2 px-1 py-2 ${index === (isPhoto ? 0 : 1) ? 'border-ink bg-lemon/30 text-ink' : 'border-line text-sub'}`}>
+            <li key={label} aria-current={index === (isPhoto ? 0 : 1) ? 'step' : undefined} className={`rounded-xl border px-1 py-2 ${index === (isPhoto ? 0 : 1) ? 'border-primary bg-primary/10 text-primary-dark' : 'border-line text-sub'}`}>
               {index + 1}. {label}
             </li>
           ))}
@@ -279,11 +321,22 @@ export function UploadFlow({
     return <>{stepHeader}<div className="card p-6"><p className="font-bold">{t('먼저 사진을 선택해 주세요.', 'Choose a photo first.')}</p><p className="mt-2 text-sm text-sub">{t('사진과 분석 정보는 이 탭에서만 보관됩니다.', 'Your photo and analysis stay temporarily in this tab.')}</p><button type="button" onClick={goToPhoto} className="btn-primary mt-4 inline-flex">{t('사진 선택으로 돌아가기', 'Back to photo selection')}</button></div></>;
   }
 
-  const errorNotice = error ? <p role="alert" className="rounded-xl border-2 border-coral/50 bg-coral/10 px-4 py-3 text-sm font-bold text-coralink">{error}</p> : null;
+  const errorNotice = error ? <p role="alert" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary-dark">{error}</p> : null;
+  if (currentStep === 'settings' && busy && stage) return (
+    <>
+      {stepHeader}
+      <div key="generation-loading" className={clsx('mx-auto max-w-2xl', motionClass)}>
+        <GenerationProgress locale={locale} label={stage} progress={progress} tip={t('Tip: 완성된 이모티콘은 개별 저장하거나 시스템 공유창에서 카카오톡으로 볼 수 있어요.', 'Tip: Save each sticker or share it through your device’s share sheet.')} />
+        <p role="alert" className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-center text-xs leading-relaxed text-primary-dark">
+          {t('지금 이탈하시면 크레딧이 차감될 수 있으며 생성이 취소될 수 있어요. 100%까지 완료되면 자동으로 이동합니다.', 'Leaving now may use credits and cancel generation. You will be moved automatically at 100%.')}
+        </p>
+      </div>
+    </>
+  );
   if (currentStep === 'photo' && photoPhase === 'mode') return (
     <>
       {stepHeader}
-      <div className="mx-auto max-w-2xl space-y-4">
+      <div key="mode" className={clsx('mx-auto max-w-2xl space-y-4', motionClass)}>
         <div role="radiogroup" aria-label={t('이모티콘 구도 선택', 'Sticker composition')} className="grid grid-cols-2 gap-3">
           {(['face', 'full'] as const).map((value) => {
             const selected = mode === value;
@@ -295,14 +348,14 @@ export function UploadFlow({
                 role="radio"
                 aria-checked={selected}
                 onClick={() => setMode(value)}
-                className={clsx('card min-h-[220px] p-4 text-center transition sm:min-h-[250px] sm:p-5', selected ? 'border-coral bg-coral/5 ring-4 ring-coral/20' : 'hover:-translate-y-0.5 hover:border-ink')}
+                className={clsx('h-[190px] rounded-2xl bg-paper p-3 text-center shadow-card transition sm:h-[210px] sm:p-4', selected ? 'border-2 border-primary bg-primary/[0.03] ring-4 ring-primary/10' : 'border border-transparent hover:-translate-y-0.5 hover:shadow-pop')}
               >
                 <span className="flex h-full flex-col items-center">
-                  <span className={clsx('grid h-28 w-full place-items-center rounded-2xl border-2 sm:h-32', selected ? 'border-coral/40 bg-lemon/25' : 'border-line bg-cream')}><ModeIllustration mode={value} /></span>
-                  <span className="mt-3 text-base font-black sm:text-lg">{face ? t('얼굴 중심', 'Face-focused') : t('전신 중심', 'Full-body')}</span>
-                  <span className="mt-1 text-[11px] leading-snug text-sub sm:text-xs">{face ? t('다양한 표정과 대사를 크게 강조해요', 'Larger expressions and captions') : t('귀여운 포즈와 동작을 함께 살펴요', 'Cute poses and full-body movement')}</span>
-                  <span className="mt-auto flex min-h-11 items-center gap-1.5 pt-3 text-xs font-black">
-                    <span className={clsx('grid h-5 w-5 place-items-center rounded-full border-2 text-[10px]', selected ? 'border-coral bg-coral text-white' : 'border-line bg-paper text-transparent')} aria-hidden="true">✓</span>
+                  <span className={clsx('grid h-20 w-full place-items-center rounded-2xl', selected ? 'bg-primary/10' : 'bg-cream')}><ModeIllustration mode={value} /></span>
+                  <span className="mt-1 text-sm font-bold text-cyber sm:mt-2 sm:text-base">{face ? t('얼굴 중심', 'Face-focused') : t('전신 중심', 'Full-body')}</span>
+                  <span className="mt-0.5 text-[10px] leading-snug text-sub sm:text-[11px]">{face ? t('다양한 표정과 대사를 크게 강조해요', 'Larger expressions and captions') : t('귀여운 포즈와 동작을 함께 살펴요', 'Cute poses and full-body movement')}</span>
+                  <span className="mt-auto flex min-h-6 items-center gap-1.5 pt-1 text-[11px] font-semibold">
+                    <span className={clsx('grid h-5 w-5 place-items-center rounded-full border-2', selected ? 'border-primary bg-primary' : 'border-line bg-paper')} aria-hidden="true"><span className={clsx('rounded-full bg-white', selected ? 'h-2 w-2' : 'h-0 w-0')} /></span>
                     {selected ? t('선택됨', 'Selected') : t('선택하기', 'Choose')}
                   </span>
                 </span>
@@ -310,8 +363,8 @@ export function UploadFlow({
             );
           })}
         </div>
-        <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-cream/95 p-2 shadow-soft backdrop-blur">
-          <button type="button" className="btn-primary min-h-[52px] w-full !py-4 text-base" disabled={!mode} onClick={() => setPhotoPhase('upload')}>{t('다음 · 사진 선택', 'Next · Choose a photo')}<span aria-hidden="true">→</span></button>
+        <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-soft backdrop-blur">
+          <button type="button" className="btn-primary min-h-14 w-full !py-4 text-base" disabled={!mode} onClick={() => { setMotion('forward'); setPhotoPhase('upload'); }}>{t('다음 · 사진 선택', 'Next · Choose a photo')}<span aria-hidden="true">→</span></button>
           <p className="py-2 text-center text-[11px] text-sub">{t('구도는 다음 단계에서도 다시 바꿀 수 있어요.', 'You can change the composition again later.')}</p>
         </div>
       </div>
@@ -320,16 +373,16 @@ export function UploadFlow({
   if (currentStep === 'photo') return (
     <>
       {stepHeader}
-      <div className="mx-auto max-w-2xl space-y-4">
-        <button type="button" disabled={busy} onClick={() => setPhotoPhase('mode')} className="min-h-11 rounded-xl px-2 text-sm font-black text-sub hover:bg-paper hover:text-ink disabled:opacity-40">← {t('구도 다시 선택', 'Change composition')}</button>
+      <div key="upload" className={clsx('mx-auto max-w-2xl space-y-4', motionClass)}>
+        <button type="button" disabled={busy} onClick={() => { setMotion('back'); setPhotoPhase('mode'); }} className="min-h-11 rounded-xl px-2 text-sm font-semibold text-sub hover:bg-paper hover:text-primary-dark disabled:opacity-40">← {t('구도 다시 선택', 'Change composition')}</button>
         <div role="group" aria-label={t('사진 대상 선택', 'Photo subject')} className="card flex gap-2 p-3">
           {([['person', t('사람', 'Person')], ['pet', t('반려동물', 'Pet')]] as const).map(([kind, label]) => (
             <button key={kind} type="button" disabled={busy} aria-pressed={subjectKind === kind} onClick={() => {
               if (kind === subjectKind) return;
-              setSubjectKind(kind); setAnalysis(null); setFileName(''); setError(null);
+              setSubjectKind(kind); setAnalysis(null); setPhotoPreview(null); setFileName(''); setError(null);
               setConsent({ terms: false, privacy: false, overseas: false });
               try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* 임시 저장소 이용 불가 */ }
-            }} className={clsx('min-h-12 flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black', subjectKind === kind ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-ink')}>{label}</button>
+            }} className={clsx('min-h-12 flex-1 rounded-xl border px-4 py-3 text-sm font-semibold', subjectKind === kind ? 'border-primary bg-primary text-white' : 'border-line bg-paper text-ink')}>{label}</button>
           ))}
         </div>
         <div
@@ -345,8 +398,8 @@ export function UploadFlow({
             if (f && !busy) void onFile(f);
           }}
           className={clsx(
-            'card relative grid min-h-[280px] place-items-center border-dashed p-5 text-center transition sm:p-6',
-            dragging && 'bg-lemon/20',
+            'card relative grid min-h-[220px] place-items-center border-primary/40 border-dashed bg-paper p-5 text-center transition sm:p-6',
+            dragging && 'bg-primary/10',
           )}
         >
           {/* 사진첩에서 선택: capture 속성 없음 → 갤러리/파일 선택 열림 */}
@@ -378,7 +431,7 @@ export function UploadFlow({
             <div className="w-full"><GenerationProgress locale={locale} label={t('사진 속 얼굴과 구도를 분석하고 있어요…', 'Analyzing the face and composition…')} tip={t('사진을 바꾸지 말고 잠시만 기다려 주세요. 분석은 이 브라우저에서 진행됩니다.', 'Keep this photo selected. Analysis runs in this browser.')} /></div>
           ) : !analysis ? (
             <div>
-              <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl border-2 border-ink bg-cream text-3xl shadow-card">
+              <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-2xl border border-primary/20 bg-primary/10 text-3xl">
                 📸
               </div>
               <p className="text-lg font-black">{subjectKind === 'pet' ? t('반려동물 사진 한 장을 올려주세요', 'Add one clear photo of your pet') : t('정면 셀카 한 장을 올려주세요', 'Add one front-facing selfie')}</p>
@@ -397,6 +450,13 @@ export function UploadFlow({
             </div>
           ) : (
             <div className="w-full">
+              {photoPreview ? (
+                <div className="relative mb-4 h-40 w-full overflow-hidden rounded-xl border border-line bg-cream sm:h-48">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={photoPreview} alt={t('선택한 사진 크롭 미리보기', 'Selected photo crop preview')} className="h-full w-full object-cover object-center" />
+                  <span className="absolute bottom-2 left-2 rounded-full bg-cyber/85 px-2.5 py-1 text-[10px] font-semibold text-white">{t('선택한 사진', 'Selected photo')}</span>
+                </div>
+              ) : null}
               <div className="flex items-center justify-between gap-3 text-left">
                 <div className="min-w-0">
                   <p className="text-sm font-black">
@@ -453,8 +513,8 @@ export function UploadFlow({
           </section>
         </div>
         {errorNotice}
-        <div className={clsx('rounded-2xl border border-line bg-cream/95 p-2 backdrop-blur', analysis && 'sticky bottom-3 z-20 shadow-soft')}>
-          <button className="btn-primary min-h-[52px] w-full !py-4 text-base" disabled={!analysis?.ok || !mode || busy} onClick={goToSettings}>{t('다음 · 스타일 선택', 'Next · Choose a style')}<span aria-hidden="true">→</span></button>
+        <div className={clsx('rounded-2xl border border-line bg-paper/95 p-2 backdrop-blur', analysis && 'sticky bottom-3 z-20 shadow-soft')}>
+          <button className="btn-primary min-h-14 w-full !py-4 text-base" disabled={!analysis?.ok || !mode || busy} onClick={goToSettings}>{t('다음 · 스타일 선택', 'Next · Choose a style')}<span aria-hidden="true">→</span></button>
           <p className="py-2 text-center text-[11px] text-sub">{t('사진 분석은 브라우저에서 진행돼요. 확인이 끝나면 버튼이 활성화됩니다.', 'Browser-based photo checks enable this button when complete.')}</p>
         </div>
     </div>
@@ -463,7 +523,7 @@ export function UploadFlow({
   return (
     <>
       {stepHeader}
-      <div className="mx-auto max-w-3xl space-y-4">
+      <div key="settings" className={clsx('mx-auto max-w-3xl space-y-4', motionClass)}>
         <div className="card-flat flex items-center justify-between gap-3 p-4">
           <div><p className="text-xs font-bold text-sub">{t('선택한 구도', 'Composition')}</p><p className="mt-1 text-sm font-black">{mode === 'full' ? t('전신 중심 · 포즈와 동작 강조', 'Full-body · poses and movement') : t('얼굴 중심 · 표정과 대사 강조', 'Face-focused · expressions and captions')}</p></div>
           <button type="button" disabled={busy} onClick={() => { goToPhoto(); setPhotoPhase('mode'); }} className="btn-ghost min-h-12 shrink-0 !px-4 !py-2 text-xs">{t('구도 변경', 'Change')}</button>
@@ -484,7 +544,7 @@ export function UploadFlow({
                   onClick={() => setTone(toneId)}
                   className={clsx(
                     'rounded-xl border-2 p-3 text-left transition',
-                    tone === toneId ? 'border-ink bg-lemon/30' : 'border-line bg-paper hover:border-ink/50',
+                    tone === toneId ? 'border-primary bg-primary/10' : 'border-line bg-paper hover:border-primary/50',
                     !allowed && 'cursor-not-allowed opacity-45',
                   )}
                 >
@@ -507,7 +567,7 @@ export function UploadFlow({
               <label key={c.key} className="flex items-start gap-2 leading-snug">
                 <input
                   type="checkbox"
-                  className="mt-0.5 h-4 w-4 accent-coral"
+                  className="mt-0.5 h-4 w-4 accent-primary"
                   checked={consent[c.key]}
                   onChange={(e) => setConsent((s) => ({ ...s, [c.key]: e.target.checked }))}
                 />
@@ -521,12 +581,11 @@ export function UploadFlow({
             ))}
           </div>
         </div>
-      {busy && stage ? <GenerationProgress locale={locale} label={stage} progress={progress} tip={t('Tip: 완성된 이모티콘은 개별 저장하거나 시스템 공유창에서 카카오톡으로 볼 수 있어요.', 'Tip: Save each sticker or share it through your device’s share sheet.')} /> : null}
       {errorNotice}
-      <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-cream/95 p-2 shadow-soft backdrop-blur" aria-busy={busy}>
+      <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-soft backdrop-blur" aria-busy={busy}>
         <div className="flex gap-2">
           <button type="button" disabled={busy} onClick={goToPhoto} className="btn-ghost min-h-12 w-20 shrink-0 !px-2 text-center text-xs sm:w-auto sm:flex-1">{t('← 이전', '← Back')}</button>
-          <button className="btn-primary min-h-[52px] flex-1 !px-3 !py-4 text-sm sm:flex-[2] sm:text-base" disabled={!ready} onClick={submit}>{busy ? t('처리 중…', 'Working…') : t('다음 · 캐릭터 시안 만들기 →', 'Next · Create character drafts →')}</button>
+          <button className="btn-primary min-h-14 flex-1 !px-3 !py-4 text-sm sm:flex-[2] sm:text-base" disabled={!ready} onClick={submit}>{busy ? t('처리 중…', 'Working…') : t('다음 · 캐릭터 시안 만들기 →', 'Next · Create character drafts →')}</button>
         </div>
         <p className="py-2 text-center text-[11px] leading-relaxed text-sub">{busy ? t('작업이 끝날 때까지 이 화면을 유지해 주세요. ', 'Keep this screen open until the current step finishes. ') : null}{t('생성 전 사진을 확인합니다. AI 확인이 어려우면 기본 확인으로 진행합니다', 'We check your photo before generation and use basic checks if AI review is unavailable')} · {unlimited ? t('크레딧 차감 없음', 'No credit deduction') : t(`보유 크레딧 ${credits}`, `${credits} credits available`)}</p>
       </div>
