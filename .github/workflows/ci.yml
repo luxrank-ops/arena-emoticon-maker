@@ -66,6 +66,9 @@ jobs:
       - name: Unit tests
         run: npm test --if-present
 
+      - name: Text-effect rendering
+        run: npm run test:text-effects
+
       - name: Play static readiness
         run: npm run test:play:static
 
