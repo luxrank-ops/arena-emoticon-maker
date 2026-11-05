@@ -84,6 +84,10 @@ export async function prepareBasicConsistency(photo: { mimeType: string; base64:
 }
 
 export async function prepareWithFallback(photo: { mimeType: string; base64: string }, subjectKind: SubjectKind = 'person'): Promise<{ guidance: IdentityGuidance; method: 'ai' | 'basic' }> {
+  // 데모/CI 에서는 외부 AI 호출 없이 전체 제작 흐름을 결정적으로 검증한다.
+  if (String((globalThis as any).CLOUDFLARE_ENV?.DEMO_MODE ?? process.env.DEMO_MODE ?? '') === '1') {
+    return { guidance: await prepareBasicConsistency(photo, subjectKind), method: 'basic' };
+  }
   try {
     return { guidance: await prepareConsistency(photo, subjectKind), method: 'ai' };
   } catch (error) {

@@ -1,7 +1,14 @@
 #!/usr/bin/env node
 // 엔드투엔드 스모크 테스트 — 실행 중인 서버를 실제로 호출한다.
 // 사용: BASE_URL=http://localhost:3000 node scripts/smoke.mjs
+import { readFileSync } from 'node:fs';
+
 const BASE = process.env.BASE_URL ?? 'http://localhost:3000';
+// 강제 얼굴 파기·관리자 로그인 시도를 포함하므로 실수로 운영 데이터를 건드리지 않게 막는다.
+if (!['localhost', '127.0.0.1', '::1'].includes(new URL(BASE).hostname) && process.env.ALLOW_REMOTE_SMOKE !== '1') {
+  throw new Error('Smoke는 격리된 로컬 서버에서만 실행하세요. 원격 실행은 ALLOW_REMOTE_SMOKE=1 이 필요합니다.');
+}
+const PHOTO = `data:image/png;base64,${readFileSync(new URL('../public/icons/icon-192.png', import.meta.url)).toString('base64')}`;
 
 // 쿠키 병: Set-Cookie 는 여러 개일 수 있고, 기존 쿠키를 덮어쓰면 세션이 날아간다
 const jar = new Map();
@@ -56,7 +63,21 @@ async function req(path, opts = {}) {
 }
 
 const PALETTE = { skin: '#F6D3B3', skinShade: '#E8BA95', hair: '#332621', shirt: '#5AB8F5', accent: '#FF6B5B' };
-const SIGNATURE = { headScale: 1.02, faceWidth: 0.98, eyeSpacing: 1, eyeSize: 1, browWeight: 0.9, mouthWidth: 1, hairStyle: 2, cheek: 0.6, glasses: false };
+const SIGNATURE = {
+  headScale: 1.02,
+  faceWidth: 0.98,
+  eyeSpacing: 1,
+  eyeSize: 1,
+  eyeShape: 'almond',
+  browWeight: 0.9,
+  mouthWidth: 1,
+  lipThickness: 1,
+  noseSize: 1,
+  hairStyle: 2,
+  cheek: 0.6,
+  jawline: 'round',
+  glasses: false,
+};
 
 // 세션 고정: 관리자 로그인 등이 다른 쿠키를 심어도 사용자 세션이 바뀌지 않게 한다.
 // (과거 이 때문에 '파기된 시트' 단언이 간헐적으로 404 가 됐다)
@@ -91,7 +112,27 @@ const sheet = await req('/api/sheets', { method: 'POST', body: JSON.stringify({ 
 assert(sheet.json?.sheet?.variants?.length === 3, 'POST /api/sheets → 3 variants');
 
 const sheetId = sheet.json.sheet.id;
-await req(`/api/sheets/${sheetId}/choose`, { method: 'POST', body: JSON.stringify({ variantKey: 'A' }) });
+const prepared = await req('/api/face/consistency', {
+  method: 'POST',
+  body: JSON.stringify({ photo: PHOTO, consent: true, subjectKind: 'person' }),
+});
+assert(prepared.status === 200 && !!prepared.json?.prepared?.token, 'POST /api/face/consistency → 사진 확인');
+const renderedSheet = await req('/api/render', {
+  method: 'POST',
+  body: JSON.stringify({
+    photo: PHOTO,
+    target: { kind: 'sheet', sheetId, variantKey: 'A' },
+    consistency: prepared.json?.prepared,
+  }),
+});
+assert(renderedSheet.status === 200 && !!renderedSheet.json?.imageUrl, 'POST /api/render → 선택 시안 이미지');
+if (renderedSheet.json?.imageUrl) {
+  const image = await fetch(`${BASE}${renderedSheet.json.imageUrl}`, { headers: { cookie: cookieHeader() } });
+  await image.arrayBuffer();
+  assert(image.status === 200 && image.headers.get('content-type')?.startsWith('image/'), '생성 시안 다운로드 → 이미지 MIME');
+}
+const chosen = await req(`/api/sheets/${sheetId}/choose`, { method: 'POST', body: JSON.stringify({ variantKey: 'A' }) });
+assert(chosen.status === 200 && chosen.json?.sheet?.chosenKey === 'A', 'POST /api/sheets/:id/choose → A 선택');
 
 const pack = await req('/api/packs', { method: 'POST', body: JSON.stringify({ sheetId, size: 12 }) });
 assert(!!pack.json?.packId, 'POST /api/packs → packId');
@@ -110,7 +151,7 @@ assert(patched.json?.frame?.emotion === 'king', 'emotion 저장');
 console.log('\n[4] 추천 엔진');
 const reply = await req('/api/reply', { method: 'POST', body: JSON.stringify({ text: '미안 늦었어 ㅠㅠ 진짜 미안해' }) });
 assert(reply.json?.result?.candidates?.length === 3, 'POST /api/reply → 3 candidates');
-assert(!!reply.json?.result?.candidates?.[0]?.spec, 'candidate.spec 포함');
+assert(reply.json?.result?.candidates?.every((c) => Object.hasOwn(c, 'cut')), 'candidate.cut 포함 (AI 컷 또는 null)');
 
 const brief = await req('/api/brief');
 assert(brief.json?.items?.length === 8, 'GET /api/brief → 8 items');
@@ -125,22 +166,28 @@ assert(laughReply.json?.result?.mood === 'laugh', 'ㅋㅋ 대화 → 웃김 감�
 
 console.log('\n[5] 결제 · 크레딧');
 const order = await req('/api/checkout', { method: 'POST', body: JSON.stringify({ sku: 'credits-20' }) });
-assert(order.json?.order?.amount === 4900, '서버가 금액 산정 (4900)');
-const prep = await req('/api/checkout/prepare', { method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, agreeDigital: true }) });
-assert(prep.status === 200, '결제 전 동의 저장');
-const confirm = await req('/api/checkout/confirm', {
-  method: 'POST',
-  body: JSON.stringify({ orderId: order.json.order.id, amount: 4900, paymentKey: `mock_${order.json.order.id}` }),
-});
-assert(confirm.status === 200 && confirm.json?.alreadyPaid === false, 'confirm → 크레딧 지급');
-const repeated = await req('/api/checkout/confirm', {
-  method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, amount: 4900, paymentKey: `mock_${order.json.order.id}` }),
-});
-assert(repeated.json?.alreadyPaid === true && repeated.json?.credits === confirm.json?.credits, '중복 지급 방지');
-const badAmount = await req('/api/checkout/confirm', {
-  method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, amount: 100, paymentKey: `mock_${order.json.order.id}` }),
-});
-assert(badAmount.status === 409, '금액 위변조 차단');
+if (order.status === 503) {
+  // 프로덕션 빌드에서 mock 결제가 꺼진 현재 정책을 검증한다.
+  assert(order.json?.error?.code === 'PAYMENT_UNAVAILABLE', '프로덕션 mock 결제 → 503 fail-closed');
+} else {
+  assert(order.status === 200 && order.json?.order?.provider === 'mock', '로컬 개발 서버는 mock 결제만 사용');
+  assert(order.json?.order?.amount === 4900, '서버가 금액 산정 (4900)');
+  const prep = await req('/api/checkout/prepare', { method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, agreeDigital: true }) });
+  assert(prep.status === 200, '결제 전 동의 저장');
+  const confirm = await req('/api/checkout/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ orderId: order.json.order.id, amount: 4900, paymentKey: `mock_${order.json.order.id}` }),
+  });
+  assert(confirm.status === 200 && confirm.json?.alreadyPaid === false, 'confirm → 크레딧 지급');
+  const repeated = await req('/api/checkout/confirm', {
+    method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, amount: 4900, paymentKey: `mock_${order.json.order.id}` }),
+  });
+  assert(repeated.json?.alreadyPaid === true && repeated.json?.credits === confirm.json?.credits, '중복 지급 방지');
+  const badAmount = await req('/api/checkout/confirm', {
+    method: 'POST', body: JSON.stringify({ orderId: order.json.order.id, amount: 100, paymentKey: `mock_${order.json.order.id}` }),
+  });
+  assert(badAmount.status === 409, '금액 위변조 차단');
+}
 
 console.log('\n[6] 굿즈');
 const goods = await req('/api/goods/orders', {
@@ -153,7 +200,7 @@ const goods = await req('/api/goods/orders', {
     agreeNoRefundAfterProduction: true,
   }),
 });
-assert(!!goods.json?.order?.id, 'POST /api/goods/orders → order');
+assert(goods.status === 401 && goods.json?.error?.code === 'LOGIN_REQUIRED', '비로그인 굿즈 주문 → 401 (판매 전 인증 필요)');
 
 console.log('\n[7] 브리핑 정합성');
 const briefAgain = await req('/api/brief');
@@ -194,8 +241,33 @@ assert(forgedJson.locked === true, '쿠키 값만으로 관리자 권한 획득 
 const admin = await req('/api/admin/metrics');
 assert(admin.json?.locked === true, '비관리자 → metrics 잠금');
 
-console.log('\n[12] 운영자 로그인 · 무차별 대입 제한');
-// 별도 세션으로 시도 → 본 세션의 로그인은 제한에 걸리지 않는다
+console.log('\n[12] 관리자 로그인 후 파기 → 팩 렌더 유지');
+// 오답 제한 검증은 공유 잠금을 유발하므로 정상 관리자 시나리오보다 나중에 실행한다.
+const login = await req('/api/admin/login', { method: 'POST', body: JSON.stringify({ passcode: process.env.ADMIN_PASSCODE || 'emotime-demo' }) });
+if (login.status === 503) {
+  assert(login.json?.error?.code === 'ADMIN_DISABLED', '운영자 코드 미설정 → 로그인 차단(503 fail-closed)');
+  console.log('  ! ADMIN_PASSCODE 미설정: 파기 후 렌더 시나리오는 실행하지 않음');
+} else {
+  assert(login.json?.admin === true, '운영자 로그인 성공');
+  const before = await req('/api/admin/purge');
+  assert(typeof before.json?.stats?.stored === 'number', `파기 통계 조회 (status=${before.status}, body=${before.text.slice(0, 120)})`);
+  const purge = await req('/api/admin/purge', { method: 'POST', body: JSON.stringify({ force: true }) });
+  assert(purge.json?.result?.purged >= 1, `강제 파기 실행 (${purge.json?.result?.purged}건)`);
+  const purgedFace = await req('/api/admin/purge');
+  assert(purgedFace.json?.stats?.stored === 0, '보관 중인 얼굴 프로필 0건');
+
+  // 관리자 인증 쿠키를 제거해 팩 소유자(게스트) 관점에서 이후 경로를 확인한다.
+  jar.delete('emotime_auth');
+  const afterPurge = await req(`/api/packs/${packId}`);
+  assert(afterPurge.status === 200, '파기 후에도 팩 조회 200');
+  assert(afterPurge.json?.frames?.length === 12 && !!afterPurge.json.frames[0].spec?.palette, '파기 후에도 스냅샷으로 렌더 가능');
+  const purgedSheetPage = await req(`/studio/sheet/${sheetId}`);
+  assert(purgedSheetPage.status === 200 && purgedSheetPage.text.includes('얼굴 정보가 파기'), '파기된 시트 → 안내 화면(404 아님)');
+  const newSheet = await req('/api/sheets', { method: 'POST', body: JSON.stringify({ faceId: face.json.faceId, tone: '2d-cute' }) });
+  assert(newSheet.status === 404, '파기된 얼굴로 시트 재생성 → 404 안내');
+}
+
+console.log('\n[13] 운영자 로그인 · 무차별 대입 제한');
 const bruteCookie = `emotime_sid=brute-${Date.now().toString(36)}`;
 let rateLimited = false;
 let attempts = 0;
@@ -213,29 +285,6 @@ for (let i = 0; i < 8; i++) {
   }
 }
 assert(rateLimited, `연속 오답 ${attempts}회 → 429 요청 제한`);
-
-console.log('\n[13] 관리자 로그인 후 파기 → 팩 렌더 유지');
-const login = await req('/api/admin/login', { method: 'POST', body: JSON.stringify({ passcode: process.env.ADMIN_PASSCODE || 'emotime-demo' }) });
-if (login.status === 503) {
-  // 운영 환경 + ADMIN_PASSCODE 미설정 → fail-closed 가 정상 동작
-  assert(login.json?.error?.code === 'ADMIN_DISABLED', '운영자 코드 미설정 → 로그인 차단(503 fail-closed)');
-  console.log('  ! ADMIN_PASSCODE 미설정 환경이라 파기 후 렌더 시나리오는 건너뜀 (CI 는 값을 주입해 실행)');
-} else {
-  assert(login.json?.admin === true, '운영자 로그인 성공');
-  const before = await req('/api/admin/purge');
-  assert(typeof before.json?.stats?.stored === 'number', `파기 통계 조회 (status=${before.status}, body=${before.text.slice(0, 120)})`);
-  const purge = await req('/api/admin/purge', { method: 'POST', body: JSON.stringify({ force: true }) });
-  assert(purge.json?.result?.purged >= 1, `강제 파기 실행 (${purge.json?.result?.purged}건)`);
-  const afterPurge = await req(`/api/packs/${packId}`);
-  assert(afterPurge.status === 200, '파기 후에도 팩 조회 200');
-  assert(afterPurge.json?.frames?.length === 12 && !!afterPurge.json.frames[0].spec?.palette, '파기 후에도 스냅샷으로 렌더 가능');
-  const purgedFace = await req('/api/admin/purge');
-  assert(purgedFace.json?.stats?.stored === 0, '보관 중인 얼굴 프로필 0건');
-  const purgedSheetPage = await req(`/studio/sheet/${sheetId}`);
-  assert(purgedSheetPage.status === 200 && purgedSheetPage.text.includes('얼굴 정보가 파기'), '파기된 시트 → 안내 화면(404 아님)');
-  const newSheet = await req('/api/sheets', { method: 'POST', body: JSON.stringify({ faceId: face.json.faceId, tone: '2d-cute' }) });
-  assert(newSheet.status === 404, '파기된 얼굴로 시트 재생성 → 404 안내');
-}
 
 console.log('\n[14] 저장소 폴백 (배포 환경 쓰기 가능 여부)');
 {

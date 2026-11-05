@@ -1,7 +1,10 @@
 // 유료 앱(TWA) 풀액세스 E2E — 로컬 dev 서버 대상
 //  · TWA 세션: watercolor/24컷/워터마크 제거/카카오 패키징/브리핑 해제/무제한/409
 //  · 웹 세션:  watercolor 402 / 24컷 402 / 12컷 차감 (기존 동작 유지)
+import { readFileSync } from 'node:fs';
+
 const BASE = 'http://localhost:3000';
+const PHOTO = `data:image/png;base64,${readFileSync(new URL('../public/icons/icon-192.png', import.meta.url)).toString('base64')}`;
 const TWA_UA = 'Mozilla/5.0 (Linux; Android 15; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Mobile Safari/537.36 TWA/1.0';
 const WEB_UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36';
 const PALETTE = { skin: '#F6D3B3', skinShade: '#E8BA95', hair: '#332621', shirt: '#5AB8F5', accent: '#FF6B5B' };
@@ -54,7 +57,17 @@ async function makeFace(jar) {
 async function makeSheet(jar, faceId, tone) {
   const r = await jar.req('/api/sheets', { method: 'POST', body: JSON.stringify({ faceId, tone }) });
   if (r.status !== 200 || !r.json?.sheet) return { status: r.status, json: r.json };
-  const c = await jar.req(`/api/sheets/${r.json.sheet.id}/choose`, { method: 'POST', body: JSON.stringify({ variantKey: 'A' }) });
+  const sheetId = r.json.sheet.id;
+  const prepared = await jar.req('/api/face/consistency', {
+    method: 'POST', body: JSON.stringify({ photo: PHOTO, consent: true, subjectKind: 'person' }),
+  });
+  if (prepared.status !== 200) throw new Error(`face/consistency ${prepared.status}: ${prepared.text.slice(0, 200)}`);
+  const rendered = await jar.req('/api/render', {
+    method: 'POST',
+    body: JSON.stringify({ photo: PHOTO, target: { kind: 'sheet', sheetId, variantKey: 'A' }, consistency: prepared.json.prepared }),
+  });
+  if (rendered.status !== 200) throw new Error(`render sheet ${rendered.status}: ${rendered.text.slice(0, 200)}`);
+  const c = await jar.req(`/api/sheets/${sheetId}/choose`, { method: 'POST', body: JSON.stringify({ variantKey: 'A' }) });
   return { status: r.status, json: r.json, choose: c };
 }
 
