@@ -9,18 +9,19 @@ export const dynamic = 'force-dynamic';
 export default async function EditorPage({
   params,
 }: {
-  params: { packId: string; frameId: string };
+  params: Promise<{ packId: string; frameId: string }>;
 }) {
+  const { packId, frameId } = await params;
   const user = await getCurrentUser();
   let view: Awaited<ReturnType<typeof getPackView>> | null = null;
   try {
-    view = await getPackView(user.id, params.packId);
+    view = await getPackView(user.id, packId);
   } catch {
     notFound();
   }
   if (!view) notFound();
 
-  const frame = view.frames.find((f) => f.id === params.frameId);
+  const frame = view.frames.find((f) => f.id === frameId);
   if (!frame) notFound();
 
   return (
@@ -28,7 +29,7 @@ export default async function EditorPage({
       <nav className="mb-5 flex items-center gap-2 text-xs font-bold text-sub">
         <Link href="/studio/upload" className="hover:text-ink">만들기</Link>
         <span>/</span>
-        <Link href={`/studio/pack/${params.packId}`} className="hover:text-ink">내 팩</Link>
+        <Link href={`/studio/pack/${packId}`} className="hover:text-ink">내 팩</Link>
         <span>/</span>
         <span className="text-ink">편집</span>
       </nav>
@@ -40,7 +41,7 @@ export default async function EditorPage({
       </div>
       <FrameEditor
         frame={frame}
-        packId={params.packId}
+        packId={packId}
         subjectKind={view.pack.subjectKind ?? 'person'}
         watermark={view.watermark}
         index={frame.index}

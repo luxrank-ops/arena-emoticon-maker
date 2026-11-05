@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     const forbidden = validateAuthRequest(req);
     if (forbidden) return forbidden;
     if (!req.headers.get('content-type')?.toLowerCase().startsWith('application/json')) return fail('INVALID_INPUT', 'JSON 요청이 필요합니다', 415);
-    const limited = authRateLimit('login');
+    const limited = await authRateLimit('login');
     if (limited) return limited;
     const { passcode } = z.object({ passcode: z.string().min(1).max(128) }).parse(await req.json());
     await login(ADMIN_NICKNAME, passcode);

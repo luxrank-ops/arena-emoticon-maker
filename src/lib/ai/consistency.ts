@@ -49,7 +49,7 @@ async function analyze(photo: { mimeType: string; base64: string }, instruction:
     throw new ConsistencyError('CONSISTENCY_UNAVAILABLE', 'Request failed.');
   }
   try {
-    const body = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] }[] }[] };
+    const body = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] } }[] };
     const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
     return guidanceSchema.parse(JSON.parse(text));
   } catch { throw new ConsistencyError('CONSISTENCY_UNAVAILABLE', 'Parse failed.'); }

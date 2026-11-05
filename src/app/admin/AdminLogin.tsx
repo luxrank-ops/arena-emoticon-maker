@@ -46,7 +46,11 @@ export function AdminLogin({
         onChange={(e) => setCode(e.target.value)}
         className="mt-3 w-full rounded-xl border-2 border-line bg-cream px-3 py-2.5 text-sm outline-none focus:border-ink"
         placeholder="운영자 코드"
+        autoFocus
       />
+      <p className="mt-2 text-[11px] leading-relaxed text-sub">
+        닉네임 <strong className="text-ink">풍고</strong> + 운영자 코드로 로그인하면 크레딧·플랜 제한 없이 모든 기능을 사용합니다.
+      </p>
       {error ? <p className="mt-2 text-[11px] font-bold text-coralink">{error}</p> : null}
       <button className="btn-primary mt-3 w-full !py-3" onClick={submit} disabled={busy || !code || disabled}>
         {busy ? '확인 중…' : '들어가기'}

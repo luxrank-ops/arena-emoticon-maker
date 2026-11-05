@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { ReplyStudio } from '@/components/reply/ReplyStudio';
 import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
-import { PLANS } from '@/lib/pricing';
+import { watermarkFor } from '@/lib/admin-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +31,7 @@ export default async function ReplyPage() {
         ) : null}
       </div>
 
-      <ReplyStudio hasCuts={hasCuts} watermark={PLANS[user.plan].watermark} />
+      <ReplyStudio hasCuts={hasCuts} watermark={watermarkFor(user)} />
     </div>
   );
 }

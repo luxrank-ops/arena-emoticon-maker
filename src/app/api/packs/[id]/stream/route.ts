@@ -10,7 +10,8 @@ export const dynamic = 'force-dynamic';
  * "Controller is already closed" 가 700ms 마다 무한히 발생한다(로그 폭주 + CPU 누수).
  * → abort 시그널/취소 콜백에서 반드시 타이머를 정리하고, enqueue 는 try/catch 로 감싼다.
  */
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   const encoder = new TextEncoder();
   // start() 안의 타이머를 cancel() 에서도 정리할 수 있게 바깥으로 노출
@@ -65,13 +66,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       const tick = async () => {
         if (closed) return;
         try {
-          const view = await getPackView(user.id, params.id);
+          const view = await getPackView(user.id, id);
           if (view.ready !== lastReady) {
             lastReady = view.ready;
             if (!send('frame.ready', { ready: view.ready, total: view.total, status: view.pack.status })) return;
           }
           if (view.ready >= view.total) {
-            send('job.done', { packId: params.id, total: view.total });
+            send('job.done', { packId: id, total: view.total });
             close();
           }
         } catch (e) {

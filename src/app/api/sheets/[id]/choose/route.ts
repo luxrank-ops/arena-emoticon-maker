@@ -5,11 +5,12 @@ import { chooseSheet } from '@/lib/packs';
 
 const schema = z.object({ variantKey: z.string().min(1).max(2) });
 
-export async function POST(req: Request, { params }: { params: { id: string } }) {
+export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const user = await getCurrentUser();
     const body = schema.parse(await req.json());
-    const sheet = await chooseSheet(user.id, params.id, body.variantKey);
+    const sheet = await chooseSheet(user.id, id, body.variantKey);
     return ok({ sheet });
   } catch (e) {
     if ((e as { code?: string }).code === 'REFERENCE_REQUIRED') return fail('REFERENCE_REQUIRED', (e as Error).message, 409);

@@ -3,6 +3,7 @@ import { GoodsShop } from '@/components/commerce/GoodsShop';
 import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { GOODS, PLANS } from '@/lib/pricing';
+import { effectivePlan } from '@/lib/admin-access';
 import { identityOf, specFromIdentity } from '@/lib/packs';
 
 export const dynamic = 'force-dynamic';
@@ -38,13 +39,13 @@ export default async function GoodsPage() {
           <p className="mt-1 text-sub">
             제작·배송 일정은 주문 확인 후 안내
             <br />
-            현재 플랜 할인: <strong className="text-ink">{PLANS[user.plan].goodsDiscount}%</strong>
+            현재 플랜 할인: <strong className="text-ink">{PLANS[effectivePlan(user)].goodsDiscount}%</strong>
           </p>
         </div>
       </div>
 
       {data && data.length > 0 ? (
-        <GoodsShop frames={data} discount={PLANS[user.plan].goodsDiscount} />
+        <GoodsShop frames={data} discount={PLANS[effectivePlan(user)].goodsDiscount} />
       ) : (
         <div className="card grid min-h-[280px] place-items-center p-8 text-center">
           <div>
