@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { bypassesRateLimit } from '@/lib/admin-access';
 import { handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { analyzeConversation } from '@/lib/recommend/engine';
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'reply', RATE_LIMITS.reply);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
     const { text } = schema.parse(await req.json());
     const result = analyzeConversation(text);
 

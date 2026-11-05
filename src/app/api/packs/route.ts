@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { bypassesRateLimit, isUnlimited } from '@/lib/admin-access';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
@@ -17,10 +18,10 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'packs', RATE_LIMITS.packs);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
     const body = schema.parse(await req.json());
     if (body.comicExpressionIds && (body.comicExpressionIds.length !== body.size || new Set(body.comicExpressionIds).size !== body.size)) return fail('INVALID_COMIC_SELECTION', '코믹 표정을 컷 수만큼 중복 없이 선택해 주세요.', 422);
-    const pack = await createPack(user.id, body.sheetId, body.size, body.title, user.role === 'admin', body.comicExpressionIds);
+    const pack = await createPack(user.id, body.sheetId, body.size, body.title, isUnlimited(user), body.comicExpressionIds);
     void captureServer('pack_created', user.id, { size: pack.size, cost: pack.creditsSpent });
     return ok({ packId: pack.id, size: pack.size, cost: pack.creditsSpent });
   } catch (e) {

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isUnlimited } from '@/lib/admin-access';
 import { notFound } from 'next/navigation';
 import { SheetPicker } from '@/components/studio/SheetPicker';
 import { getCurrentUser } from '@/lib/session';
@@ -73,7 +74,7 @@ export default async function SheetPage({ params }: { params: Promise<{ id: stri
         palette={face.palette}
         tone={sheet.tone}
         credits={user.credits}
-        unlimited={user.role === 'admin'}
+        unlimited={isUnlimited(user)}
         alreadyChosen={sheet.chosenKey}
       />
 

@@ -5,7 +5,7 @@ import { paymentProvider, paymentsUnavailable } from '@/lib/payments';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { GOODS, PLANS } from '@/lib/pricing';
-import { effectivePlan } from '@/lib/admin-access';
+import { bypassesRateLimit, effectivePlan } from '@/lib/admin-access';
 import { withPaymentDB } from '@/lib/store';
 import { hasFirestore } from '@/lib/firestore';
 import { loadImage, newImageId, saveImage } from '@/lib/images';
@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     if (!user.isAuthenticated) return fail('LOGIN_REQUIRED', '굿즈 주문을 위해 로그인해 주세요.', 401);
     const limited = enforceRateLimit(user.id, 'goods', RATE_LIMITS.goods);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
     // 판매 운영·관리자 이행 도구와 결제 회귀 검증이 완료되기 전까지 절대 열지 않는다.
     if (!goodsFulfillmentReady() || paymentsUnavailable()) return fail('GOODS_UNAVAILABLE', '굿즈 주문은 아직 준비 중입니다.', 503);
     // 프로덕션에서 이미지가 인스턴스 임시 디스크에만 저장되는 설정은 금지한다.
@@ -38,7 +38,7 @@ export async function POST(req: Request) {
       const pack = db.packs.find((p) => p.userId === user.id && p.frames.some((f) => f.id === body.frameId));
       const frame = pack?.frames.find((f) => f.id === body.frameId);
       const account = db.users.find((u) => u.id === user.id);
-      return frame?.imageId && account ? { imageId: frame.imageId, label: frame.label, line: frame.line, discount: PLANS[effectivePlan(account)].goodsDiscount } : null;
+      return frame?.imageId && account ? { imageId: frame.imageId, label: frame.label, line: frame.line, discount: PLANS[effectivePlan(user)].goodsDiscount } : null;
     });
     if (!source) return fail('FRAME_NOT_FOUND', '완성된 내 컷을 선택해 주세요.', 404);
     const image = await loadImage(source.imageId);

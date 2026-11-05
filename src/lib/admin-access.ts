@@ -1,29 +1,42 @@
 // ─────────────────────────────────────────────────────────────
-// 관리자 접근 제어 (서버 전용 · 단일 소스)
-//  · 관리자 여부는 오직 운영자 코드(ADMIN_PASSCODE) 검증 세션(role === 'admin')으로만 결정한다.
-//  · 관리자에게는 크레딧 차감, 요청 제한, 플랜 게이트(스타일·워터마크·Daily Brief·카카오 패키징·굿즈 할인)를
-//    모두 열어 준다. 판정 로직을 한 곳에 모아 화면마다 규칙이 어긋나지 않게 한다.
+// 풀액세스(관리자 + 플레이 유료 앱) 접근 제어 (서버 전용 · 단일 소스)
+//  · 관리자: 운영자 코드(ADMIN_PASSCODE) 검증 세션(role === 'admin') — 운영 콘솔 포함
+//  · 플레이 사용자: 구글 플레이에서 구매한 유료 앱(TWA) 사용자 — 요청 UA 로 매 요청 결정.
+//    앱 안에서는 크레딧 차감·요청 제한·플랜 게이트(스타일·워터마크·Daily Brief·
+//    카카오 패키징·굿즈 할인)를 모두 열어 준다 (결제는 이미 플레이스토어에서 완료).
+//  · 관리자와 플레이는 "기능 풀액세스"에서 동일하지만 운영 콘솔(metrics/purge)은
+//    관리자 전용으로 분리한다.
 // ─────────────────────────────────────────────────────────────
 import { createHash, timingSafeEqual } from 'node:crypto';
 import { ADMIN_NICKNAME, ADMIN_PASSCODE_ENV } from '@/lib/admin-config';
 import { PLANS } from '@/lib/pricing';
 import type { Plan, User } from '@/lib/types';
 
-/** 관리자에게 허용되는 최고 플랜 (모든 기능 확인용) */
+/** 풀액세스 사용자에게 허용되는 최고 플랜 (모든 기능 확인용) */
 export const ADMIN_PLAN: Plan = 'STUDIO';
 
-type Viewer = Pick<User, 'role' | 'plan' | 'credits'>;
+export type Viewer = Pick<User, 'role' | 'plan' | 'credits' | 'play'>;
 
 export function isAdmin(viewer: Viewer | null | undefined): boolean {
   return viewer?.role === 'admin';
 }
 
-/** 표시용 플랜: 관리자는 최고 플랜으로 취급한다 (워터마크 제거·상업 라이선스·굿즈 할인 포함) */
-export function effectivePlan(viewer: Viewer | null | undefined): Plan {
-  return isAdmin(viewer) ? ADMIN_PLAN : (viewer?.plan ?? 'FREE');
+/** 구글 플레이 유료 앱(TWA) 사용자 */
+export function isPlayUser(viewer: Viewer | null | undefined): boolean {
+  return viewer?.play === true;
 }
 
-/** 관리자는 플랜 게이트를 통과한다 (스타일 수·Daily Brief·카카오 패키징 등) */
+/** 기능 풀액세스: 관리자 또는 플레이 유료 앱 사용자 */
+export function isFullAccess(viewer: Viewer | null | undefined): boolean {
+  return isAdmin(viewer) || isPlayUser(viewer);
+}
+
+/** 표시용 플랜: 풀액세스 사용자는 최고 플랜으로 취급 (워터마크 제거·상업 라이선스·굿즈 할인 포함) */
+export function effectivePlan(viewer: Viewer | null | undefined): Plan {
+  return isFullAccess(viewer) ? ADMIN_PLAN : (viewer?.plan ?? 'FREE');
+}
+
+/** 플랜 게이트 통과 (스타일 수·Daily Brief·카카오 패키징 등) */
 export function planAllows(viewer: Viewer | null | undefined, required: Plan): boolean {
   const order: Plan[] = ['FREE', 'PLUS', 'STUDIO'];
   return order.indexOf(effectivePlan(viewer)) >= order.indexOf(required);
@@ -31,12 +44,12 @@ export function planAllows(viewer: Viewer | null | undefined, required: Plan): b
 
 /** 크레딧을 쓰지 않는다 (팩 생성·다시 그리기 모두) */
 export function isUnlimited(viewer: Viewer | null | undefined): boolean {
-  return isAdmin(viewer);
+  return isFullAccess(viewer);
 }
 
 /** 요청 제한(Rate limit)을 적용하지 않는다 */
 export function bypassesRateLimit(viewer: Viewer | null | undefined): boolean {
-  return isAdmin(viewer);
+  return isFullAccess(viewer);
 }
 
 /** 워터마크 없는 내보내기 */
@@ -46,7 +59,9 @@ export function watermarkFor(viewer: Viewer | null | undefined): boolean {
 
 /** 화면에 보여줄 플랜 이름 */
 export function planLabel(viewer: Viewer | null | undefined): string {
-  return isAdmin(viewer) ? '관리자' : PLANS[effectivePlan(viewer)].name;
+  if (isAdmin(viewer)) return '관리자';
+  if (isPlayUser(viewer)) return 'PLAY';
+  return PLANS[effectivePlan(viewer)].name;
 }
 
 /** 표시용 잔액 문구 */

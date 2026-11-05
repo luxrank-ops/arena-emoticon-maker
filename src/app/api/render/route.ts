@@ -1,5 +1,6 @@
 ﻿import { ACCESSORIES } from '@/lib/accessories';
 import { createHash } from 'node:crypto';
+import { bypassesRateLimit, isUnlimited } from '@/lib/admin-access';
 import { preparedSchema } from '@/lib/ai/consistency';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
@@ -61,7 +62,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'generate', RATE_LIMITS.generate);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
 
     const body = schema.parse(await req.json());
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(body.photo);
@@ -105,7 +106,7 @@ export async function POST(req: Request) {
           accessoryIds: target.accessoryIds ?? frame.accessoryIds ?? [],
           chosenImageId,
           variantNote: undefined as string | undefined,
-          charged: !!target.force && user.role !== 'admin',
+          charged: !!target.force && !isUnlimited(user),
           previousImageId: frame.imageId as string | undefined,
         };
       }

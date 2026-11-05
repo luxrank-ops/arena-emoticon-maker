@@ -16,7 +16,7 @@ import { composePackTemplates } from '@/lib/recommend/engine';
 import { TEMPLATES_BY_ID } from '@/lib/recommend/templates';
 import { applyCredits, CreditError } from '@/lib/credits';
 import { logEvent, uid, withDB } from '@/lib/store';
-import { watermarkFor } from '@/lib/admin-access';
+import { watermarkFor, type Viewer } from '@/lib/admin-access';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { loadImage } from '@/lib/images';
@@ -267,7 +267,12 @@ export function isReady(pack: Pack, now = Date.now()) {
   return readyCount(pack, now) >= pack.frames.length;
 }
 
-export async function getPackView(userId: string, packId: string) {
+/**
+ * @param viewer 현재 요청의 사용자(getCurrentUser 결과)를 전달하면 워터마크 판정이
+ *        해당 사용자를 기준으로 한다 — TWA(플레이 유료 앱) 사용자의 임시 play 플래그가
+ *        DB 에 없어 호출하는 쪽이 viewer 를 전달해야 풀액세스가 적용된다. 전달 안 하면 DB 조회.
+ */
+export async function getPackView(userId: string, packId: string, viewer?: Viewer | null) {
   return withDB((db) => {
     const pack = db.packs.find((p) => p.id === packId && p.userId === userId);
     if (!pack) throw new PackError('PACK_NOT_FOUND', '팩을 찾을 수 없습니다');
@@ -288,7 +293,7 @@ export async function getPackView(userId: string, packId: string) {
       frames,
       ready,
       total: pack.frames.length,
-      watermark: watermarkFor(db.users.find((u) => u.id === userId) ?? null),
+      watermark: watermarkFor(viewer ?? (db.users.find((u) => u.id === userId) ?? null)),
     };
   });
 }

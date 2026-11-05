@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { bypassesRateLimit } from '@/lib/admin-access';
 import { validateAuthRequest } from '@/lib/auth-api';
 import { fail, handleError, ok } from '@/lib/api';
 import { paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
@@ -12,7 +13,7 @@ export async function POST(req: Request) {
     const forbidden = validateAuthRequest(req); if (forbidden) return forbidden;
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'confirm', RATE_LIMITS.confirm);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
     if (paymentsUnavailable()) return paymentsUnavailableResponse();
     const { orderId } = schema.parse(await req.json());
     const result = await withPaymentDB((db) => {

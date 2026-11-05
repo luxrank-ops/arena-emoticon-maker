@@ -66,7 +66,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       const tick = async () => {
         if (closed) return;
         try {
-          const view = await getPackView(user.id, id);
+          const view = await getPackView(user.id, id, user);
           if (view.ready !== lastReady) {
             lastReady = view.ready;
             if (!send('frame.ready', { ready: view.ready, total: view.total, status: view.pack.status })) return;
