@@ -78,6 +78,7 @@ export const RATE_LIMITS = {
   sheets: 20,
   packs: 10,
   checkout: 10,
+  quotePacks: 10,
   confirm: 10,
   goods: 10,
   brief: 40,

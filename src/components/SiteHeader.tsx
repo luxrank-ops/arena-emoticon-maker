@@ -23,6 +23,7 @@ export async function SiteHeader() {
         { href: '/studio/upload', label: '만들기' },
         { href: '/studio/packs', label: '내 팩' },
         { href: '/reply', label: '톡 답장' },
+        { href: '/quotes', label: '대사' },
         { href: '/brief', label: '오늘의 브리핑' },
         { href: '/goods', label: '굿즈' },
         { href: '/pricing', label: '요금제' },
