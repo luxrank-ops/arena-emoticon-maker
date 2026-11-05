@@ -6,6 +6,7 @@ import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { enforceRateLimit } from '@/lib/ratelimit';
 import { ConsistencyError, prepareWithFallback } from '@/lib/ai/consistency';
+import { consumePlayGeneration } from '@/lib/play-usage';
 
 export const runtime = 'nodejs';
 export const maxDuration = 60;
@@ -21,6 +22,7 @@ export async function POST(req: Request) {
     if (limited && !bypassesRateLimit(user)) return limited;
     const { photo, subjectKind } = schema.parse(await req.json());
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(photo)!;
+    const playUsage = await consumePlayGeneration(user);
     const { guidance, method } = await prepareWithFallback({ mimeType: match[1], base64: match[2] }, subjectKind);
     const now = Date.now();
     const token = randomBytes(32).toString('hex');
@@ -29,7 +31,7 @@ export async function POST(req: Request) {
       db.consistencyPreparations = db.consistencyPreparations.filter((item) => item.expiresAt > now);
       db.consistencyPreparations.push({ tokenHash: hash(token), userId: user.id, photoHash: hash(photo), subjectKind, features: guidance.features, expiresAt: now + 60 * 60_000 });
     });
-    return ok({ prepared: { token, createdAt: now, method } });
+    return ok({ prepared: { token, createdAt: now, method }, playUsage });
   } catch (e) {
     if (e instanceof ConsistencyError) return fail(e.code, e.message, e.code === 'PHOTO_NEEDS_REVIEW' ? 422 : 503);
     return handleError(e);

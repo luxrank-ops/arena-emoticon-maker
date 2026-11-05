@@ -17,7 +17,7 @@
   "maskableIconUrl": "https://emotihak.com/icons/icon-maskable-512.png",
   "splashScreenFadeOutDuration": 300,
   "signingKey": {
-    "path": "android-keystore.p12",
+    "path": "private/android-keystore.p12",
     "alias": "emotihak"
   },
   "appVersionName": "1",

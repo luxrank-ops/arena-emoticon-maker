@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/session';
+import { getPlayUsage, playDailyLimit } from '@/lib/play-usage';
 import { creditHistory } from '@/lib/credits';
 import { withDB } from '@/lib/store';
 import { PLANS, won } from '@/lib/pricing';
@@ -20,6 +21,7 @@ const REASON_LABEL: Record<string, string> = {
 
 export default async function BillingPage() {
   const user = await getCurrentUser();
+  const playUsage = await getPlayUsage(user);
   const [history, orders, packs] = await Promise.all([
     creditHistory(user.id, 12),
     withDB((db) => db.orders.filter((o) => o.userId === user.id).slice(-8).reverse()),
@@ -31,7 +33,7 @@ export default async function BillingPage() {
       <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="h2">크레딧 · 플랜</h1>
-          <p className="mt-1 text-sm text-sub">팩 생성은 컷당 1크레딧이며, AI로 다시 그릴 때도 1크레딧이 필요합니다. 관리자는 차감되지 않습니다.</p>
+          <p className="mt-1 text-sm text-sub">팩 생성은 컷당 1크레딧이며, AI로 다시 그릴 때도 1크레딧이 필요합니다. 플레이 앱은 크레딧 대신 일일 공정 이용 기준이 적용됩니다.</p>
         </div>
         <Link href="/pricing" className="btn-primary !px-4 !py-2 text-xs">플랜 변경</Link>
       </div>
@@ -45,7 +47,7 @@ export default async function BillingPage() {
           </p>
           <p className="mt-1 text-xs text-sub">
             {isPlayUser(user)
-              ? '구글 플레이 유료 앱 · 크레딧 차감 없음 · 모든 기능 이용'
+              ? `구글 플레이 유료 앱 · 크레딧 차감 없음 · 오늘 AI ${playUsage?.count ?? 0}/${playDailyLimit()}회`
               : isAdmin(user)
                 ? '관리자 계정 · 크레딧 차감 없음 · 모든 스타일 사용 가능'
                 : PLANS[effectivePlan(user)].price === 0
@@ -57,7 +59,7 @@ export default async function BillingPage() {
             <Link href="/studio/upload" className="btn-dark !py-2 text-xs">팩 만들기</Link>
           </div>
           <div className="mt-5 rounded-xl border border-line bg-cream p-3 text-[11px] leading-relaxed text-sub">
-            최근 크레딧 사용 내역을 이 페이지에서 확인할 수 있어요.
+            {playUsage ? `AI 생성은 사진 준비·시안·컷·다시 그리기 시도 기준으로 하루 ${playDailyLimit()}회까지 제공하며, 한국 시간 자정에 초기화됩니다. 크레딧은 차감되지 않습니다.` : '최근 크레딧 사용 내역을 이 페이지에서 확인할 수 있어요.'}
           </div>
         </div>
 
@@ -131,6 +133,13 @@ export default async function BillingPage() {
           )}
         </div>
       </div>
+
+      {user.isAuthenticated && user.role !== 'admin' ? (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line p-4 text-xs text-sub">
+          <span>계정과 연관 데이터를 직접 삭제하거나 외부 삭제 경로를 확인할 수 있습니다.</span>
+          <Link href="/account-deletion" className="font-black text-coralink underline">계정 및 데이터 삭제 →</Link>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -115,7 +115,7 @@ export interface User {
   plan: Plan;
   credits: number;
   role: 'user' | 'admin';
-  /** 구글 플레이에서 구매한 유료 앱(TWA) 사용자 — 모든 기능 무제한 */
+  /** TWA 환경 신호. 구매 증명이 아니며 크레딧 무차감과 일일 AI 공정 이용이 적용된다 */
   play?: boolean;
   createdAt: string;
   lastGrantAt: string;
@@ -195,6 +195,8 @@ export interface Frame {
   accessoryIds?: string[];
   /** AI 생성 이미지 ID (`/api/images/<id>`) */
   imageId?: string;
+  /** 운영 검토 후 숨긴 콘텐츠 — 다시 생성하거나 이미지를 제공하지 않는다 */
+  hiddenAt?: string;
 }
 
 export interface FrameView extends Frame {
@@ -266,16 +268,50 @@ export interface Order {
   paidAt?: string;
   consentAt?: string;
   paymentKey?: string;
+  /** 회원 정보와 생성물은 삭제하고 법정 결제 기록만 남긴 시각 */
+  accountDeletedAt?: string;
 }
 
 export interface GoodsOrder extends Order {
   frameId: string;
   frameThumb: string;
-  shipping: { name: string; phone: string; address: string; memo?: string };
+  /** 계정 삭제 시 제거. 법정 보존이 필요한 주문은 배송·연락처 없이 금액 기록만 남긴다. */
+  shipping?: { name: string; phone: string; address: string; memo?: string };
   goodsStatus: 'PENDING_PAYMENT' | 'AWAITING_FULFILLMENT' | 'PRODUCING' | 'SHIPPED' | 'DELIVERED' | 'CANCELLED';
   productImageId?: string;
   trackingCompany?: string;
   trackingNumber?: string;
+}
+
+export type ContentReportReason = 'SEXUAL' | 'HATE_HARASSMENT' | 'VIOLENCE' | 'MINOR_SAFETY' | 'PRIVACY' | 'DECEPTIVE' | 'OTHER';
+export interface ContentReport {
+  id: string;
+  userId: string;
+  packId: string;
+  frameId: string;
+  reason: ContentReportReason;
+  details?: string;
+  status: 'OPEN' | 'REVIEWED' | 'DISMISSED' | 'ACTIONED';
+  createdAt: string;
+  reviewedAt?: string;
+  resolutionNote?: string;
+}
+
+export interface ImageDeletionJob {
+  id: string;
+  userId: string;
+  imageIds: string[];
+  reason: 'ACCOUNT_DELETION' | 'MODERATION';
+  createdAt: string;
+}
+
+/** 유료 앱의 일일 AI 원가 상한. 크레딧 무차감과는 별개의 공정 이용 기준이다. */
+export interface PlayUsage {
+  id: string;
+  userId: string;
+  date: string;
+  count: number;
+  updatedAt: string;
 }
 
 export interface BriefItem {
@@ -309,6 +345,9 @@ export interface UsageEvent {
     | 'generate'
     | 'export'
     | 'order_paid'
+    | 'content_reported'
+    | 'content_moderated'
+    | 'account_deleted'
     | 'error';
   meta: Record<string, string | number | boolean>;
   createdAt: string;

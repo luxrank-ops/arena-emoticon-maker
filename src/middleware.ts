@@ -13,9 +13,9 @@ export function middleware(req: NextRequest) {
     const cookie = requestHeaders.get('cookie');
     requestHeaders.set('cookie', `${SID_COOKIE}=${sid}${cookie ? `; ${cookie}` : ''}`);
   }
-  // 구글 플레이 유료 앱(TWA) 감지 → 정규화 헤더. 세션 해석(getCurrentUser)이
-  // 이 헤더를 보고 사용자에 play 플래그(모든 기능 무제한)를 부여한다.
-  // (UA 위조 여부는 docs/PLAY-STORE.md "안전성" 섹션 참조)
+  // TWA 환경 신호를 정규화 헤더로 전달한다. UA는 구매 증명이 아니며,
+  // 세션 해석은 크레딧 무차감 플래그만 부여하고 속도·AI 공정 이용 제한은 유지한다.
+  // 실제 유료 앱 권한 검증은 Play 라이선스 확인이 별도로 필요하다.
   if (uaIsTWA(req.headers.get('user-agent') ?? '')) {
     requestHeaders.set(PLAY_HEADER, '1');
   }

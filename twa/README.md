@@ -1,55 +1,59 @@
 # 이모티학 TWA (Trusted Web Activity)
 
-`emotihak.com` 을 감싸는 안드로이드 앱(Bubblewrap TWA) 프로젝트.
-**유료 앱** 모델: Play 에서 앱 구매(일회성) → 앱(TWA) 안에서는 모든 기능 무제한
-(서버가 TWA UA 로 감지 — `src/middleware.ts` → `x-emotihak-play` 헤더 → `user.play`).
+`emotihak.com`을 감싸는 Bubblewrap Android 프로젝트(`com.emotihak.app`). 선택한 가격 모델은 **일회성 유료 다운로드**입니다. 앱에서는 크레딧을 차감하지 않지만 속도 제한과 KST 일일 AI 공정 이용 한도가 적용됩니다.
 
-## 서명 키
+> **권한 검증 주의:** `TWA/` User-Agent는 클라이언트가 위조할 수 있는 환경 신호이며 Play 구매 증명이 아닙니다. 현재 코드는 크레딧 무차감 혜택에 이 신호를 사용하므로, 실제 유료 출시 전에는 Play 라이선스 검증과 환불 후 접근 회수를 별도로 구현해야 합니다. 공정 이용 한도는 원가 완화 장치이지 구매 검증이 아닙니다.
 
-| 파일 | 용도 | git |
+## 서명 키 — Git에 저장하지 않음
+
+| 위치 | 용도 | Git |
 |---|---|---|
-| `android-keystore.p12` | **업로드 키** — AAB 빌드 서명 | ✅ 저장소에 보관 (비공개 저장소)|
-| `backup-keystore.p12` | **백업 키** — 업로드 키 유실 시 재발급용 | ⛔ **git 제외** — 반드시 본인 저장소(구글 드라이브 등)에 별도 보관 |
+| `twa/private/android-keystore.p12` | AAB 업로드 키 | ⛔ 제외 |
+| `twa/private/android-keystore-password.txt` | 키 비밀번호 | ⛔ 제외 |
+| `twa/private/android-keystore-cert.pem` | 공개 인증서·지문 확인 | ⛔ 제외(공개 지문만 Asset Links에 등록) |
 
-- 업로드 키: alias `emotihak` · RSA 4096 · 만료 2051-10 (25년)
-- 백업 키: alias `emotihak-backup` · 별도 비밀번호
-- 비밀번호는 `keystore-passwords.txt` (git 제외) 또는 이 세션 대화 기록 참고 — **절대 저장소에 커밋 금지**
+과거 추적됐던 업로드 키는 폐기하고 새 키로 교체했습니다. Git 이력에 남은 이전 키는 사용하지 마세요. 새 개인 키와 비밀번호는 비밀 관리자와 오프라인 백업에 보관하고, 백업의 복원 가능 여부를 확인하세요.
 
-## AAB 빌드 (사용자 로컬 — JDK 17 + Android SDK 필요)
-
-샌드박스에서는 Android SDK 다운로드(dl.google.com)가 차단되어 빌드 불가 →
-본인 머신에서 아래 명령만:
+새 키 생성 또는 기존 무시된 키 재사용:
 
 ```bash
-# 1) bubblewrap 설치 (JDK 17 이 없으면 prompt 로 자동 설치 제안)
-npm i -g @bubblewrap/cli
+# 최초 1회. 기존에 교체할 업로드 지문이 있으면 명시한다.
+node scripts/prepare-play-signing.mjs --replace-upload "OLD:SHA256:..."
 
-# 2) 이 저장소 twa/ 로 이동해 빌드
+# 이후에는 키를 교체하지 않고 공개 설정만 다시 동기화한다.
+node scripts/prepare-play-signing.mjs
+```
+
+이 스크립트는 OpenSSL로 RSA 4096 업로드 키를 만들고, 무작위 비밀번호를 `twa/private/`에만 저장하며, `twa-manifest.json`과 Asset Links의 업로드 지문을 갱신합니다. 비밀번호를 출력하거나 AAB를 생성하지 않습니다. `--force`는 기존 업로드 키를 무시된 로컬 회전 폴터에 옮기고 새 키를 만들므로, Play Console의 업로드 키 재설정 절차 없이 실행하면 안 됩니다.
+
+## AAB 빌드 (JDK 17 + Android SDK 필요)
+
+```bash
+npm i -g @bubblewrap/cli
 cd twa
 bubblewrap build --aab
-
-# 산출물: dist/EmotiHak.twa.app-1.aab
 ```
 
-- `twa-manifest.json` 의 `signingKey` 가 `android-keystore.p12` / alias `emotihak` 을 가리킨다.
-  빌드 시 저장소/키 비밀번호를 입력하라고 프롬프트한다.
-- 타겟 SDK 36 (최신) · 최소 SDK 24 · Gradle 8.11.1.
-- 플레이스토어 **앱 무결성** 요구가 있으면 콘솔 안내에 따라 `twa-manifest.json` 조정 가능.
+- `twa-manifest.json`은 `private/android-keystore.p12`, alias `emotihak`을 가리킵니다.
+- 빌드 시 비밀번호를 안전하게 입력합니다. CI나 명령행 인자에 비밀번호를 남기지 마세요.
+- target/compile SDK 36, min SDK 24, version 1입니다.
+- AAB 생성·서명과 실제 기기 설치는 별도 검증 단계이며, 저장소의 정적 검사만으로 대체할 수 없습니다.
 
-## Digital Asset Links (도메인 검증)
+## Digital Asset Links
 
-- `public/.well-known/assetlinks.json` — 업로드 키 SHA-256 지문 **기입 완료** ✅
-  (이 파일은 웹에 배포되어야 유효 → main 머지 후 https://emotihak.com/.well-known/assetlinks.json 확인)
-- ⚠️ **Play 앱 서명(Play App Signing) 사용 시** — 신규 앱은 자동 가입되며, 설치된 앱의 실제 서명 인증서는
-  **Play 서명 키**이다. 첫 AAB 업로드 후 콘솔 `앱 무결성 → 앱 서명` 에서 Play 서명 키의 SHA-256 지문을 확인해
-  아래로 assetlinks.json 에 **추가**하고 재배포한다 (두 지문 모두 유효):
+`public/.well-known/assetlinks.json`에는 새 업로드 인증서 지문이 등록돼 있습니다. 이 파일은 웹에 배포된 후에야 도메인 연결이 갱신됩니다.
+
+Play App Signing을 사용하면 설치된 앱은 업로드 키가 아닌 **Play 앱 서명 인증서**로 서명됩니다. 첫 AAB 업로드 후 Console의 `앱 무결성 → 앱 서명`에서 SHA-256 지문을 확인하고 기존 지문을 지우지 말고 추가하세요.
 
 ```bash
-node scripts/update-assetlinks.mjs "AA:BB:CC:..."   # 새 지문을 배열에 추가
+node scripts/update-assetlinks.mjs "AA:BB:CC:..."
+# 커밋·배포 후 https://emotihak.com/.well-known/assetlinks.json 확인
 ```
 
-## 재생성 (템플릿 갱신 등)
+## 템플릿 재생성
 
 ```bash
-node scripts/generate-twa.mjs   # public/manifest.webmanifest + 로컬 아이콘 기반, JDK 불필요
+node scripts/generate-twa.mjs
 ```
+
+`public/manifest.webmanifest`와 로컬 아이콘을 사용하며 JDK 없이 프로젝트 템플릿을 생성합니다. 개인 키가 없으면 중단합니다.

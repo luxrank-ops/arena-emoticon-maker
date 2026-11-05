@@ -46,3 +46,10 @@ reports/
 .cloudflare/
 
 .wrangler/
+
+# Android signing secrets (public certificate fingerprints belong in Asset Links)
+twa/private/
+*.p12
+*.jks
+*.keystore
+keystore-passwords.txt

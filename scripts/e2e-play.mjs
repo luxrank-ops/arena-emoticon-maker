@@ -1,5 +1,5 @@
 // 유료 앱(TWA) 풀액세스 E2E — 로컬 dev 서버 대상
-//  · TWA 세션: watercolor/24컷/워터마크 제거/카카오 패키징/브리핑 해제/무제한/409
+//  · TWA 세션: watercolor/24컷/워터마크 제거/카카오 패키징/브리핑 해제/크레딧 무차감/409
 //  · 웹 세션:  watercolor 402 / 24컷 402 / 12컷 차감 (기존 동작 유지)
 import { readFileSync } from 'node:fs';
 
@@ -83,7 +83,7 @@ const sLine = await makeSheet(twa, faceId, '2d-cute');
 check('2d-cute 시트 200', sLine.status === 200, `got ${sLine.status}`);
 
 const pack24 = await twa.req('/api/packs', { method: 'POST', body: JSON.stringify({ sheetId: sWater.json.sheet.id, size: 24 }) });
-check('24컷 팩 200 (무제한)', pack24.status === 200, `got ${pack24.status} ${pack24.text.slice(0, 150)}`);
+check('24컷 팩 200 (크레딧 무차감)', pack24.status === 200, `got ${pack24.status} ${pack24.text.slice(0, 150)}`);
 check('크레딧 차감 0', pack24.json?.cost === 0, `got ${pack24.json?.cost}`);
 const packId = pack24.json?.packId;
 
@@ -98,7 +98,7 @@ const brief = await twa.req('/api/brief');
 check('Daily Brief 잠금 해제', brief.status === 200 && brief.json?.locked === false, `status ${brief.status} locked=${brief.json?.locked}`);
 
 const billing = await twa.req('/billing');
-check('billing에 "무제한" 표시', billing.text.includes('무제한'), `status ${billing.status}`);
+check('billing에 크레딧 차감 없음·공정 이용 표시', billing.text.includes('차감 없음') && billing.text.includes('공정 이용'), `status ${billing.status}`);
 check('billing에 "구글 플레이 유료 앱" 표시', billing.text.includes('구글 플레이 유료 앱'));
 
 const pricing = await twa.req('/pricing');
@@ -126,7 +126,7 @@ const w24 = await web.req('/api/packs', { method: 'POST', body: JSON.stringify({
 check('24컷 팩 402 (크레딧 부족)', w24.status === 402, `got ${w24.status}`);
 
 const wBilling = await web.req('/billing');
-check('웹 billing: 무제한 아닌 잔액 표시', !wBilling.text.includes('구글 플레이 유료 앱'));
+check('웹 billing: 플레이 혜택이 아닌 잔액 표시', !wBilling.text.includes('구글 플레이 유료 앱'));
 
 const wPricing = await web.req('/pricing');
 check('웹 pricing: 크레딧 충전 섹션 존재', wPricing.text.includes('크레딧만 충전하기'));

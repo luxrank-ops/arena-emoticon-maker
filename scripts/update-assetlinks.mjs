@@ -17,7 +17,7 @@ if (!fingerprintArg) {
 }
 
 const normalized = fingerprintArg.trim().toUpperCase().replace(/[^0-9A-F]/g, '').match(/.{2}/g)?.join(':');
-if (!normalized || normalized.length !== 94) {
+if (!normalized || normalized.length !== 95) {
   console.error('오류: SHA-256 지문 형식이 아닙니다 (64자리 16진수, 콜론 구분).');
   process.exit(1);
 }

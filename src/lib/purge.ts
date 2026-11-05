@@ -1,4 +1,6 @@
 import { logEvent, withDB } from '@/lib/store';
+import { processImageDeletionJobs } from '@/lib/deletion';
+import { kstDateKey } from '@/lib/time';
 
 // ─────────────────────────────────────────────────────────────
 // 얼굴 파기 스케줄러 (파기 예약 시각 도달분 삭제)
@@ -16,6 +18,7 @@ export interface PurgeResult {
   /** 파기 예약 시각이 아직 남아있는 건수 */
   remaining: number;
   ranAt: string;
+  imageDeletion?: Awaited<ReturnType<typeof processImageDeletionJobs>>;
 }
 
 /** 파기 예약 시각이 지난 얼굴 프로필을 삭제한다. dryRun 이면 개수만 센다. */
@@ -23,12 +26,18 @@ export async function purgeExpiredFaces(
   now = Date.now(),
   opts: { dryRun?: boolean; force?: boolean } = {},
 ): Promise<PurgeResult & { dryRun: boolean }> {
-  return withDB((db) => {
+  const result: PurgeResult & { dryRun: boolean } = await withDB((db) => {
     const due = db.faces.filter(
       (f) => opts.force || new Date(f.purgedAt).getTime() <= now,
     );
     const ranAt = new Date(now).toISOString();
-    if (!opts.dryRun) db.consistencyPreparations = db.consistencyPreparations.filter((entry) => entry.expiresAt > now);
+    if (!opts.dryRun) {
+      db.consistencyPreparations = db.consistencyPreparations.filter((entry) => entry.expiresAt > now);
+      const reportCutoff = now - 90 * 86400_000;
+      db.contentReports = db.contentReports.filter((report) => report.status === 'OPEN' || !report.reviewedAt || new Date(report.reviewedAt).getTime() >= reportCutoff);
+      const usageCutoff = kstDateKey(now - 35 * 86400_000);
+      db.playUsage = db.playUsage.filter((usage) => usage.date >= usageCutoff);
+    }
 
     if (opts.dryRun || due.length === 0) {
       if (!opts.dryRun && opts.force) {
@@ -61,6 +70,8 @@ export async function purgeExpiredFaces(
       dryRun: false,
     };
   });
+  if (!opts.dryRun) result.imageDeletion = await processImageDeletionJobs();
+  return result;
 }
 
 // ── 기회적 스윕 (별도 크론이 없어도 정책이 지켜지도록) ─────────
