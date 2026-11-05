@@ -1,0 +1,89 @@
+name: Payment readiness
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: payment-readiness-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      - run: npm ci --no-audit --no-fund
+      - name: Reconciliation and preflight unit checks
+        run: npm run test:payments
+      - name: Start isolated stubbed checkout server
+        env:
+          CHECKOUT_TEST_STUB: '1'
+          NODE_OPTIONS: --require ./scripts/toss-test-stub.cjs
+          PAYMENT_PROVIDER: toss
+          NEXT_PUBLIC_TOSS_CLIENT_KEY: test_ck_dummy
+          TOSS_SECRET_KEY: test_sk_dummy
+          STORE_BACKEND: file
+          DATA_DIR: /tmp/emotime-checkout-ci
+          RATE_LIMIT_DISABLED: '1'
+          ADMIN_PASSCODE: checkout-admin
+          DEMO_MODE: '1'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          rm -rf /tmp/emotime-checkout-ci
+          rm -f /tmp/emotime-toss-test-log /tmp/emotime-toss-test-state.json /tmp/emotime-checkout-suspension.json
+          npm run dev > checkout-server.log 2>&1 &
+          echo $! > /tmp/emotime-checkout-server.pid
+          for i in $(seq 1 45); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then echo "checkout test server up"; exit 0; fi
+            sleep 2
+          done
+          echo "checkout test server did not start"
+          cat checkout-server.log
+          exit 1
+      - name: Checkout integration and recovery checks
+        env:
+          CHECKOUT_TEST_BASE_URL: http://127.0.0.1:3000
+          CHECKOUT_TEST_STUB: '1'
+        run: npm run test:checkout
+      - name: Verify emergency suspension after restart
+        env:
+          CHECKOUT_TEST_STUB: '1'
+          CHECKOUT_TEST_BASE_URL: http://127.0.0.1:3000
+          NODE_OPTIONS: --require ./scripts/toss-test-stub.cjs
+          PAYMENT_PROVIDER: toss
+          PAYMENT_CHECKOUT_DISABLED: '1'
+          NEXT_PUBLIC_TOSS_CLIENT_KEY: test_ck_dummy
+          TOSS_SECRET_KEY: test_sk_dummy
+          STORE_BACKEND: file
+          DATA_DIR: /tmp/emotime-checkout-ci
+          RATE_LIMIT_DISABLED: '1'
+          ADMIN_PASSCODE: checkout-admin
+          DEMO_MODE: '1'
+          NEXT_TELEMETRY_DISABLED: '1'
+        run: |
+          if [ -f /tmp/emotime-checkout-server.pid ]; then kill "$(cat /tmp/emotime-checkout-server.pid)" 2>/dev/null || true; fi
+          pkill -TERM -f '[n]ext dev -H 0.0.0.0 -p 3000' 2>/dev/null || true
+          sleep 2
+          npm run dev > checkout-suspended-server.log 2>&1 &
+          SERVER_PID=$!
+          trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 45); do
+            if curl -sf http://localhost:3000/api/health > /dev/null; then break; fi
+            sleep 2
+          done
+          npm run test:checkout:suspended
+      - name: Checkout server log on failure
+        if: failure()
+        run: |
+          for file in checkout-server.log checkout-suspended-server.log; do
+            if [ -f "$file" ]; then echo "--- $file"; tail -120 "$file"; fi
+          done

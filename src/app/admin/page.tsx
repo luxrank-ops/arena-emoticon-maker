@@ -5,6 +5,8 @@ import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { won } from '@/lib/pricing';
 import { purgeStats } from '@/lib/purge';
+import { paymentReviewItems } from '@/lib/payment-review';
+import { AdminPaymentReview } from '@/components/payments/AdminPaymentReview';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +42,7 @@ export default async function AdminPage() {
       goods: paid.filter((o) => o.kind === 'goods').reduce((s, o) => s + o.amount, 0),
       creditsIssued,
       creditsSpent,
+      paymentReview: paymentReviewItems(db).slice(0, 20),
       errors: db.events.filter((e) => e.type === 'error').length,
       recent: db.orders.slice(-6).reverse(),
       topFrames: db.packs
@@ -109,6 +112,8 @@ export default async function AdminPage() {
               <li>· 오류 이벤트: {m.errors}건</li>
             </ul>
           </div>
+
+          <AdminPaymentReview items={m.paymentReview} />
 
           <PurgePanel stats={purge} />
 

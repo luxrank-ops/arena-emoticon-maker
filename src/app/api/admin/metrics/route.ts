@@ -2,6 +2,7 @@ import { handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { PLANS } from '@/lib/pricing';
+import { paymentReviewItems } from '@/lib/payment-review';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,6 +34,8 @@ export async function GET() {
         .slice(0, 5)
         .map((f) => ({ label: f.label, line: f.line, usage: f.usageCount }));
 
+      const paymentReview = paymentReviewItems(db);
+
       return {
         users: db.users.length,
         plans: planCount,
@@ -47,6 +50,8 @@ export async function GET() {
         errors,
         recentOrders,
         topFrames,
+        paymentReviewCount: paymentReview.length,
+        paymentReview: paymentReview.slice(0, 20),
         arpu: db.users.length ? Math.round(revenue / db.users.length) : 0,
         planPrice: { PLUS: PLANS.PLUS.price, STUDIO: PLANS.STUDIO.price },
       };

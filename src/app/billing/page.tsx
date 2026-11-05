@@ -5,6 +5,7 @@ import { withDB } from '@/lib/store';
 import { PLANS, won } from '@/lib/pricing';
 import { creditsLabel, effectivePlan, isAdmin, isFullAccess, isPlayUser, planLabel } from '@/lib/admin-access';
 import { formatKstDate, formatKstDateTime } from '@/lib/time';
+import { PaymentOrderAction } from '@/components/payments/PaymentOrderAction';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,6 +98,8 @@ export default async function BillingPage() {
                     <p className="text-[10px] text-sub">
                       {formatKstDate(o.createdAt)} · {o.status}
                     </p>
+                    <p className="break-all text-[10px] text-sub">주문번호 {o.id}</p>
+                    {o.status === 'PENDING' ? <PaymentOrderAction orderId={o.id} hasPaymentKey={Boolean(o.paymentKey)} /> : null}
                   </div>
                   <span className="text-sm font-black">{won(o.amount)}원</span>
                 </li>

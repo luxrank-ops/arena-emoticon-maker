@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { bypassesRateLimit } from '@/lib/admin-access';
 import { validateAuthRequest } from '@/lib/auth-api';
 import { z } from 'zod';
-import { paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
+import { checkoutSuspended, checkoutSuspendedResponse, paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
 import { uaIsTWA } from '@/lib/twa';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
@@ -21,6 +21,7 @@ export async function POST(req: Request) {
     const limited = enforceRateLimit(user.id, 'checkout', RATE_LIMITS.checkout);
     if (limited && !bypassesRateLimit(user)) return limited;
     if (paymentsUnavailable()) return paymentsUnavailableResponse();
+    if (checkoutSuspended()) return checkoutSuspendedResponse();
     const { sku } = schema.parse(await req.json());
     const item = SKUS[sku];
     if (!item) return fail('SKU_NOT_FOUND', '존재하지 않는 상품입니다');
