@@ -226,15 +226,18 @@ export function FrameEditor({
           <label className="text-sm font-black" htmlFor="line">
             대사
           </label>
-          <input
-            id="line"
-            value={frame.line}
-            maxLength={34}
-            onChange={(e) => setFrame({ ...frame, line: e.target.value })}
-            onBlur={() => patch({ line: frame.line })}
-            placeholder="짧을수록 잘 읽혀요 (예: ㅇㅋ)"
-            className="mt-2 w-full rounded-xl border-2 border-line bg-cream px-4 py-3 text-base font-bold outline-none focus:border-ink"
-          />
+          <div className="relative mt-2">
+            <input
+              id="line"
+              value={frame.line}
+              maxLength={34}
+              onChange={(e) => setFrame({ ...frame, line: e.target.value })}
+              onBlur={() => patch({ line: frame.line })}
+              placeholder="짧을수록 잘 읽혀요 (예: ㅇㅋ)"
+              className="w-full rounded-xl border-2 border-line bg-cream px-4 py-3 pr-14 text-base font-bold outline-none focus:border-ink"
+            />
+            {frame.line ? <button type="button" aria-label="대사 전체 지우기" title="대사 전체 지우기" onMouseDown={(event) => event.preventDefault()} onClick={() => void patch({ line: '' })} className="absolute right-0.5 top-1/2 grid h-12 w-12 -translate-y-1/2 place-items-center rounded-full text-xl font-black text-sub hover:bg-paper hover:text-ink">×</button> : null}
+          </div>
           <div className="mt-2 flex flex-wrap gap-1.5">
             {QUICK_LINES.map((l) => (
               <button

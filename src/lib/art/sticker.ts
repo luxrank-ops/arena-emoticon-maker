@@ -67,6 +67,8 @@ export const PROPS: { key: PropKey; label: string }[] = [
 
 const INK = '#191512';
 const FONT = "'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif";
+// UI와 분리된 콘텐츠 레터링. 플랫폼의 둥근 굵은 서체를 우선하고 한국어는 시스템 고딕으로 대체한다.
+const CAPTION_FONT = "'Arial Rounded MT Bold', 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif";
 
 export const DEFAULT_PALETTE: Palette = {
   skin: '#F6D3B3',
@@ -837,13 +839,15 @@ function renderLine(spec: StickerSpec, t: ToneStyle) {
     ? `<path d="${sparklePath(x + 30, y + 20, 9)}" fill="${style.accent}" stroke="${t.ink}" stroke-width="2"/><path d="${sparklePath(x + bandW - 30, y + h - 20, 8)}" fill="${style.accent}" stroke="${t.ink}" stroke-width="2"/>`
     : '';
 
-  const fontFamily = spec.tone === 'pixel-art' ? "'Courier New', monospace" : FONT;
+  const fontFamily = spec.tone === 'pixel-art' ? "'Courier New', monospace" : CAPTION_FONT;
   const attrs = `x="512" y="${baseline}" text-anchor="middle" font-family="${fontFamily}" font-size="${fittedSize}" font-weight="900" letter-spacing="${spec.tone === 'pixel-art' ? 0 : -0.7}"${lenAttr}`;
   const outline = Math.max(2.5, Math.min(8, fittedSize * 0.13));
   const backText = style.extrude
     ? `<text ${attrs} transform="translate(4 5)" fill="${style.accent}" stroke="${t.ink}" stroke-width="${outline + 2}" stroke-linejoin="round" paint-order="stroke fill">${escapeXml(text)}</text>`
     : '';
-  const frontText = `<text ${attrs} fill="${style.textFill}"${style.extrude ? ` stroke="${t.ink}" stroke-width="${outline}" stroke-linejoin="round" paint-order="stroke fill"` : ''}>${escapeXml(text)}</text>`;
+  const frontStroke = style.textFill === '#FFFDFA' ? t.ink : '#FFFDFA';
+  const frontStrokeWidth = style.extrude ? outline : Math.max(1.5, outline * 0.45);
+  const frontText = `<text ${attrs} fill="${style.textFill}" stroke="${frontStroke}" stroke-width="${frontStrokeWidth}" stroke-linejoin="round" paint-order="stroke fill">${escapeXml(text)}</text>`;
   return `<g data-caption-effect="${style.shape}" transform="rotate(${style.angle.toFixed(2)} 512 ${cy})">${backdrop}${underline}${sparkles}${backText}${frontText}</g>`;
 }
 

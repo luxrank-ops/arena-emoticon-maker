@@ -11,7 +11,7 @@ export async function SiteHeader() {
   const locale = await getLocale();
   const planName = planLabel(user);
   const rawCredits = creditsLabel(user);
-  const credits = locale === 'en' && rawCredits === '무제한' ? 'Unlimited' : locale === 'en' && rawCredits === '차감 없음' ? 'No deduction' : rawCredits;
+  const credits = user.role === 'admin' ? '∞' : locale === 'en' && rawCredits === '무제한' ? 'Unlimited' : locale === 'en' && rawCredits === '차감 없음' ? 'No deduction' : rawCredits;
   const lp = (href: string) => localizedPath(locale, href);
   const nav = locale === 'en'
     ? [
@@ -44,11 +44,12 @@ export async function SiteHeader() {
           <Link
             href={lp(locale === 'en' ? '/studio/packs' : '/billing')}
             className="chip h-10 min-w-0 w-full justify-center whitespace-nowrap border-2 !px-2 hover:border-ink"
-            title={tr(locale, '크레딧 · 플랜', 'Credits · Plan')}
+            title={user.role === 'admin' ? tr(locale, '관리자 · 크레딧 무제한', 'Admin · Unlimited credits') : tr(locale, '크레딧 · 플랜', 'Credits · Plan')}
+            aria-label={user.role === 'admin' ? tr(locale, '관리자 · 크레딧 무제한', 'Admin · Unlimited credits') : tr(locale, '크레딧 · 플랜', 'Credits · Plan')}
           >
             <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{planName}</span>
             <span className="h-3 w-px shrink-0 bg-line" />
-            <span className="whitespace-nowrap text-[10px] sm:text-xs">⚡ {credits}</span>
+            <span className={`whitespace-nowrap text-[10px] sm:text-xs ${user.role === 'admin' ? 'rounded-full bg-gradient-to-r from-lilac/20 to-sky/30 px-1.5 py-0.5 font-black text-ink' : ''}`}>⚡ {credits}</span>
           </Link>
           {user.isAuthenticated ? (
             <div className="flex h-10 min-w-0 items-center justify-center gap-1 rounded-full border-2 border-line bg-paper px-1 sm:gap-2 sm:px-2">
