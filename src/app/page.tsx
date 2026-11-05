@@ -70,8 +70,8 @@ export default async function LandingPage() {
         <span className="chip !bg-lemon/40 !text-ink">처음이신가요?</span>
         <h2 id="how-title" className="h2 mt-3">이렇게 만들어요</h2>
         <p className="mt-2 text-sm leading-relaxed text-sub">한 단계씩 선택하면 돼요. 그림을 직접 그리지 않아도 됩니다.</p>
-        <ol className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {steps.map((step) => <li key={step.number} className="card p-5"><span className="text-sm font-black text-coralink">STEP {step.number}</span><h3 className="mt-2 text-lg font-black">{step.title}</h3><p className="mt-2 text-sm leading-relaxed text-sub">{step.text}</p></li>)}
+        <ol className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
+          {steps.map((step) => <li key={step.number} className="card h-full p-4 sm:p-5"><span className="text-xs font-black text-coralink sm:text-sm">STEP {step.number}</span><h3 className="mt-2 text-base font-black sm:text-lg">{step.title}</h3><p className="mt-2 text-xs leading-relaxed text-sub sm:text-sm">{step.text}</p></li>)}
         </ol>
         <Link href="/studio/upload" className="btn-dark mt-6">사진 선택하기 →</Link>
       </section>
