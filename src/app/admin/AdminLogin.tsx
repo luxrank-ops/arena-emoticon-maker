@@ -50,7 +50,7 @@ export function AdminLogin({
 
   return (
     <div className="card mx-auto w-full max-w-sm p-6">
-      <p className="pr-12 text-sm font-black">운영자 로그인</p>
+      <p className="pr-12 text-sm font-bold">운영자 로그인</p>
       {disabled ? (
         <p className="mt-1 rounded-lg border border-coral/40 bg-coral/10 px-2 py-1.5 text-[11px] font-bold text-coralink">
           운영자 코드(ADMIN_PASSCODE)가 설정되지 않아 로그인이 차단되었습니다.
@@ -61,7 +61,7 @@ export function AdminLogin({
         value={code}
         onChange={(e) => updateCode(e.target.value)}
         onKeyDown={(e) => { if (e.key === 'Enter') void submit(); }}
-        className="mt-3 min-h-12 w-full rounded-xl border-2 border-line bg-cream px-3 py-2.5 text-center text-lg tracking-[0.35em] outline-none focus:border-ink"
+        className="mt-3 min-h-12 w-full rounded-xl border border-line bg-cream px-3 py-2.5 text-center text-lg tracking-[0.35em] outline-none focus:border-primary"
         placeholder={pinPad ? '••••' : '운영자 코드'}
         aria-label={pinPad ? '4자리 운영자 PIN' : '운영자 코드'}
         inputMode={pinPad ? 'numeric' : undefined}
@@ -75,10 +75,10 @@ export function AdminLogin({
       </p>
       {pinPad ? (
         <div className="mt-4 grid grid-cols-3 gap-2" role="group" aria-label="숫자 PIN 패드">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => <button key={digit} type="button" disabled={busy || disabled} onClick={() => updateCode(`${code}${digit}`)} className="min-h-12 rounded-xl border-2 border-line bg-cream text-lg font-black hover:border-ink disabled:opacity-40">{digit}</button>)}
-          <button type="button" disabled={busy || disabled || !code} onClick={() => updateCode('')} className="min-h-12 rounded-xl border-2 border-line bg-paper text-xs font-bold text-sub hover:border-ink disabled:opacity-40">지우기</button>
-          <button type="button" disabled={busy || disabled} onClick={() => updateCode(`${code}0`)} className="min-h-12 rounded-xl border-2 border-line bg-cream text-lg font-black hover:border-ink disabled:opacity-40">0</button>
-          <button type="button" aria-label="한 자리 삭제" disabled={busy || disabled || !code} onClick={() => updateCode(code.slice(0, -1))} className="min-h-12 rounded-xl border-2 border-line bg-paper text-lg font-bold text-sub hover:border-ink disabled:opacity-40">⌫</button>
+          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => <button key={digit} type="button" disabled={busy || disabled} onClick={() => updateCode(`${code}${digit}`)} className="min-h-12 rounded-xl border border-line bg-cream text-lg font-bold hover:border-primary disabled:opacity-40">{digit}</button>)}
+          <button type="button" disabled={busy || disabled || !code} onClick={() => updateCode('')} className="min-h-12 rounded-xl border border-line bg-paper text-xs font-bold text-sub hover:border-primary disabled:opacity-40">지우기</button>
+          <button type="button" disabled={busy || disabled} onClick={() => updateCode(`${code}0`)} className="min-h-12 rounded-xl border border-line bg-cream text-lg font-bold hover:border-primary disabled:opacity-40">0</button>
+          <button type="button" aria-label="한 자리 삭제" disabled={busy || disabled || !code} onClick={() => updateCode(code.slice(0, -1))} className="min-h-12 rounded-xl border border-line bg-paper text-lg font-bold text-sub hover:border-primary disabled:opacity-40">⌫</button>
         </div>
       ) : null}
       {error ? <p role="alert" className="mt-2 text-[11px] font-bold text-coralink">{error}</p> : null}

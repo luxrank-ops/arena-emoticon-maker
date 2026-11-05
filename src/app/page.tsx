@@ -29,12 +29,12 @@ export default async function LandingPage() {
   if (locale === 'en') return <EnglishLanding />;
   return (
     <div className="overflow-hidden">
-      <section className="relative border-b-2 border-ink/90">
+      <section className="relative border-b border-line">
         <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" />
         <div className="wrap relative grid items-center gap-9 py-10 md:grid-cols-[1fr_0.85fr] md:gap-16 md:py-16">
           <div>
-            <span className="chip !border-ink !bg-lemon !text-ink">사람과 반려동물 사진 한 장으로 시작해요</span>
-            <h1 className="h1 mt-4">내 사진으로 만드는<br /><span className="text-coralink">나만의 이모티콘</span></h1>
+            <span className="chip !border-primary/20 !bg-primary/10 !text-primary-dark">사람과 반려동물 사진 한 장으로 시작해요</span>
+            <h1 className="h1 mt-4">내 사진으로 만드는<br /><span className="text-primary">나만의 이모티콘</span></h1>
             <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-sub sm:text-base">
               사진을 올리고 마음에 드는 스타일과 표정을 골라 보세요. AI가 컷을 하나씩 만들고, 완성된 팩은 언제든 편집하고 저장할 수 있어요.
             </p>
@@ -44,7 +44,7 @@ export default async function LandingPage() {
             </div>
             <p className="mt-4 text-xs leading-relaxed text-sub">원본 사진은 서버에 저장하지 않아요 · 생성 결과는 사진과 다를 수 있어요</p>
           </div>
-          <div aria-label="이모티콘 스타일 예시" className="rounded-3xl border-2 border-ink bg-paper p-4 shadow-pop sm:p-5">
+          <div aria-label="이모티콘 스타일 예시" className="rounded-2xl border border-line bg-paper p-4 shadow-pop sm:p-5">
             <div className="flex items-center justify-between gap-2"><p className="text-sm font-black">어떤 모습으로 만들까요?</p><span className="chip !bg-cream">원본 + 6종</span></div>
             <div className="mt-3 flex items-center gap-3 rounded-2xl border-2 border-line bg-lemon/25 p-2">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -76,7 +76,7 @@ export default async function LandingPage() {
         <Link href="/studio/upload" className="btn-dark mt-6">사진 선택하기 →</Link>
       </section>
 
-      <section className="border-y-2 border-ink/90 bg-paper py-12 sm:py-16" aria-labelledby="use-title">
+      <section className="border-y border-line bg-paper py-12 sm:py-16" aria-labelledby="use-title">
         <div className="wrap">
           <h2 id="use-title" className="h2">필요한 곳으로 바로 가기</h2>
           <p className="mt-2 text-sm text-sub">만든 이모티콘을 다시 열거나 대화에 어울리는 컷을 찾아보세요.</p>
@@ -99,7 +99,7 @@ export default async function LandingPage() {
         <Link href="/studio/packs" className="btn-ghost mt-5">내 팩에서 편집하기 →</Link>
       </section>
 
-      <section className="border-t-2 border-ink/90 bg-paper py-12 sm:py-16" aria-labelledby="faq-title">
+      <section className="border-t border-line bg-paper py-12 sm:py-16" aria-labelledby="faq-title">
         <div className="wrap grid gap-6 md:grid-cols-[0.7fr_1.3fr]"><div><h2 id="faq-title" className="h2">자주 묻는 질문</h2><p className="mt-2 text-sm text-sub">더 궁금한 점은 고객센터에서 확인해 주세요.</p><Link href="/support" className="mt-3 inline-block text-sm font-black text-coralink underline underline-offset-4">고객센터 →</Link></div>
           <div className="space-y-3">{questions.map((item) => <details key={item.q} className="card-flat p-4"><summary className="cursor-pointer text-sm font-black">{item.q}</summary><p className="mt-3 border-t border-line pt-3 text-sm leading-relaxed text-sub">{item.a}</p></details>)}</div>
         </div>

@@ -3,7 +3,7 @@
 import { FormEvent, InputHTMLAttributes, useState } from 'react';
 import Link from 'next/link';
 
-const inputClass = 'w-full rounded-xl border-2 border-line bg-cream px-4 py-3 text-sm outline-none focus:border-ink';
+const inputClass = 'w-full rounded-xl border border-line bg-white px-4 py-3 text-base outline-none transition focus:border-primary focus:ring-4 focus:ring-primary/10';
 
 type FormValues = {
   identifier: string;
@@ -102,13 +102,13 @@ export function AuthForm({ mode, redirectTo = '/' }: { mode: 'login' | 'signup';
             <legend className="text-sm font-bold">성별</legend>
             <div className="mt-2 grid grid-cols-3 gap-2">
               {([['unspecified', '선택 안 함'], ['male', '남성'], ['female', '여성']] as const).map(([gender, label]) => (
-                <label key={gender} className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border-2 px-2 text-center text-xs font-black focus-within:ring-2 focus-within:ring-coral ${values.gender === gender ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-sub'}`}>
+                <label key={gender} className={`flex min-h-12 cursor-pointer items-center justify-center rounded-xl border px-2 text-center text-xs font-semibold focus-within:ring-2 focus-within:ring-primary ${values.gender === gender ? 'border-primary bg-primary text-white' : 'border-line bg-paper text-sub'}`}>
                   <input type="radio" name="gender" value={gender} checked={values.gender === gender} onChange={() => update('gender', gender)} className="sr-only" />{label}
                 </label>
               ))}
             </div>
           </fieldset>
-          <label className="flex items-start gap-2 text-xs leading-relaxed"><input type="checkbox" name="consent" required checked={values.consent} onChange={(event) => update('consent', event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-coral" /><span><Link href="/terms" target="_blank" className="underline">이용약관</Link> 및 <Link href="/privacy" target="_blank" className="underline">개인정보 수집·이용</Link>에 동의합니다. 이메일, 이름, 닉네임, 생년월일, 선택한 성별을 회원 관리에 사용합니다.</span></label>
+          <label className="flex items-start gap-2 text-xs leading-relaxed"><input type="checkbox" name="consent" required checked={values.consent} onChange={(event) => update('consent', event.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 accent-primary" /><span><Link href="/terms" target="_blank" className="underline">이용약관</Link> 및 <Link href="/privacy" target="_blank" className="underline">개인정보 수집·이용</Link>에 동의합니다. 이메일, 이름, 닉네임, 생년월일, 선택한 성별을 회원 관리에 사용합니다.</span></label>
         </div>
       ) : null}
 
@@ -132,9 +132,9 @@ export function AuthForm({ mode, redirectTo = '/' }: { mode: 'login' | 'signup';
       {mode === 'signup' ? (
         <div className="flex gap-2">
           {step > 1 ? <button type="button" className="btn-ghost min-h-12 flex-1 !py-3" disabled={busy} onClick={() => { setError(''); setStep((current) => current - 1); }}>이전</button> : null}
-          <button type="submit" className="btn-primary min-h-[52px] flex-[2] !py-3" disabled={busy}>{busy ? '처리 중…' : step === SIGNUP_STEPS.length ? '가입하기' : '다음'}</button>
+          <button type="submit" className="btn-primary min-h-14 flex-[2] !py-3" disabled={busy}>{busy ? '처리 중…' : step === SIGNUP_STEPS.length ? '가입하기' : '다음'}</button>
         </div>
-      ) : <button type="submit" className="btn-primary min-h-[52px] w-full !py-3" disabled={busy}>{busy ? '처리 중…' : '로그인'}</button>}
+      ) : <button type="submit" className="btn-primary min-h-14 w-full !py-3" disabled={busy}>{busy ? '처리 중…' : '로그인'}</button>}
       <p className="text-center text-xs text-sub">{mode === 'login' ? '아직 계정이 없나요? ' : '이미 계정이 있나요? '}<Link href={mode === 'login' ? '/signup' : '/login'} className="font-bold text-coralink underline">{mode === 'login' ? '회원가입' : '로그인'}</Link></p>
     </form>
   );
