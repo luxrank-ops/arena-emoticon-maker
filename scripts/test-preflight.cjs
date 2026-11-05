@@ -31,7 +31,7 @@ const photos = loadTs('./src/lib/studio/photo.ts');
   let fallbackCalls = 0;
   global.fetch = async () => { fallbackCalls++; return new Response('unavailable', { status: 503 }); };
   const fallback = await analyzer.prepareWithFallback(photo);
-  assert.equal(fallback.method, 'basic'); assert.equal(fallbackCalls, 1);
+  assert.equal(fallback.method, 'basic'); assert.equal(fallbackCalls, 2); // primary + fallback endpoint
   assert.match(fallback.guidance.features.join(' '), /original reference photo/);
   global.fetch = async () => Response.json({ candidates: [{ content: { parts: [{ text: '{"usable":false,"features":["unclear"]}' }] } }] });
   assert.equal((await analyzer.prepareWithFallback(photo)).method, 'basic');

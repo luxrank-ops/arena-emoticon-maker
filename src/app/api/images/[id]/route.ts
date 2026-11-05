@@ -9,6 +9,9 @@ function detectMimeType(data: Uint8Array): string {
     if (data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46) return 'image/webp';
     if (data[0] === 0xff && data[1] === 0xd8) return 'image/jpeg';
   }
+  // DEMO_MODE 의 절차적 렌더러는 SVG 를 저장한다. nosniff 헤더에서도 표시되도록 명시한다.
+  const prefix = new TextDecoder('utf-8').decode(data.subarray(0, Math.min(data.length, 256))).trimStart();
+  if (/^<svg[\s>]/i.test(prefix)) return 'image/svg+xml';
   return 'application/octet-stream';
 }
 

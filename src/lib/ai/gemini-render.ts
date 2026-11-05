@@ -2,7 +2,8 @@ import type { CompositionMode, Emotion, Tone, SubjectKind } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
 // 사진 → 이모티콘 컷 (Gemini 이미지 모델, 서버 전용)
-//  · 사용자의 실제 셀피를 참조 이미지로 직접 넣는다 (SVG 자리표시자 없음).
+//  · 운영에서는 사용자의 실제 셀피를 참조 이미지로 직접 넣는다 (SVG 자리표시자 없음).
+//  · DEMO_MODE 에서만 외부 호출 없는 절차적 SVG 로 전체 흐름을 검증한다.
 //  · 원본 사진은 요청 본문으로만 받고, 응답 후 버린다. 저장하지 않는다.
 //  · 실사 포토 버전: 최상위 모델(gemini-3-pro-image-preview) 로 실물 사진 같은 질감.
 //  · 캐릭터 버전: 빠른 모델(gemini-3.1-flash-image-preview) 로 화풍 변환.
@@ -169,8 +170,42 @@ function endpointUrls(model: string, apiKey: string): string[] {
   return (globalThis as any).CLOUDFLARE_ENV ? [vertexUrl, genUrl] : [genUrl, vertexUrl];
 }
 
+function isDemoMode(): boolean {
+  const configured = String((globalThis as any).CLOUDFLARE_ENV?.DEMO_MODE ?? process.env.DEMO_MODE ?? '').trim();
+  if (configured) return configured === '1';
+  // 로컬 개발에서 키가 없으면 README 의 무설정 시연 경로를 자동으로 제공한다.
+  // 프로덕션은 명시적 DEMO_MODE=1 이 아니면 항상 실제 제공자를 사용한다.
+  const apiKey = String((globalThis as any).CLOUDFLARE_ENV?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
+  return process.env.NODE_ENV !== 'production' && !apiKey;
+}
+
+/**
+ * 로컬/CI 데모에서만 사용하는 절차적 렌더러.
+ * 운영(DEMO_MODE=0 또는 미설정)에서는 절대 대신하지 않고 Gemini 를 호출한다.
+ */
+async function renderDemo(input: RenderInput): Promise<Buffer> {
+  const { DEFAULT_PALETTE, renderSticker, signatureFromSeed } = await import('@/lib/art/sticker');
+  const source = `${input.tone}:${input.emotion}:${input.variantNote ?? ''}:${input.line ?? ''}`;
+  let seed = 17;
+  for (let i = 0; i < source.length; i++) seed = (seed * 31 + source.charCodeAt(i)) % 2147483647;
+  const svg = renderSticker({
+    seed,
+    tone: input.tone,
+    palette: DEFAULT_PALETTE,
+    signature: signatureFromSeed(seed),
+    emotion: input.emotion,
+    intensity: 72,
+    prop: 'none',
+    background: 'cream',
+    line: input.line ?? '',
+    linePosition: 'bottom',
+  });
+  return Buffer.from(svg, 'utf8');
+}
+
 /** 사진을 참조해 컷 1장을 만든다. 실패 시 RenderError */
 export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
+  if (isDemoMode()) return renderDemo(input);
   const apiKey = ((globalThis as any).CLOUDFLARE_ENV?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) throw new RenderError('AI_NOT_CONFIGURED', 'AI 생성 키가 설정되지 않았습니다');
 

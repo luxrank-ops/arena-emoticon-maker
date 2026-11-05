@@ -23,7 +23,12 @@ export function validateAuthRequest(req: Request) {
 }
 
 export function authError(error: unknown) {
-  if (error instanceof AuthError) return fail(error.code, error.message, error.status);
+  if (error instanceof AuthError) {
+    const res = fail(error.code, error.message, error.status);
+    // 공유 관리자 잠금도 일반 레이트리밋과 동일하게 재시도 시점을 알린다.
+    if (error.status === 429) res.headers.set('Retry-After', error.code === 'RATE_LIMITED' ? '900' : '60');
+    return res;
+  }
   if (error instanceof ZodError) return fail('INVALID_INPUT', error.issues[0]?.message ?? '입력값을 확인해 주세요', 422);
   return handleError(error);
 }
