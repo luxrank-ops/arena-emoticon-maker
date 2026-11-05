@@ -760,25 +760,91 @@ function estimatedTextWidth(text: string, size: number) {
   return em * size;
 }
 
+type CaptionShape = 'pill' | 'burst' | 'block' | 'brush';
+
+function captionStyle(spec: StickerSpec, t: ToneStyle) {
+  const lively = ['joy', 'laugh', 'love', 'surprised', 'smug'].includes(spec.emotion);
+  const impact = spec.emotion === 'angry' || spec.emotion === 'king';
+  const soft = spec.emotion === 'sad' || spec.emotion === 'cry' || spec.emotion === 'tired';
+  const flat = spec.emotion === 'blank' || spec.emotion === 'sulk';
+  let shape: CaptionShape = impact ? 'burst' : flat ? 'block' : 'pill';
+  if (spec.tone === 'watercolor') shape = 'brush';
+  if (spec.tone === 'pixel-art') shape = 'block';
+  const seedTilt = ((spec.seed % 7) - 3) * 0.75;
+  const energy = 0.45 + (spec.intensity / 100) * 0.75;
+  const angle = soft || flat || spec.tone === 'pixel-art' ? 0 : seedTilt * energy * (impact ? 0.55 : 1);
+  const accent = spec.tone === 'mono' ? '#A39B91' : soft ? '#8FD3F4' : spec.palette.accent;
+  const fill = impact && shape === 'burst' ? '#FFCF4D' : soft ? '#E3F2FE' : '#FFFDFA';
+  const extrude = shape !== 'brush' && !soft && !flat && (lively || impact || spec.tone === 'pixel-art');
+  const textFill = extrude ? '#FFFDFA' : soft ? '#24354D' : t.ink;
+  return { shape, lively, accent, fill, extrude, textFill, angle };
+}
+
+function burstPath(cx: number, cy: number, rx: number, ry: number) {
+  const points: string[] = [];
+  const count = 40;
+  for (let i = 0; i < count; i++) {
+    const angle = -Math.PI / 2 + (i / count) * Math.PI * 2;
+    const radius = i % 2 === 0 ? 1.04 : 0.93;
+    points.push(`${i === 0 ? 'M' : 'L'}${(cx + Math.cos(angle) * rx * radius).toFixed(1)} ${(cy + Math.sin(angle) * ry * radius).toFixed(1)}`);
+  }
+  return points.join(' ') + ' Z';
+}
+
+function sparklePath(cx: number, cy: number, radius: number) {
+  const inner = radius * 0.28;
+  return `M${cx} ${cy - radius} L${cx + inner} ${cy - inner} L${cx + radius} ${cy} L${cx + inner} ${cy + inner} L${cx} ${cy + radius} L${cx - inner} ${cy + inner} L${cx - radius} ${cy} L${cx - inner} ${cy - inner} Z`;
+}
+
+/** Emotion- and tone-aware lettering. Static SVG keeps PNG/GIF exports deterministic. */
 function renderLine(spec: StickerSpec, t: ToneStyle) {
   const text = spec.line.trim().slice(0, 34);
   const chars = [...text].length;
   const size = chars <= 7 ? 66 : chars <= 11 ? 58 : chars <= 16 ? 48 : chars <= 22 ? 40 : 34;
-  // 말풍선(band)은 항상 텍스트보다 넓게. 여백(24px)을 확보해도 1024px 를 넘지 않도록 폭을 캡업.
   const textW = estimatedTextWidth(text, size);
   const bandW = Math.min(940, Math.max(280, textW + 96));
-  // 캡업된 폭에 맞춰 글자 크기를 한 번 더 줄인다 (텍스트가 band 밖으로 삐져나가지 않게)
   const fittedSize = textW > bandW - 56 ? Math.floor((size * (bandW - 56)) / Math.max(1, textW)) : size;
   const y = spec.linePosition === 'top' ? 40 : 866;
-  const h = fittedSize + 50;
-  const band = `<rect x="${512 - bandW / 2}" y="${y}" width="${bandW}" height="${h}" rx="${h / 2.6}" fill="#FFFDFA" stroke="${t.ink}" stroke-width="${Math.max(6, t.sw * 0.7)}" opacity="0.97"/>`;
-  const baseline = y + h / 2 + fittedSize * 0.36;
-  // 폰트가 달라도(폰트 누락·대체 글꼴) 밴드 밖으로 넘치지 않도록, 넘칠 때만 textLength 로 폭을 강제한다.
+  const h = fittedSize + 56;
+  const x = 512 - bandW / 2;
+  const cy = y + h / 2;
+  const baseline = cy + fittedSize * 0.36;
   const avail = bandW - 56;
   const fittedW = estimatedTextWidth(text, fittedSize);
-  const lenAttr = fittedW > avail ? ` textLength="${Math.round(avail)}" lengthAdjust="spacingAndGlyphs"` : '';
-  const textEl = `<text x="512" y="${baseline}" text-anchor="middle" font-family="${FONT}" font-size="${fittedSize}" font-weight="800" fill="${INK}" letter-spacing="-0.5"${lenAttr}>${escapeXml(text)}</text>`;
-  return band + textEl;
+  const lenAttr = fittedW >= avail ? ` textLength="${Math.round(avail)}" lengthAdjust="spacingAndGlyphs"` : '';
+  const style = captionStyle(spec, t);
+  const strokeWidth = Math.max(4, Math.min(9, t.sw * 0.68));
+  const radius = style.shape === 'block' ? (spec.tone === 'pixel-art' ? 0 : 18) : h / 2.6;
+  const rect = (offsetX = 0, offsetY = 0, fill = style.fill, stroke = t.ink) =>
+    `<rect x="${x + offsetX}" y="${y + offsetY}" width="${bandW}" height="${h}" rx="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="${style.shape === 'brush' ? 2 : strokeWidth}" opacity="${style.shape === 'brush' ? 0.93 : 0.98}"/>`;
+  const burst = (offsetY = 0, fill = style.fill) =>
+    `<path d="${burstPath(512, cy + offsetY, bandW / 2, h / 2 + 7)}" fill="${fill}" stroke="${t.ink}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>`;
+
+  let backdrop = '';
+  if (style.shape === 'burst') {
+    backdrop = burst(9, style.accent) + burst();
+  } else if (style.shape === 'brush') {
+    backdrop = rect(-5, 7, style.accent, 'none') + rect();
+  } else {
+    backdrop = style.extrude || style.shape === 'block' ? rect(7, 9, style.accent) + rect() : rect();
+  }
+
+  const underlineW = Math.min(bandW - 84, Math.max(100, fittedW + 20));
+  const underline = style.lively || style.shape === 'brush'
+    ? `<path d="M${512 - underlineW / 2} ${baseline + 15} Q512 ${baseline + 23} ${512 + underlineW / 2} ${baseline + 13}" fill="none" stroke="${style.accent}" stroke-width="${style.shape === 'brush' ? 10 : 5}" stroke-linecap="round" opacity="${style.shape === 'brush' ? 0.65 : 0.9}"/>`
+    : '';
+  const sparkles = style.lively && bandW >= 360
+    ? `<path d="${sparklePath(x + 30, y + 20, 9)}" fill="${style.accent}" stroke="${t.ink}" stroke-width="2"/><path d="${sparklePath(x + bandW - 30, y + h - 20, 8)}" fill="${style.accent}" stroke="${t.ink}" stroke-width="2"/>`
+    : '';
+
+  const fontFamily = spec.tone === 'pixel-art' ? "'Courier New', monospace" : FONT;
+  const attrs = `x="512" y="${baseline}" text-anchor="middle" font-family="${fontFamily}" font-size="${fittedSize}" font-weight="900" letter-spacing="${spec.tone === 'pixel-art' ? 0 : -0.7}"${lenAttr}`;
+  const outline = Math.max(2.5, Math.min(8, fittedSize * 0.13));
+  const backText = style.extrude
+    ? `<text ${attrs} transform="translate(4 5)" fill="${style.accent}" stroke="${t.ink}" stroke-width="${outline + 2}" stroke-linejoin="round" paint-order="stroke fill">${escapeXml(text)}</text>`
+    : '';
+  const frontText = `<text ${attrs} fill="${style.textFill}"${style.extrude ? ` stroke="${t.ink}" stroke-width="${outline}" stroke-linejoin="round" paint-order="stroke fill"` : ''}>${escapeXml(text)}</text>`;
+  return `<g data-caption-effect="${style.shape}" transform="rotate(${style.angle.toFixed(2)} 512 ${cy})">${backdrop}${underline}${sparkles}${backText}${frontText}</g>`;
 }
 
 function escapeXml(s: string) {

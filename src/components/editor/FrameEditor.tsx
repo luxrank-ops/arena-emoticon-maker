@@ -246,6 +246,7 @@ export function FrameEditor({
               </button>
             ))}
           </div>
+          <p className="mt-3 text-[11px] leading-relaxed text-sub">글자 효과는 감정과 스타일에 맞춰 기울기·외곽선·그림자·장식이 자동으로 달라져요.</p>
         </div>
 
         <div className="card p-5">

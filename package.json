@@ -20,7 +20,8 @@
     "deploy:vinext": "vinext-cloudflare deploy --warm-cache",
     "deploy:response-store": "cf deploy --prebuilt --mode production --worker emotime-response-store",
     "test:play": "tsx scripts/e2e-play-lib.ts",
-    "test:play:static": "node scripts/test-play-static.mjs"
+    "test:play:static": "node scripts/test-play-static.mjs",
+    "test:text-effects": "tsx scripts/test-text-effects.ts"
   },
   "dependencies": {
     "@cloudflare/workers-response-store": "^1.1.5",
