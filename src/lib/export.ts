@@ -31,7 +31,7 @@ function canvasOf(size = SIZE) {
 
 function drawWatermark(ctx: CanvasRenderingContext2D, size: number) {
   const pad = size * 0.035;
-  const label = '이모티미';
+  const label = '이모티학';
   ctx.save();
   ctx.font = `800 ${Math.round(size * 0.032)}px Pretendard, system-ui, sans-serif`;
   const w = ctx.measureText(label).width + size * 0.05;
@@ -203,7 +203,7 @@ export async function exportPackZip(
   zip.file(
     'README.txt',
     [
-      '이모티미(EmotiMe) 팩 내보내기',
+      '이모티학(EmotiHak) 팩 내보내기',
       '',
       `· 파일: ${size}×${size}px 투명 PNG · ${tooBig}`,
       '· 카카오 이모티콘 스튜디오 제안 규격은 360×360 · 개당 2MB 이하입니다 (자동 검증은 Studio 플랜 패키저).',
@@ -262,7 +262,7 @@ export async function exportKakaoPackZip(
   folder.file(
     'README.txt',
     [
-      '이모티미(EmotiMe) · 카카오 이모티콘 스튜디오 제안 규격 패키지',
+      '이모티학(EmotiHak) · 카카오 이모티콘 스튜디오 제안 규격 패키지',
       '',
       `· 구성: ${items.length}종 · ${KAKAO_RULES.size}×${KAKAO_RULES.size}px · 투명 PNG`,
       `· 파일 크기 한도: 개당 ${KAKAO_RULES.maxBytes / (1024 * 1024)}MB (validation.json 참고)`,

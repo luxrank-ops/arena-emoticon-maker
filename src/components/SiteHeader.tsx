@@ -24,7 +24,7 @@ export async function SiteHeader() {
           <span className="grid h-9 w-9 place-items-center rounded-xl border-2 border-ink bg-lemon text-lg shadow-card">
             🙂
           </span>
-          <span className="text-lg font-black tracking-[-0.04em]">이모티미</span>
+          <span className="text-lg font-black tracking-[-0.04em]">이모티학</span>
           <span className="hidden rounded-full border border-line px-2 py-0.5 text-[10px] font-bold text-sub sm:inline">
             beta
           </span>

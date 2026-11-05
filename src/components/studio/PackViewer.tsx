@@ -114,7 +114,7 @@ export function PackViewer({
         .filter((f) => f.ready)
         .map((f) => ({ spec: f.spec, filename: `${String(f.index + 1).padStart(2, '0')}-${f.label}` }));
       const blob = await exportPackZip(items, { watermark });
-      downloadBlob(blob, `emotime-${initialPack.id}.zip`);
+      downloadBlob(blob, `emotihak-${initialPack.id}.zip`);
       setNotice(`${items.length}컷을 ZIP으로 내려받았어요.`);
     } finally {
       setZipBusy(false);
@@ -129,7 +129,7 @@ export function PackViewer({
         .filter((f) => f.ready)
         .map((f) => ({ spec: f.spec, filename: `${f.index + 1}-${f.label}` }));
       const result = await exportKakaoPackZip(items, { watermark });
-      downloadBlob(result.blob, `emotime-kakao-${initialPack.id}.zip`);
+      downloadBlob(result.blob, `emotihak-kakao-${initialPack.id}.zip`);
       setKakaoFiles(result.files);
       setKakaoNotice(
         result.validation.ok

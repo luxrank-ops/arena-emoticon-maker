@@ -63,7 +63,7 @@ const SIGNATURE = { headScale: 1.02, faceWidth: 0.98, eyeSpacing: 1, eyeSize: 1,
 const SID = `smoke_${Date.now().toString(36)}`;
 jar.set('emotime_sid', SID);
 
-console.log(`\nEmotiMe smoke test → ${BASE}\n`);
+console.log(`\n이모티학 smoke test → ${BASE}\n`);
 
 console.log('[1] 정적 페이지');
 for (const p of ['/', '/studio/upload', '/reply', '/brief', '/goods', '/pricing', '/billing', '/terms', '/privacy', '/refund', '/support']) {

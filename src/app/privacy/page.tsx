@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { BUSINESS } from '@/lib/business';
 
-export const metadata: Metadata = { title: '개인정보처리방침 · 이모티미' };
+export const metadata: Metadata = { title: '개인정보처리방침 · 이모티학' };
 
 export default function PrivacyPage() {
   return (
