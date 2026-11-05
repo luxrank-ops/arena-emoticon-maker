@@ -16,7 +16,7 @@ import { composePackTemplates } from '@/lib/recommend/engine';
 import { TEMPLATES_BY_ID } from '@/lib/recommend/templates';
 import { applyCredits, CreditError } from '@/lib/credits';
 import { logEvent, uid, withDB } from '@/lib/store';
-import { PLANS } from '@/lib/pricing';
+import { watermarkFor } from '@/lib/admin-access';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { loadImage } from '@/lib/images';
@@ -288,7 +288,7 @@ export async function getPackView(userId: string, packId: string) {
       frames,
       ready,
       total: pack.frames.length,
-      watermark: PLANS[db.users.find((u) => u.id === userId)?.plan ?? 'FREE'].watermark,
+      watermark: watermarkFor(db.users.find((u) => u.id === userId) ?? null),
     };
   });
 }

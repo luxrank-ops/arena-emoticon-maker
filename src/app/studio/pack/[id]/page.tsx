@@ -4,15 +4,16 @@ import { PackViewer } from '@/components/studio/PackViewer';
 import { getCurrentUser } from '@/lib/session';
 import { getPackView } from '@/lib/packs';
 import { validatePackForKakao } from '@/lib/packager';
-import { PLANS } from '@/lib/pricing';
+import { effectivePlan } from '@/lib/admin-access';
 
 export const dynamic = 'force-dynamic';
 
-export default async function PackPage({ params }: { params: { id: string } }) {
+export default async function PackPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   let view: Awaited<ReturnType<typeof getPackView>> | null = null;
   try {
-    view = await getPackView(user.id, params.id);
+    view = await getPackView(user.id, id);
   } catch {
     notFound();
   }
@@ -20,8 +21,8 @@ export default async function PackPage({ params }: { params: { id: string } }) {
 
   const kakao = {
     validation: validatePackForKakao({ size: view.pack.size, frames: view.frames }),
-    packaging: PLANS[user.plan].plan === 'STUDIO',
-    plan: user.plan,
+    packaging: effectivePlan(user) === 'STUDIO',
+    plan: effectivePlan(user),
   };
 
   return (

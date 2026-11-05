@@ -5,9 +5,9 @@ import { enforceRateLimit } from '@/lib/ratelimit';
 import { sessionIdFromCookies } from '@/lib/session';
 
 /** 인스턴스당 전체 제한도 적용해 쿠키 교체만으로 시도 횟수를 늘리지 못하게 한다. */
-export function authRateLimit(bucket: 'login' | 'signup') {
+export async function authRateLimit(bucket: 'login' | 'signup') {
   return enforceRateLimit('all', `auth-${bucket}-global`, bucket === 'login' ? 10 : 20, 60_000)
-    ?? enforceRateLimit(sessionIdFromCookies(), `auth-${bucket}`, 5, 60_000);
+    ?? enforceRateLimit(await sessionIdFromCookies(), `auth-${bucket}`, 5, 60_000);
 }
 
 /** 브라우저의 다른 출처에서 인증 상태를 바꾸는 요청을 막는다. */

@@ -12,10 +12,11 @@ function detectMimeType(data: Uint8Array): string {
   return 'application/octet-stream';
 }
 
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
-  if (!IMAGE_ID_PATTERN.test(params.id)) return new Response('not found', { status: 404 });
-  const img = await loadImage(params.id);
+  if (!IMAGE_ID_PATTERN.test(id)) return new Response('not found', { status: 404 });
+  const img = await loadImage(id);
   if (!img || img.userId !== user.id) return new Response('not found', { status: 404 });
   return new Response(img.data, {
     headers: {

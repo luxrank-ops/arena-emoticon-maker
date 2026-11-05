@@ -3,6 +3,7 @@ import { BUSINESS } from '@/lib/business';
 import { CheckoutButton } from '@/components/payments/CheckoutButton';
 import { PLANS, SKUS, won } from '@/lib/pricing';
 import { getCurrentUser } from '@/lib/session';
+import { effectivePlan, isAdmin, planLabel } from '@/lib/admin-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,15 +35,15 @@ export default async function PricingPage() {
         <span className="chip !border-ink !bg-lemon !text-ink">요금제</span>
         <h1 className="h1 mt-4 !text-[clamp(1.8rem,4vw,2.8rem)]">한 팩 값보다 싸게, 매달 새로</h1>
         <p className="mt-3 text-sm leading-relaxed text-sub">
-          지금 플랜: <strong className="text-ink">{PLANS[user.plan].name}</strong> · 보유 크레딧{' '}
-          <strong className="text-ink">{user.credits}</strong>
+          지금 플랜: <strong className="text-ink">{planLabel(user)}</strong> · 보유 크레딧{' '}
+          <strong className="text-ink">{isAdmin(user) ? '무제한' : user.credits}</strong>
         </p>
       </div>
 
       <div className="mt-10 grid gap-4 md:grid-cols-3">
         {Object.values(PLANS).map((p) => {
           const sku = p.plan === 'PLUS' ? 'plan-plus-monthly' : p.plan === 'STUDIO' ? 'plan-studio-monthly' : null;
-          const isCurrent = user.plan === p.plan;
+          const isCurrent = !isAdmin(user) && effectivePlan(user) === p.plan;
           return (
             <div key={p.plan} className={`card p-6 ${p.highlight ? 'relative ring-4 ring-coral/30' : ''}`}>
               {p.highlight ? (

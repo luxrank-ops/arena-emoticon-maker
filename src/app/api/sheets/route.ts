@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { createSheet, tonesForPlan } from '@/lib/packs';
+import { effectivePlan, isAdmin } from '@/lib/admin-access';
 import { PLANS } from '@/lib/pricing';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
@@ -21,8 +22,9 @@ export async function POST(req: Request) {
     const limited = enforceRateLimit(user.id, 'sheets', RATE_LIMITS.sheets);
     if (limited && user.role !== 'admin') return limited;
     const body = schema.parse(await req.json());
-    if (user.role !== 'admin' && !tonesForPlan(user.plan).includes(body.tone)) {
-      return fail('PLAN_LIMIT', `${PLANS[user.plan].name} 플랜은 스타일 ${PLANS[user.plan].styles}종까지 사용할 수 있습니다`, 402);
+    const plan = effectivePlan(user);
+    if (!tonesForPlan(plan).includes(body.tone)) {
+      return fail('PLAN_LIMIT', `${PLANS[plan].name} 플랜은 스타일 ${PLANS[plan].styles}종까지 사용할 수 있습니다`, 402);
     }
     const sheet = await createSheet(user.id, body.faceId, body.tone, body.mode, body.subjectKind);
     return ok({ sheet });

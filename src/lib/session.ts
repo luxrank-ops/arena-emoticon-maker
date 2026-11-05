@@ -66,18 +66,19 @@ function grantMonthly(db: Parameters<Parameters<typeof withDB>[0]>[0], user: Use
   return user;
 }
 
-export function sessionIdFromCookies(): string {
+/** Next.js 16: cookies() 는 Promise 이므로 반드시 await 한다 (동기 접근은 500 이 된다). */
+export async function sessionIdFromCookies(): Promise<string> {
   try {
-    return cookies().get(SID_COOKIE)?.value ?? GUEST;
+    return (await cookies()).get(SID_COOKIE)?.value ?? GUEST;
   } catch {
     return GUEST;
   }
 }
 
 export async function getCurrentUser(): Promise<User & { isAuthenticated: boolean }> {
-  const sid = sessionIdFromCookies();
+  const sid = await sessionIdFromCookies();
   let token: string | undefined;
-  try { token = cookies().get(AUTH_COOKIE)?.value; } catch { /* 요청 밖에서는 게스트 */ }
+  try { token = (await cookies()).get(AUTH_COOKIE)?.value; } catch { /* 요청 밖에서는 게스트 */ }
   let user: User | null = null;
   if (token && /^[a-f0-9]{64}$/.test(token)) {
     const tokenHash = hashSessionToken(token);

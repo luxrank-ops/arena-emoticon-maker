@@ -1,6 +1,6 @@
 import Link from 'next/link';
 import { getCurrentUser } from '@/lib/session';
-import { PLANS } from '@/lib/pricing';
+import { creditsLabel, planLabel } from '@/lib/admin-access';
 import { LogoutButton } from '@/components/LogoutButton';
 
 const NAV = [
@@ -14,7 +14,8 @@ const NAV = [
 
 export async function SiteHeader() {
   const user = await getCurrentUser();
-  const plan = PLANS[user.plan];
+  const planName = planLabel(user);
+  const credits = creditsLabel(user);
 
   return (
     <header className="sticky top-0 z-40 border-b-2 border-ink/90 bg-cream/90 backdrop-blur">
@@ -47,9 +48,9 @@ export async function SiteHeader() {
             className="chip hover:border-ink"
             title="크레딧 · 플랜"
           >
-            <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{user.role === 'admin' ? '관리자' : plan.name}</span>
+            <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{planName}</span>
             <span className="h-3 w-px bg-line" />
-            <span>⚡ {user.role === 'admin' ? '무제한' : user.credits}</span>
+            <span>⚡ {credits}</span>
           </Link>
           {user.isAuthenticated ? (
             <div className="flex flex-col items-end gap-0.5">

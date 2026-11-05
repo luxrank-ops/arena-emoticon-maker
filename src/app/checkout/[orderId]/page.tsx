@@ -7,9 +7,10 @@ import { paymentProvider, paymentsUnavailable } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
-export default async function CheckoutPage({ params }: { params: { orderId: string } }) {
+export default async function CheckoutPage({ params }: { params: Promise<{ orderId: string }> }) {
+  const { orderId } = await params;
   const user = await getCurrentUser();
-  const order = await withPaymentDB((db) => db.orders.find((o) => o.id === params.orderId && o.userId === user.id) ?? null);
+  const order = await withPaymentDB((db) => db.orders.find((o) => o.id === orderId && o.userId === user.id) ?? null);
   if (!order) notFound();
 
   return (

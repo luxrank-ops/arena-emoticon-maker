@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/session';
 import { creditHistory } from '@/lib/credits';
 import { withDB } from '@/lib/store';
 import { PLANS, won } from '@/lib/pricing';
+import { creditsLabel, effectivePlan, isAdmin, planLabel } from '@/lib/admin-access';
 import { formatKstDate, formatKstDateTime } from '@/lib/time';
 
 export const dynamic = 'force-dynamic';
@@ -36,13 +37,13 @@ export default async function BillingPage() {
 
       <div className="grid gap-4 md:grid-cols-[1fr_1.2fr]">
         <div className="card p-6">
-          <p className="text-xs font-black uppercase tracking-widest text-sub">{PLANS[user.plan].name} 플랜</p>
+          <p className="text-xs font-black uppercase tracking-widest text-sub">{planLabel(user)} 플랜</p>
           <p className="mt-2 text-4xl font-black">
-            {user.role === 'admin' ? '무제한' : user.credits}
+            {creditsLabel(user)}
             <span className="ml-1 text-sm font-bold text-sub">크레딧</span>
           </p>
           <p className="mt-1 text-xs text-sub">
-            {PLANS[user.plan].price === 0 ? '매월 12크레딧 자동 지급' : `${won(PLANS[user.plan].price)}원 /월 · ${PLANS[user.plan].credits}크레딧`}
+            {isAdmin(user) ? '관리자 계정 · 크레딧 차감 없음 · 모든 스타일 사용 가능' : PLANS[effectivePlan(user)].price === 0 ? '매월 12크레딧 자동 지급' : `${won(PLANS[effectivePlan(user)].price)}원 /월 · ${PLANS[effectivePlan(user)].credits}크레딧`}
           </p>
           <div className="mt-4 flex flex-wrap gap-2">
             <Link href="/pricing" className="btn-ghost !py-2 text-xs">크레딧 충전</Link>

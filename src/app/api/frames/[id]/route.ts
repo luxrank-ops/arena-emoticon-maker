@@ -15,11 +15,12 @@ const schema = z.object({
     .optional(),
 });
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   try {
     const user = await getCurrentUser();
     const patch = schema.parse(await req.json());
-    const frame = await composeFrame(user.id, params.id, patch);
+    const frame = await composeFrame(user.id, id, patch);
     return ok({ frame });
   } catch (e) {
     return handleError(e);

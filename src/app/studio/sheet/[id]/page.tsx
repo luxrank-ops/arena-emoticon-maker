@@ -8,12 +8,13 @@ import { formatKstDate } from '@/lib/time';
 
 export const dynamic = 'force-dynamic';
 
-export default async function SheetPage({ params }: { params: { id: string } }) {
+export default async function SheetPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   const user = await getCurrentUser();
   let data: Awaited<ReturnType<typeof getSheetView>> | null = null;
   let purged = false;
   try {
-    data = await getSheetView(user.id, params.id);
+    data = await getSheetView(user.id, id);
   } catch (e) {
     // 24시간이 지나 얼굴 정보가 파기된 시트 → 404 대신 안내 후 재촬영으로 유도
     if ((e as { code?: string })?.code === 'FACE_PURGED') purged = true;

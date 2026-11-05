@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { planBrief } from '@/lib/recommend/engine';
 import { findAiCut } from '@/lib/ai-cuts';
 import { getCurrentUser } from '@/lib/session';
-import { PLANS } from '@/lib/pricing';
+import { isAdmin, planLabel } from '@/lib/admin-access';
 import { withDB } from '@/lib/store';
 import { formatKstMonthDayWeekday, kstDateKey } from '@/lib/time';
 
@@ -25,7 +25,7 @@ export default async function BriefPage() {
     })),
   );
 
-  const locked = user.plan === 'FREE';
+  const locked = !isAdmin(user) && user.plan === 'FREE';
 
   return (
     <div className="wrap py-10">
@@ -40,7 +40,7 @@ export default async function BriefPage() {
         </div>
         <div className="card-flat px-4 py-3 text-right text-xs">
           <p className="font-black">{formatKstMonthDayWeekday(now)}</p>
-          <p className="mt-0.5 text-sub">07:30 자동 도착 · {PLANS[user.plan].name} 플랜</p>
+          <p className="mt-0.5 text-sub">07:30 자동 도착 · {planLabel(user)} 플랜</p>
         </div>
       </div>
 

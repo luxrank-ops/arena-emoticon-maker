@@ -5,6 +5,7 @@ import { paymentProvider, paymentsUnavailable } from '@/lib/payments';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { GOODS, PLANS } from '@/lib/pricing';
+import { effectivePlan } from '@/lib/admin-access';
 import { withPaymentDB } from '@/lib/store';
 import { hasFirestore } from '@/lib/firestore';
 import { loadImage, newImageId, saveImage } from '@/lib/images';
@@ -37,7 +38,7 @@ export async function POST(req: Request) {
       const pack = db.packs.find((p) => p.userId === user.id && p.frames.some((f) => f.id === body.frameId));
       const frame = pack?.frames.find((f) => f.id === body.frameId);
       const account = db.users.find((u) => u.id === user.id);
-      return frame?.imageId && account ? { imageId: frame.imageId, label: frame.label, line: frame.line, discount: PLANS[account.plan].goodsDiscount } : null;
+      return frame?.imageId && account ? { imageId: frame.imageId, label: frame.label, line: frame.line, discount: PLANS[effectivePlan(account)].goodsDiscount } : null;
     });
     if (!source) return fail('FRAME_NOT_FOUND', '완성된 내 컷을 선택해 주세요.', 404);
     const image = await loadImage(source.imageId);

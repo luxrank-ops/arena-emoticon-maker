@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/session';
 import { planBrief } from '@/lib/recommend/engine';
 import { TEMPLATES_BY_ID } from '@/lib/recommend/templates';
 import { specFor } from '@/lib/spec';
-import { PLANS } from '@/lib/pricing';
+import { isAdmin, planLabel } from '@/lib/admin-access';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { kstDateKey } from '@/lib/time';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
@@ -72,8 +72,8 @@ export async function GET() {
       brief,
       items,
       headline: brief!.headline,
-      plan: PLANS[user.plan].name,
-      locked: user.plan === 'FREE',
+      plan: planLabel(user),
+      locked: !isAdmin(user) && user.plan === 'FREE',
     });
   } catch (e) {
     return handleError(e);
