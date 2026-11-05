@@ -6,6 +6,7 @@ import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
 import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
+import { ContentReportButton } from '@/components/moderation/ContentReportButton';
 import { compressPhotoFile, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import { downloadBlob, exportKakaoPackZip, exportPackZip, renderPngBlob } from '@/lib/export';
 import { formatKstDateTime } from '@/lib/time';
@@ -274,6 +275,7 @@ export function PackViewer({
                 >
                   PNG
                 </button>
+                {f.ready ? <ContentReportButton packId={initialPack.id} frameId={f.id} /> : null}
               </div>
             </div>
           </div>

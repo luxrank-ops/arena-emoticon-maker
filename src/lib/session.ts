@@ -82,8 +82,9 @@ export async function getCurrentUser(): Promise<User & { isAuthenticated: boolea
   try { token = (await cookies()).get(AUTH_COOKIE)?.value; } catch { /* 요청 밖에서는 게스트 */ }
 
   // TWA(구글 플레이 유료 앱) 요청 여부 — 미들웨어가 x-emotihak-play 헤더로 전달.
-  // 앱(유료) 사용자는 모든 기능을 무제한으로 쓴다. DB 에 영속화하지 않고
-  // 매 요청 결정 → 같은 계정의 웹 세션에는 풀액세스가 누설되지 않는다.
+  // TWA 환경에서는 크레딧 무차감·기능 플랜을 적용하되 DB에는 영속화하지 않는다.
+  // UA는 구매 증명이 아니며 요청 제한과 일일 AI 공정 이용 한도는 별도로 적용한다.
+  // 매 요청 결정 → 같은 계정의 웹 세션에는 앱 전용 혜택이 누설되지 않는다.
   let fromTwa = false;
   try { fromTwa = (await headers()).get(PLAY_HEADER) === '1'; } catch { fromTwa = false; }
 

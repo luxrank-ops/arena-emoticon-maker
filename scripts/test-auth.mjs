@@ -7,11 +7,11 @@ const base = process.env.AUTH_TEST_BASE_URL;
 if (!base || !['localhost', '127.0.0.1'].includes(new URL(base).hostname)) throw new Error('AUTH_TEST_BASE_URL must point to an isolated local server');
 function client() {
   const jar = new Map();
-  return async (path, body, extraHeaders = {}) => {
+  return async (path, body, extraHeaders = {}, method) => {
     const headers = { ...extraHeaders };
     if (body !== undefined) headers['Content-Type'] = 'application/json';
     if (jar.size) headers.Cookie = [...jar].map(([k, v]) => `${k}=${v}`).join('; ');
-    const res = await fetch(base + path, { method: body === undefined ? 'GET' : 'POST', headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
+    const res = await fetch(base + path, { method: method ?? (body === undefined ? 'GET' : 'POST'), headers, ...(body === undefined ? {} : { body: JSON.stringify(body) }) });
     for (const cookie of res.headers.getSetCookie()) {
       const [pair] = cookie.split(';');
       const pos = pair.indexOf('=');
@@ -46,4 +46,13 @@ if (process.env.ADMIN_PASSCODE) {
   assert.equal((await admin('/api/auth/logout', {})).status, 200);
   assert.equal(JSON.parse((await admin('/api/admin/metrics')).text).locked, true);
 }
-console.log('Auth integration tests passed');
+assert.equal((await a('/account-deletion')).status, 200);
+assert.equal((await a('/api/auth/account', { password: 'wrong', confirmation: '영구 삭제' }, {}, 'DELETE')).status, 401);
+assert.equal((await a('/api/auth/account', { password: account.password, confirmation: '삭제' }, {}, 'DELETE')).status, 422);
+assert.equal((await a('/api/auth/account', { password: account.password, confirmation: '영구 삭제' }, { Origin: 'https://example.org' }, 'DELETE')).status, 403);
+const deleted = await a('/api/auth/account', { password: account.password, confirmation: '영구 삭제' }, {}, 'DELETE');
+assert.equal(deleted.status, 200, deleted.text);
+assert.equal(JSON.parse(deleted.text).deleted, true);
+assert.doesNotMatch((await a('/')).text, new RegExp(account.nickname));
+assert.equal((await b('/api/auth/signup', account)).status, 200);
+console.log('Auth and account-deletion integration tests passed');

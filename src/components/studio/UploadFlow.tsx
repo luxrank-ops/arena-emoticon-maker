@@ -407,7 +407,7 @@ export function UploadFlow({
         <button type="button" disabled={busy} onClick={goToPhoto} className="btn-ghost text-center sm:flex-1">← 사진 선택</button>
         <button className="btn-primary !py-4 text-base sm:flex-[2]" disabled={!ready} onClick={submit}>{busy ? '처리 중…' : '다음 · 캐릭터 시안 만들기 →'}</button>
       </div>
-      <p className="text-center text-[11px] text-sub">생성 전 사진을 확인합니다. AI 확인이 어려우면 기본 확인으로 진행합니다 · 보유 크레딧 {unlimited ? '무제한' : credits}</p>
+      <p className="text-center text-[11px] text-sub">생성 전 사진을 확인합니다. AI 확인이 어려우면 기본 확인으로 진행합니다 · {unlimited ? '크레딧 차감 없음' : `보유 크레딧 ${credits}`}</p>
     </div>
     </>
   );

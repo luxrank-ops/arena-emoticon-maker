@@ -259,12 +259,12 @@ function fallbackIdentity(tone: Tone): IdentitySnapshot {
 
 export function readyCount(pack: Pack, now = Date.now()) {
   // AI 팩은 컷 이미지가 실제로 생성돼야 완성으로 본다 (시간 기반 가짜 완료 금지)
-  if (pack.renderer === 'ai') return pack.frames.filter((f) => !!f.imageId).length;
-  return pack.frames.filter((f) => f.readyAt <= now).length;
+  if (pack.renderer === 'ai') return pack.frames.filter((f) => !f.hiddenAt && !!f.imageId).length;
+  return pack.frames.filter((f) => !f.hiddenAt && f.readyAt <= now).length;
 }
 
 export function isReady(pack: Pack, now = Date.now()) {
-  return readyCount(pack, now) >= pack.frames.length;
+  return readyCount(pack, now) >= pack.frames.filter((frame) => !frame.hiddenAt).length;
 }
 
 /**
@@ -280,7 +280,8 @@ export async function getPackView(userId: string, packId: string, viewer?: Viewe
     const identity = identityOf(db, pack) ?? fallbackIdentity(pack.tone);
     const now = Date.now();
     const ready = readyCount(pack, now);
-    const frames: FrameView[] = pack.frames
+    const visibleFrames = pack.frames.filter((frame) => !frame.hiddenAt);
+    const frames: FrameView[] = visibleFrames
       .slice()
       .sort((a, b) => a.index - b.index)
       .map((f) => ({
@@ -289,10 +290,10 @@ export async function getPackView(userId: string, packId: string, viewer?: Viewe
         ready: pack.renderer === 'ai' ? !!f.imageId : f.readyAt <= now,
       }));
     return {
-      pack: { ...pack, status: (ready >= pack.frames.length ? 'READY' : 'GENERATING') as Pack['status'] },
+      pack: { ...pack, status: (ready >= visibleFrames.length ? 'READY' : 'GENERATING') as Pack['status'] },
       frames,
       ready,
-      total: pack.frames.length,
+      total: visibleFrames.length,
       watermark: watermarkFor(viewer ?? (db.users.find((u) => u.id === userId) ?? null)),
     };
   });
@@ -314,6 +315,7 @@ export async function composeFrame(
     const pack = db.packs.find((p) => p.frames.some((f) => f.id === frameId));
     if (!pack || pack.userId !== userId) throw new PackError('FRAME_NOT_FOUND', '컷을 찾을 수 없습니다');
     const frame = pack.frames.find((f) => f.id === frameId)!;
+    if (frame.hiddenAt) throw new PackError('FRAME_NOT_FOUND', '컷을 찾을 수 없습니다');
     if (typeof patch.line === 'string') frame.line = patch.line.slice(0, 34);
     if (patch.prop) frame.prop = patch.prop;
     if (patch.background) frame.background = patch.background;

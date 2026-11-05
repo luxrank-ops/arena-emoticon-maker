@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { BUSINESS } from '@/lib/business';
 
 export const metadata: Metadata = { title: '고객센터 · 이모티학' };
@@ -23,6 +24,11 @@ export default function SupportPage() {
           <p className="mt-1 text-xs text-sub">문의 전화를 이용하실 수 있습니다.</p>
           {phone ? <a href={`tel:${phone.replace(/[^0-9+]/g, '')}`} className="btn-ghost mt-3 w-full !py-2.5 text-xs">{phone}</a> : <p className="mt-3 text-xs font-bold text-coralink">전화 접수처를 설정 중입니다.</p>}
         </div>
+      </div>
+
+      <div className="card mt-4 flex flex-wrap items-center justify-between gap-3 p-5">
+        <div><p className="text-sm font-black">계정·콘텐츠 관리</p><p className="mt-1 text-xs text-sub">계정과 연관 데이터를 직접 삭제하거나, 각 AI 컷의 신고 버튼으로 부적절한 결과를 알려 주세요.</p></div>
+        <Link href="/account-deletion" className="btn-ghost !py-2 text-xs">계정 및 데이터 삭제</Link>
       </div>
 
       <div className="mt-8 space-y-3">

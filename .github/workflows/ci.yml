@@ -32,7 +32,11 @@ jobs:
             echo "::error::.env files must not be committed (use .env.example)"
             exit 1
           fi
-          echo "ok: no env files tracked"
+          if git ls-files | grep -Ei '\.(p12|jks|keystore)$|keystore-passwords'; then
+            echo "::error::Android signing keys and passwords must not be committed"
+            exit 1
+          fi
+          echo "ok: no env files or Android signing secrets tracked"
 
   # ── Step 2 이후: 앱이 존재할 때만 실행 ───────────────────────
   app:
@@ -61,6 +65,15 @@ jobs:
 
       - name: Unit tests
         run: npm test --if-present
+
+      - name: Play static readiness
+        run: npm run test:play:static
+
+      - name: Play entitlement, moderation and account deletion tests
+        env:
+          DATA_DIR: /tmp/emotime-play-ci
+          STORE_BACKEND: file
+        run: rm -rf "$DATA_DIR" && npm run test:play
 
       - name: Build
         env:

@@ -1,4 +1,4 @@
-﻿import { ACCESSORIES } from '@/lib/accessories';
+import { ACCESSORIES } from '@/lib/accessories';
 import { createHash } from 'node:crypto';
 import { bypassesRateLimit, isUnlimited } from '@/lib/admin-access';
 import { preparedSchema } from '@/lib/ai/consistency';
@@ -13,6 +13,7 @@ import { RenderError, renderWithGemini } from '@/lib/ai/gemini-render';
 import { deleteImage, loadImage, newImageId, saveImage } from '@/lib/images';
 import { applyCredits, CreditError } from '@/lib/credits';
 import type { Emotion, Tone } from '@/lib/types';
+import { consumePlayGeneration } from '@/lib/play-usage';
 
 // Gemini 생성(최대 ~55초) + 변환 여유를 위해 함수 실행 시간을 늘린다
 export const maxDuration = 60;
@@ -90,6 +91,7 @@ export async function POST(req: Request) {
         const pack = db.packs.find((p) => p.userId === user.id && p.frames.some((f) => f.id === target.frameId));
         if (!pack) throw Object.assign(new Error('컷을 찾을 수 없습니다'), { code: 'FRAME_NOT_FOUND' });
         const frame = pack.frames.find((f) => f.id === target.frameId)!;
+        if (frame.hiddenAt) throw Object.assign(new Error('컷을 찾을 수 없습니다'), { code: 'FRAME_NOT_FOUND' });
         const sheet = db.sheets.find((s) => s.id === pack.sheetId && s.userId === user.id);
         const chosenImageId = pack.characterReferenceImageId ?? sheet?.variants.find((variant) => variant.key === sheet.chosenKey)?.imageId;
         if (frame.imageId && !target.force) return { existing: frame.imageId as string };
@@ -167,6 +169,9 @@ export async function POST(req: Request) {
     }
 
     try {
+      // 실제 AI 생성이 필요하고 참조·요금 검증이 끝난 뒤에만 공정 이용 1회를 소비한다.
+      const playUsage = await consumePlayGeneration(user);
+
       // 3) Gemini 생성 (DB 잠금 밖에서 수행)
       const accessoryPrompts = plan.accessoryIds
         .map((id) => ACCESSORIES.find((a) => a.id === id)?.promptAddition)
@@ -193,18 +198,21 @@ export async function POST(req: Request) {
       const imageId = newImageId();
       await saveImage(imageId, user.id, imageData);
 
+      let hiddenAfterGeneration = false;
       await withDB((db) => {
         if (plan.kind === 'frame') {
           const pack = db.packs.find((p) => p.id === plan.packId && p.userId === user.id);
           const frame = pack?.frames.find((f) => f.id === plan.frameId);
-          if (frame) {
+          if (!frame || frame.hiddenAt) hiddenAfterGeneration = true;
+          else {
             frame.imageId = imageId;
             frame.accessoryIds = plan.accessoryIds;
           }
         } else {
           const sheet = db.sheets.find((s) => s.id === plan.sheetId && s.userId === user.id);
           const variant = sheet?.variants.find((v) => v.key === plan.variantKey);
-          if (variant) variant.imageId = imageId;
+          if (!sheet || !variant) hiddenAfterGeneration = true;
+          else variant.imageId = imageId;
         }
         logEvent(db, user.id, 'generate', {
           kind: plan.kind,
@@ -215,12 +223,17 @@ export async function POST(req: Request) {
         });
       });
 
+      if (hiddenAfterGeneration) {
+        await deleteImage(imageId).catch(() => undefined);
+        throw Object.assign(new Error('생성 대상을 찾을 수 없습니다'), { code: plan.kind === 'frame' ? 'FRAME_NOT_FOUND' : 'SHEET_NOT_FOUND' });
+      }
+
       // 다시 그린 컷이면 이전 이미지는 바로 지운다 (고아 이미지 방지)
       if (plan.previousImageId && plan.previousImageId !== imageId) {
         await deleteImage(plan.previousImageId).catch(() => undefined);
       }
 
-      return ok({ imageId, imageUrl: `/api/images/${imageId}` });
+      return ok({ imageId, imageUrl: `/api/images/${imageId}`, playUsage });
     } catch (e) {
       // 생성 실패 → 차감했던 크레딧 환불
       if (plan.charged) {

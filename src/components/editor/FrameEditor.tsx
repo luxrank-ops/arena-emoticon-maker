@@ -8,6 +8,7 @@ import Link from 'next/link';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
+import { ContentReportButton } from '@/components/moderation/ContentReportButton';
 import { BACKGROUNDS, EMOTIONS, PROPS } from '@/lib/art/sticker';
 import { downloadBlob, renderGifBlob, renderPngBlob } from '@/lib/export';
 import { track } from '@/lib/analytics';
@@ -176,6 +177,7 @@ export function FrameEditor({
             {exporting === 'gif' ? '만드는 중…' : 'GIF 애니메이션'}
           </button>
         </div>
+        <ContentReportButton packId={packId} frameId={frame.id} className="btn-ghost w-full !py-2 text-xs text-coralink" />
         <Link href={`/studio/pack/${packId}`} className="btn-ghost w-full !py-2 text-xs">
           ← 팩으로 돌아가기
         </Link>
@@ -195,7 +197,7 @@ export function FrameEditor({
               disabled={redrawing || (!dirty && !needPhoto)}
               onClick={redraw}
             >
-              {redrawing ? 'AI가 그리는 중…' : dirty ? `바뀐 내용으로 다시 그리기 · ${unlimited ? '관리자 무제한' : '1크레딧'}` : '대사·표정·악세사리를 바꾸면 활성화돼요'}
+              {redrawing ? 'AI가 그리는 중…' : dirty ? `바뀐 내용으로 다시 그리기 · ${unlimited ? '크레딧 차감 없음' : '1크레딧'}` : '대사·표정·악세사리를 바꾸면 활성화돼요'}
             </button>
             {needPhoto ? (
               <label className="btn-ghost mt-2 w-full cursor-pointer !py-2 text-center text-xs">

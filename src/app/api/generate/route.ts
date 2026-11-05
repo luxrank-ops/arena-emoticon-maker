@@ -11,6 +11,7 @@ import {
 } from '@/lib/ai/generate';
 import { TONE_GENERATION_PARAMS } from '@/lib/ai/tone-params';
 import { buildFaceCondition } from '@/lib/ai/face-embedding';
+import { consumePlayGeneration } from '@/lib/play-usage';
 
 const schema = z.object({
   faceId: z.string().min(1),
@@ -64,6 +65,7 @@ export async function POST(req: Request) {
     }
 
     // AI 생성 호출 (Identity Lock: 얼굴 임베딩 주입, 같은 사람 다른 표정)
+    const playUsage = await consumePlayGeneration(user);
     const result = await generateEmoticon({
       faceId: body.faceId,
       palette: profile.palette,
@@ -96,6 +98,7 @@ export async function POST(req: Request) {
       latencyMs: result.latencyMs,
       costUsd: result.costUsd,
       toneParams: TONE_GENERATION_PARAMS[body.tone],
+      playUsage,
     });
   } catch (e) {
     return handleError(e);

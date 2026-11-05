@@ -1,11 +1,13 @@
 [
   {
-    "relation": ["delegate_permission/common.handle_all_urls"],
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
     "target": {
       "namespace": "android_app",
       "package_name": "com.emotihak.app",
       "sha256_cert_fingerprints": [
-        "6F:33:4E:96:B1:6A:41:3F:D9:E9:70:15:1A:83:19:EF:74:EA:6A:6B:00:4D:0F:2D:48:DE:8C:11:0C:E4:E7:46"
+        "0A:89:29:87:27:5C:00:9C:C6:AF:16:1A:91:AE:04:A5:84:37:BD:92:D1:2D:81:E3:E3:4F:FB:D1:38:C0:C0:FE"
       ]
     }
   }

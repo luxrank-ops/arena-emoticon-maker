@@ -2,12 +2,11 @@
 
 import { FormEvent, useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 
 const inputClass = 'mt-1 w-full rounded-xl border-2 border-line bg-cream px-4 py-3 text-sm outline-none focus:border-ink';
 
-export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
-  const router = useRouter();
+export function AuthForm({ mode, redirectTo = '/' }: { mode: 'login' | 'signup'; redirectTo?: string }) {
+  const safeRedirect = redirectTo.startsWith('/') && !redirectTo.startsWith('//') ? redirectTo : '/';
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -26,7 +25,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       const res = await fetch(`/api/auth/${mode}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? '요청을 처리하지 못했어요');
-      window.location.assign('/');
+      window.location.assign(safeRedirect);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);

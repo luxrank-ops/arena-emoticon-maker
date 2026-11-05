@@ -10,6 +10,7 @@ import {
   estimateCost,
 } from '@/lib/ai/generate';
 import { buildFaceCondition } from '@/lib/ai/face-embedding';
+import { consumePlayGeneration } from '@/lib/play-usage';
 
 const batchSchema = z.object({
   faceId: z.string().min(1),
@@ -66,6 +67,7 @@ export async function POST(req: Request) {
     }
 
     // 배치 AI 생성 호출 (Identity Lock: 얼굴 임베딩 주입, 같은 사람 다른 표정)
+    const playUsage = await consumePlayGeneration(user, body.emotions.length);
     const batchResult = await generateEmoticonBatch({
       faceId: body.faceId,
       palette: profile.palette,
@@ -104,6 +106,7 @@ export async function POST(req: Request) {
       totalCost,
       provider: Object.values(batchResult.results)[0]?.provider ?? 'mock',
       model: Object.values(batchResult.results)[0]?.model ?? 'mock',
+      playUsage,
     });
   } catch (e) {
     return handleError(e);

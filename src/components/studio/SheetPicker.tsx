@@ -248,7 +248,7 @@ export function SheetPicker({
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-black">팩 사이즈</p>
-            <p className="text-xs text-sub">{unlimited ? '관리자 무제한 사용' : `1컷 = 1크레딧 · 보유 ${credits}크레딧`}</p>
+            <p className="text-xs text-sub">{unlimited ? '크레딧 차감 없음' : `1컷 = 1크레딧 · 보유 ${credits}크레딧`}</p>
           </div>
           <div className="flex gap-2">
             {(tone === 'photo-sticker' ? [12, 16] as const : [12, 24] as const).map((s) => (
@@ -261,7 +261,7 @@ export function SheetPicker({
                 )}
               >
                 {s}컷
-                <span className="ml-2 text-[11px] font-bold opacity-70">{unlimited ? '무제한' : `${s}크레딧`}</span>
+                <span className="ml-2 text-[11px] font-bold opacity-70">{unlimited ? '차감 없음' : `${s}크레딧`}</span>
               </button>
             ))}
           </div>
@@ -297,7 +297,7 @@ export function SheetPicker({
           {busy
             ? '팩 만드는 중…'
             : chosenReady
-              ? `${size}컷 만들기 (${unlimited ? '무제한' : `${size}크레딧`})`
+              ? `${size}컷 만들기 (${unlimited ? '차감 없음' : `${size}크레딧`})`
               : chosen
                 ? '시안을 그리는 중입니다'
                 : '마음에 드는 시안을 골라 주세요'}

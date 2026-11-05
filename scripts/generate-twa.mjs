@@ -45,11 +45,11 @@ twa.packageId = 'com.emotihak.app';
 twa.appVersionCode = 1;
 twa.appVersionName = '1';
 twa.minSdkVersion = 24;
-twa.signingKey = { path: 'android-keystore.p12', alias: 'emotihak' };
+twa.signingKey = { path: 'private/android-keystore.p12', alias: 'emotihak' };
 twa.generatorApp = 'Bubblewrap CLI';
 
-if (!existsSync(path.join(twaDir, 'android-keystore.p12'))) {
-  console.error('오류: twa/android-keystore.p12 를 찾을 수 없습니다. 먼저 서명 키를 생성하세요.');
+if (!existsSync(path.join(twaDir, 'private/android-keystore.p12'))) {
+  console.error('오류: twa/private/android-keystore.p12 가 없습니다. node scripts/prepare-play-signing.mjs 를 먼저 실행하세요.');
   process.exit(1);
 }
 

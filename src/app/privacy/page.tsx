@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import Link from 'next/link';
 import { BUSINESS } from '@/lib/business';
 
 export const metadata: Metadata = { title: '개인정보처리방침 · 이모티학' };
@@ -7,7 +8,7 @@ export default function PrivacyPage() {
   return (
     <div className="wrap max-w-3xl py-12">
       <h1 className="h2">개인정보처리방침</h1>
-      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 3일 · 버전 v1.2</p>
+      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 5일 · 버전 v1.3</p>
 
       <div className="mt-8 space-y-8 text-[13px] leading-relaxed text-sub">
         <section>
@@ -57,6 +58,16 @@ export default function PrivacyPage() {
                   <td className="py-2">추천 품질 개선, 통계</td>
                   <td className="py-2">1년 (비식별 처리 후 통계 활용)</td>
                 </tr>
+                <tr className="border-b border-line">
+                  <td className="py-2 font-bold text-ink">AI 콘텐츠 신고(컷 ID·사유·상세 설명)</td>
+                  <td className="py-2">부적절한 생성 결과 검토와 안전 조치</td>
+                  <td className="py-2">검토 완료 후 90일, 계정 삭제 시 즉시 삭제</td>
+                </tr>
+                <tr className="border-b border-line">
+                  <td className="py-2 font-bold text-ink">플레이 앱 AI 공정 이용 기록(날짜·생성 시도 수)</td>
+                  <td className="py-2">AI 원가와 서비스 남용 방지</td>
+                  <td className="py-2">35일, 계정 삭제 시 즉시 삭제</td>
+                </tr>
                 <tr>
                   <td className="py-2 font-bold text-ink">붙여넣은 대화 텍스트</td>
                   <td className="py-2">답장 추천</td>
@@ -100,7 +111,7 @@ export default function PrivacyPage() {
           <h2 className="text-sm font-black text-ink">4. 파기 절차 및 방법</h2>
           <p className="mt-2">
             얼굴 분석 지표는 생성 후 24시간이 지나면 자동 파기됩니다. 원본 사진은 저장하지 않으므로 파기 대상이 아닙니다.
-            생성된 컷 이미지는 팩 상세 화면의 "팩 삭제"로 즉시 영구 삭제할 수 있습니다. 삭제된 이미지는 복구할 수 없습니다. 삭제만으로 자동 환불되지는 않으며 환불 가능 여부는 환불 정책과 관련 법령에 따라 확인합니다. 계정 전체 삭제나 앱에서 처리할 수 없는 요청은 {BUSINESS.email}으로 접수하면 수동으로 처리합니다. 전자적 파일은 복구 불가능한 방법으로 삭제하고, 처리 기록을 남깁니다.
+            생성된 컷 이미지는 팩 상세 화면의 "팩 삭제"로 삭제할 수 있습니다. <Link href="/account-deletion" className="font-bold text-ink underline">계정 및 데이터 삭제 페이지</Link>에서는 로그인과 비밀번호 확인 후 계정, 세션, 얼굴·생성 정보, 팩, 신고와 공정 이용 기록을 직접 삭제할 수 있습니다. 법령상 보존이 필요한 유료 주문·구매/환불 원장은 남기되 배송 정보와 생성 이미지는 제거합니다. 미해결 결제나 제작·배송 중인 주문은 먼저 정리해야 합니다. 저장소 지연으로 즉시 지워지지 않은 이미지는 접근을 차단하고 영속 작업으로 자동 재시도합니다. 삭제만으로 자동 환불되지는 않으며 환불 가능 여부는 환불 정책과 관련 법령에 따라 확인합니다. 로그인할 수 없는 삭제 요청은 {BUSINESS.email}으로 접수합니다.
           </p>
         </section>
 
@@ -116,7 +127,7 @@ export default function PrivacyPage() {
           <h2 className="text-sm font-black text-ink">6. AI 생성 결과물의 표시</h2>
           <p className="mt-2">
             서비스가 생성한 결과물에는 AI 생성 사실이 메타데이터 및 화면 라벨로 표시될 수 있습니다.
-            이용자는 이를 임의로 제거하여 타인에게 오인하게 해서는 안 됩니다.
+            이용자는 이를 임의로 제거하여 타인에게 오인하게 해서는 안 됩니다. 부적절하거나 권리를 침해하는 AI 결과는 각 컷의 "신고" 버튼으로 앱을 떠나지 않고 신고할 수 있으며, 운영자는 신고된 컷을 검토해 숨기거나 삭제할 수 있습니다.
           </p>
         </section>
 

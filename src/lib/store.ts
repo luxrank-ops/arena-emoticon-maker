@@ -4,13 +4,16 @@ import path from 'node:path';
 import { firestoreCas, firestoreReadSafe, hasFirestore, storeLabel as firestoreStoreLabel } from '@/lib/firestore';
 import type {
   CharacterSheet,
+  ContentReport,
   CreditEntry,
   DailyBrief,
   FaceProfile,
   Frame,
   GoodsOrder,
+  ImageDeletionJob,
   Order,
   Pack,
+  PlayUsage,
   UsageEvent,
   User,
 } from '@/lib/types';
@@ -34,6 +37,9 @@ export interface DB {
   packs: Pack[];
   credits: CreditEntry[];
   orders: (Order | GoodsOrder)[];
+  contentReports: ContentReport[];
+  deletionJobs: ImageDeletionJob[];
+  playUsage: PlayUsage[];
   briefs: DailyBrief[];
   events: UsageEvent[];
 }
@@ -50,6 +56,9 @@ const EMPTY: DB = {
   packs: [],
   credits: [],
   orders: [],
+  contentReports: [],
+  deletionJobs: [],
+  playUsage: [],
   briefs: [],
   events: [],
 };
@@ -548,7 +557,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
     }
   };
 
-  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'credits' | 'orders' | 'adminLoginAttempts'>>(rawUsers);
+  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'credits' | 'orders' | 'contentReports' | 'deletionJobs' | 'playUsage' | 'adminLoginAttempts'>>(rawUsers);
   const pShard = parseShard<Pick<DB, 'consistencyPreparations'>>(rawPrep);
   const fShard = parseShard<Pick<DB, 'faces'>>(rawFaces);
   const sShard = parseShard<Pick<DB, 'sheets'>>(rawSheets);
@@ -618,6 +627,9 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
     ),
     credits: mergeById(local.credits ?? [], uShard.data?.credits ?? legacyDB?.credits ?? [], (x) => x.id, uRemoteNewer),
     orders: mergeById(local.orders ?? [], uShard.data?.orders ?? legacyDB?.orders ?? [], (x) => x.id, uRemoteNewer),
+    contentReports: mergeById(local.contentReports ?? [], uShard.data?.contentReports ?? legacyDB?.contentReports ?? [], (x) => x.id, uRemoteNewer),
+    deletionJobs: mergeById(local.deletionJobs ?? [], uShard.data?.deletionJobs ?? legacyDB?.deletionJobs ?? [], (x) => x.id, uRemoteNewer),
+    playUsage: mergeById(local.playUsage ?? [], uShard.data?.playUsage ?? legacyDB?.playUsage ?? [], (x) => x.id, uRemoteNewer),
     briefs: mergeById(local.briefs ?? [], kShard.data?.briefs ?? legacyDB?.briefs ?? [], (x) => x.date, kRemoteNewer),
     events: (local.events ?? []).slice(-500),
   };
@@ -660,7 +672,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
   }
   if (pendingLookups.length > 0) await Promise.all(pendingLookups);
 
-  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, credits: db.credits, orders: db.orders, adminLoginAttempts: db.adminLoginAttempts });
+  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, credits: db.credits, orders: db.orders, contentReports: db.contentReports, deletionJobs: db.deletionJobs, playUsage: db.playUsage, adminLoginAttempts: db.adminLoginAttempts });
   const snapPrep = () => JSON.stringify({ consistencyPreparations: db.consistencyPreparations });
   const snapFaces = () => JSON.stringify({ faces: db.faces });
   const snapSheets = () => JSON.stringify({ sheets: db.sheets });

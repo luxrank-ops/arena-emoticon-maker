@@ -2,8 +2,9 @@
 // 풀액세스(관리자 + 플레이 유료 앱) 접근 제어 (서버 전용 · 단일 소스)
 //  · 관리자: 운영자 코드(ADMIN_PASSCODE) 검증 세션(role === 'admin') — 운영 콘솔 포함
 //  · 플레이 사용자: 구글 플레이에서 구매한 유료 앱(TWA) 사용자 — 요청 UA 로 매 요청 결정.
-//    앱 안에서는 크레딧 차감·요청 제한·플랜 게이트(스타일·워터마크·Daily Brief·
-//    카카오 패키징·굿즈 할인)를 모두 열어 준다 (결제는 이미 플레이스토어에서 완료).
+//    앱 안에서는 크레딧 차감 없이 플랜 게이트(스타일·워터마크·Daily Brief·
+//    카카오 패키징·굿즈 할인)를 연다. UA는 구매 증명이 아니므로 요청 제한과
+//    KST 일일 AI 공정 이용 한도는 별도로 유지한다.
 //  · 관리자와 플레이는 "기능 풀액세스"에서 동일하지만 운영 콘솔(metrics/purge)은
 //    관리자 전용으로 분리한다.
 // ─────────────────────────────────────────────────────────────
@@ -47,9 +48,9 @@ export function isUnlimited(viewer: Viewer | null | undefined): boolean {
   return isFullAccess(viewer);
 }
 
-/** 요청 제한(Rate limit)을 적용하지 않는다 */
+/** UA는 구매 증명이 아니므로 속도 제한을 우회하지 않는다. 운영자만 예외다. */
 export function bypassesRateLimit(viewer: Viewer | null | undefined): boolean {
-  return isFullAccess(viewer);
+  return isAdmin(viewer);
 }
 
 /** 워터마크 없는 내보내기 */
@@ -66,7 +67,9 @@ export function planLabel(viewer: Viewer | null | undefined): string {
 
 /** 표시용 잔액 문구 */
 export function creditsLabel(viewer: Viewer | null | undefined): string {
-  return isUnlimited(viewer) ? '무제한' : String(viewer?.credits ?? 0);
+  if (isAdmin(viewer)) return '무제한';
+  if (isPlayUser(viewer)) return '차감 없음';
+  return String(viewer?.credits ?? 0);
 }
 
 export { ADMIN_NICKNAME };

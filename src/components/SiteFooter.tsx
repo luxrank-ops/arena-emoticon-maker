@@ -41,6 +41,7 @@ export function SiteFooter() {
             <li><Link className="hover:text-ink" href="/privacy">개인정보처리방침</Link></li>
             <li><Link className="hover:text-ink" href="/refund">환불·청약철회 정책</Link></li>
             <li><Link className="hover:text-ink" href="/support">고객센터</Link></li>
+            <li><Link className="hover:text-ink" href="/account-deletion">계정 및 데이터 삭제</Link></li>
             <li><Link className="hover:text-ink" href="/admin">운영 콘솔</Link></li>
           </ul>
         </div>

@@ -7,6 +7,7 @@ import { won } from '@/lib/pricing';
 import { purgeStats } from '@/lib/purge';
 import { paymentReviewItems } from '@/lib/payment-review';
 import { AdminPaymentReview } from '@/components/payments/AdminPaymentReview';
+import { AdminContentReports } from '@/components/moderation/AdminContentReports';
 
 export const dynamic = 'force-dynamic';
 
@@ -43,6 +44,12 @@ export default async function AdminPage() {
       creditsIssued,
       creditsSpent,
       paymentReview: paymentReviewItems(db).slice(0, 20),
+      contentReports: db.contentReports.slice(-20).reverse().map((report) => {
+        const pack = db.packs.find((item) => item.id === report.packId);
+        const frame = pack?.frames.find((item) => item.id === report.frameId);
+        return { ...report, packTitle: pack?.title, frameLabel: frame?.label, line: frame?.line, imageId: frame?.imageId };
+      }),
+      deletionPending: db.deletionJobs.reduce((sum, job) => sum + job.imageIds.length, 0),
       errors: db.events.filter((e) => e.type === 'error').length,
       recent: db.orders.slice(-6).reverse(),
       topFrames: db.packs
@@ -105,13 +112,16 @@ export default async function AdminPage() {
           <div className="card p-5">
             <p className="text-sm font-black">모더레이션 · 안전장치</p>
             <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-sub">
-              <li>· 셀피 라이브니스 / 타인 사진 신고 차단: <strong className="text-ink">설계 반영</strong></li>
-              <li>· 유명인·정치인 유사도 필터: <strong className="text-ink">Step 3</strong></li>
+              <li>· AI 결과 인앱 신고·운영 검토: <strong className="text-ink">적용</strong></li>
+              <li>· 유명인·정치인 유사도 필터: <strong className="text-ink">추가 강화 필요</strong></li>
               <li>· AI 생성 표시(메타데이터·라벨): <strong className="text-ink">적용</strong></li>
+              <li>· 이미지 삭제 대기: <strong className="text-ink">{m.deletionPending}건</strong></li>
               <li>· 얼굴 파생 정보 24h 파기: <strong className="text-ink">자동 실행</strong> (크론 + 기회적 스윕)</li>
               <li>· 오류 이벤트: {m.errors}건</li>
             </ul>
           </div>
+
+          <AdminContentReports items={m.contentReports} />
 
           <AdminPaymentReview items={m.paymentReview} />
 

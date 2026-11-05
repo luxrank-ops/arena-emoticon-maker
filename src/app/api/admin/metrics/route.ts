@@ -35,6 +35,11 @@ export async function GET() {
         .map((f) => ({ label: f.label, line: f.line, usage: f.usageCount }));
 
       const paymentReview = paymentReviewItems(db);
+      const contentReports = db.contentReports.slice(-20).reverse().map((report) => {
+        const pack = db.packs.find((item) => item.id === report.packId);
+        const frame = pack?.frames.find((item) => item.id === report.frameId);
+        return { ...report, packTitle: pack?.title, frameLabel: frame?.label, line: frame?.line, imageId: frame?.imageId };
+      });
 
       return {
         users: db.users.length,
@@ -52,6 +57,9 @@ export async function GET() {
         topFrames,
         paymentReviewCount: paymentReview.length,
         paymentReview: paymentReview.slice(0, 20),
+        contentReportCount: db.contentReports.filter((report) => report.status === 'OPEN').length,
+        contentReports,
+        deletionPending: db.deletionJobs.reduce((sum, job) => sum + job.imageIds.length, 0),
         arpu: db.users.length ? Math.round(revenue / db.users.length) : 0,
         planPrice: { PLUS: PLANS.PLUS.price, STUDIO: PLANS.STUDIO.price },
       };

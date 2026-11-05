@@ -116,6 +116,12 @@ export async function login(identifier: string, password: string) {
   await createSession(account.userId);
 }
 
+export async function verifyAccountPassword(userId: string, password: string) {
+  const account = await withDB((db) => db.accounts.find((item) => item.userId === userId) ?? null);
+  const valid = await verifyPassword(password, account?.passwordHash ?? 'scrypt$00000000000000000000000000000000$' + '0'.repeat(128));
+  if (!account || !valid) throw new AuthError('INVALID_PASSWORD', '비밀번호가 일치하지 않습니다', 401);
+}
+
 async function createSession(userId: string) {
   const token = randomBytes(32).toString('hex');
   const tokenHash = hashSessionToken(token);
