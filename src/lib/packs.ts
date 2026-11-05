@@ -17,9 +17,10 @@ import { TEMPLATES_BY_ID } from '@/lib/recommend/templates';
 import { applyCredits, CreditError } from '@/lib/credits';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { watermarkFor, type Viewer } from '@/lib/admin-access';
-import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { loadImage } from '@/lib/images';
+import { localizedComicExpressions, localizedPhotoStickerScenes } from '@/lib/i18n/presets';
+import type { Locale } from '@/lib/i18n/locale';
 
 const FRAME_INTERVAL_MS = 850;
 
@@ -107,7 +108,7 @@ export async function chooseSheet(userId: string, sheetId: string, variantKey: s
   });
 }
 
-export async function createPack(userId: string, sheetId: string, size: number, title?: string, unlimited = false, comicExpressionIds?: string[]) {
+export async function createPack(userId: string, sheetId: string, size: number, title?: string, unlimited = false, comicExpressionIds?: string[], locale: Locale = 'ko') {
   const { sheet, face } = await withDB((db) => {
     const s = db.sheets.find((x) => x.id === sheetId && x.userId === userId);
     if (!s) throw new PackError('SHEET_NOT_FOUND', '캐릭터 시트를 찾을 수 없습니다');
@@ -134,9 +135,16 @@ export async function createPack(userId: string, sheetId: string, size: number, 
   if (sheet.tone === 'photo-sticker' && size !== 12 && size !== 16) throw new PackError('INVALID_SIZE', '실사 카톡 스티커는 12컷 또는 16컷을 선택해 주세요');
   if (size === 16 && sheet.tone !== 'photo-sticker') throw new PackError('INVALID_SIZE', '16컷은 실사 카톡 스티커에서만 선택할 수 있습니다');
   if (comicExpressionIds && (comicExpressionIds.length !== size || new Set(comicExpressionIds).size !== size || comicExpressionIds.some((id) => !comicExpressionById(id)))) throw new PackError('INVALID_COMIC_SELECTION', '선택한 코믹 표정을 컷 수에 맞게 확인해 주세요.');
-  const templates = comicExpressionIds ? comicExpressionIds.map((id) => { const item = comicExpressionById(id)!; return { ...item, id: `comic-${id}` }; }) : sheet.tone === 'photo-sticker'
-    ? PHOTO_STICKER_SCENES.slice(0, size)
-    : composePackTemplates(size, new Date(), recent);
+  const templates = comicExpressionIds
+    ? localizedComicExpressions(locale)
+        .filter((item) => comicExpressionIds.includes(item.id) && comicExpressionById(item.id))
+        .sort((a, b) => comicExpressionIds.indexOf(a.id) - comicExpressionIds.indexOf(b.id))
+        .map((item) => ({ ...item, id: `comic-${item.id}` }))
+    : sheet.tone === 'photo-sticker'
+      ? localizedPhotoStickerScenes(locale).slice(0, size)
+      : locale === 'en'
+        ? localizedComicExpressions('en').slice(0, size).map((item) => ({ ...item, id: `comic-${item.id}` }))
+        : composePackTemplates(size, new Date(), recent);
   const packId = uid('pack');
   const now = Date.now();
 
@@ -175,13 +183,14 @@ export async function createPack(userId: string, sheetId: string, size: number, 
 
   const pack: Pack = {
     id: packId,
+    locale,
     userId,
     sheetId,
     subjectKind: sheet.subjectKind ?? 'person',
     characterReferenceImageId: chosen?.imageId,
     tone: sheet.tone,
     mode: sheet.mode ?? 'face',
-    title: title?.trim() || `${sheet.tone === 'caricature' ? '개그' : '나의'} 이모티콘 팩`,
+    title: title?.trim() || (locale === 'en' ? 'My reaction stickers' : `${sheet.tone === 'caricature' ? '개그' : '나의'} 이모티콘 팩`),
     size,
     status: 'GENERATING',
     renderer: 'ai',

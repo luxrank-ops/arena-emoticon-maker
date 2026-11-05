@@ -2,6 +2,8 @@
 // 이모티학 · 공용 도메인 타입 (서버/클라이언트 공유)
 // ─────────────────────────────────────────────────────────────
 
+import type { Locale } from '@/lib/i18n/locale';
+
 export type Plan = 'FREE' | 'PLUS' | 'STUDIO';
 
 export type Tone =
@@ -205,6 +207,8 @@ export interface FrameView extends Frame {
 }
 
 export interface Pack {
+  /** Copy/preset language captured at creation; legacy packs default to Korean. */
+  locale?: Locale;
   subjectKind?: SubjectKind;
   mode?: CompositionMode;
   id: string;

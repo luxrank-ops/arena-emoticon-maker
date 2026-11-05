@@ -5,12 +5,17 @@ import { getCurrentUser } from '@/lib/session';
 import { getPackView } from '@/lib/packs';
 import { validatePackForKakao } from '@/lib/packager';
 import { effectivePlan } from '@/lib/admin-access';
+import { getLocale } from '@/lib/i18n/server';
+import { localizedPath, tr } from '@/lib/i18n/locale';
 
 export const dynamic = 'force-dynamic';
 
 export default async function PackPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const user = await getCurrentUser();
+  const locale = await getLocale();
+  const t = (ko: string, en: string) => tr(locale, ko, en);
+  const lp = (href: string) => localizedPath(locale, href);
   let view: Awaited<ReturnType<typeof getPackView>> | null = null;
   try {
     view = await getPackView(user.id, id, user);
@@ -28,18 +33,18 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
   return (
     <div className="wrap py-10">
       <nav className="mb-6 flex items-center gap-2 text-xs font-bold text-sub">
-        <Link href="/" className="hover:text-ink">홈</Link>
+        <Link href={lp('/')} className="hover:text-ink">{t('홈', 'Home')}</Link>
         <span>/</span>
-        <Link href="/studio/upload" className="hover:text-ink">만들기</Link>
+        <Link href={lp('/studio/upload')} className="hover:text-ink">{t('만들기', 'Create')}</Link>
         <span>/</span>
-        <span className="text-ink">내 팩</span>
+        <span className="text-ink">{t('내 팩', 'My pack')}</span>
         <span className="ml-auto chip">STEP 4 / 4</span>
       </nav>
 
       <div className="mb-8">
-        <h1 className="h2">내 이모티콘 팩</h1>
+        <h1 className="h2">{t('내 이모티콘 팩', 'My sticker pack')}</h1>
         <p className="mt-2 text-sm text-sub">
-          컷을 눌러 대사·표정·악세사리를 편집해 보세요. AI 이미지에 변경 사항을 적용하려면 다시 그리기가 필요합니다.
+          {t('컷을 눌러 대사·표정·악세사리를 편집해 보세요. AI 이미지에 변경 사항을 적용하려면 다시 그리기가 필요합니다.', 'Select a cut to edit its caption, expression, or accessories. Regenerate the AI image to apply visual changes.')}
         </p>
       </div>
 
@@ -50,6 +55,7 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
         total={view.total}
         watermark={view.watermark}
         kakao={kakao}
+        locale={locale}
       />
     </div>
   );

@@ -5,8 +5,8 @@ import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
-import { TONES } from '@/lib/art/sticker';
-import { COMIC_EXPRESSIONS } from '@/lib/comic-expressions';
+import { localizedComicExpressions, toneCopy } from '@/lib/i18n/presets';
+import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import type { Palette, SheetVariant, StickerSpec, Tone, SubjectKind } from '@/lib/types';
 
@@ -25,6 +25,7 @@ export function SheetPicker({
   credits,
   unlimited = false,
   alreadyChosen,
+  locale = 'ko',
 }: {
   sheetId: string;
   subjectKind?: SubjectKind;
@@ -34,8 +35,12 @@ export function SheetPicker({
   credits: number;
   unlimited?: boolean;
   alreadyChosen: string | null;
+  locale?: Locale;
 }) {
   const router = useRouter();
+  const t = (ko: string, en: string) => tr(locale, ko, en);
+  const lp = (href: string) => localizedPath(locale, href);
+  const expressions = localizedComicExpressions(locale);
   const [chosen, setChosen] = useState<string | null>(alreadyChosen);
   const [size, setSize] = useState<12 | 16 | 24>(12);
   const [comicMode, setComicMode] = useState(false);
@@ -67,7 +72,7 @@ export function SheetPicker({
         const url = await renderImage({ kind: 'sheet', sheetId, variantKey: key }, photo, `sheet:${sheetId}`, subjectKind);
         setImages((prev) => ({ ...prev, [key]: url }));
       } catch (e) {
-        setFailed((prev) => ({ ...prev, [key]: (e as Error).message }));
+        setFailed((prev) => ({ ...prev, [key]: locale === 'en' ? 'This draft could not be generated. Try again.' : (e as Error).message }));
       } finally {
         setPending((prev) => ({ ...prev, [key]: false }));
       }
@@ -88,7 +93,7 @@ export function SheetPicker({
       setNeedPhoto(false);
       setPhotoTick((t) => t + 1);
     } catch (e) {
-      setError((e as Error).message);
+      setError(locale === 'en' ? 'Something went wrong. Please try again.' : (e as Error).message);
     }
   }
 
@@ -120,22 +125,22 @@ export function SheetPicker({
       });
       if (!chooseRes.ok) {
         const j = await chooseRes.json();
-        throw new Error(j?.error?.message ?? '캐릭터를 선택하지 못했어요');
+        throw new Error(locale === 'en' ? 'We could not select this character. Try again.' : (j?.error?.message ?? '캐릭터를 선택하지 못했어요'));
       }
       const packRes = await fetch('/api/packs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId, size, ...(comicMode ? { comicExpressionIds: comicIds } : {}) }),
+        body: JSON.stringify({ sheetId, size, locale, ...(comicMode ? { comicExpressionIds: comicIds } : {}) }),
       });
       const packJson = await packRes.json();
-      if (!packRes.ok) throw new Error(packJson?.error?.message ?? '팩을 만들지 못했어요');
+      if (!packRes.ok) throw new Error(locale === 'en' ? 'We could not create this pack. Check your credits and try again.' : (packJson?.error?.message ?? '팩을 만들지 못했어요'));
       // 시안 생성 시 사용한 사진만 새 팩에 연결한다.
       try {
         if (loadPhoto(`sheet:${sheetId}`)) linkPhoto(`sheet:${sheetId}`, `pack:${packJson.packId}`);
       } catch {
         // 팩은 이미 생성되었으므로 중복 결제를 유발하지 않도록 이동한다. 팩에서 사진을 다시 올릴 수 있다.
       }
-      const targetUrl = `/studio/pack/${packJson.packId}`;
+      const targetUrl = lp(`/studio/pack/${packJson.packId}`);
       router.push(targetUrl);
       setTimeout(() => {
         if (typeof window !== 'undefined' && window.location.pathname !== targetUrl) {
@@ -143,7 +148,7 @@ export function SheetPicker({
         }
       }, 1000);
     } catch (e) {
-      setError((e as Error).message);
+      setError(locale === 'en' ? 'Something went wrong. Please try again.' : (e as Error).message);
       setBusy(false);
     }
   }
@@ -152,24 +157,24 @@ export function SheetPicker({
 
   return (
     <div className="space-y-6">
-      <ConsistencyNotice scope={`sheet:${sheetId}`} subjectKind={subjectKind} />
+      <ConsistencyNotice scope={`sheet:${sheetId}`} subjectKind={subjectKind} locale={locale} />
       {needPhoto ? (
         <div className="card flex flex-wrap items-center justify-between gap-3 p-5">
           <div>
-            <p className="text-sm font-black">이 탭에 사진이 없어요</p>
+            <p className="text-sm font-black">{t('이 탭에 사진이 없어요', 'This tab no longer has your photo')}</p>
             <p className="text-xs text-sub">
-              사진은 탭을 닫으면 지워집니다. 같은 원본 사진을 한 번 더 올려 주세요.
+              {t('사진은 탭을 닫으면 지워집니다. 같은 원본 사진을 한 번 더 올려 주세요.', 'Photos are cleared when the tab closes. Please add the same original photo again.')}
             </p>
           </div>
           <label className="btn-primary cursor-pointer !py-2 text-xs">
-            사진 다시 올리기
+            {t('사진 다시 올리기', 'Add photo again')}
             <input
               type="file"
               accept="image/*"
               className="sr-only"
               onChange={(e) => {
                 const f = e.target.files?.[0];
-                if (f && window.confirm('사진은 이미지 생성 전 확인과 생성 시 Google Gemini로 전송됩니다. AI 확인이 어려우면 파일만 확인하는 기본 방식으로 진행하며 일관성은 보장되지 않습니다. 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
+                if (f && window.confirm(t('사진은 이미지 생성 전 확인과 생성 시 Google Gemini로 전송됩니다. AI 확인이 어려우면 파일만 확인하는 기본 방식으로 진행하며 일관성은 보장되지 않습니다. 동의하시면 확인을 눌러 주세요.', 'Your photo is sent to Google Gemini for pre-generation review and image creation. If AI review is unavailable, basic file checks are used and consistency is not guaranteed. Select OK to consent.'))) void onPickPhoto(f);
                     e.target.value = '';
               }}
             />
@@ -198,7 +203,7 @@ export function SheetPicker({
             >
               <div className="bg-cream p-3">
                 {images[v.key] ? (
-                  <Sticker spec={specOf(v)} ariaLabel={`캐릭터 시안 ${v.key}`} />
+                  <Sticker spec={specOf(v)} ariaLabel={t(`캐릭터 시안 ${v.key}`, `Character draft ${v.key}`)} />
                 ) : (
                   <div className="grid aspect-square place-items-center rounded-xl bg-[length:200%_100%] bg-gradient-to-r from-line/20 via-line/50 to-line/20 p-4 text-center animate-shimmer">
                     {err ? (
@@ -212,12 +217,12 @@ export function SheetPicker({
                             void generate([v.key]);
                           }}
                         >
-                          다시 그리기
+                          {t('다시 그리기', 'Try again')}
                         </button>
                       </div>
                     ) : (
                       <span className="text-[11px] font-bold text-sub">
-                        {isPending || !needPhoto ? 'AI가 시안을 그리는 중…' : '사진을 기다리는 중'}
+                        {isPending || !needPhoto ? t('AI가 시안을 그리는 중…', 'AI is drawing this draft…') : t('사진을 기다리는 중', 'Waiting for a photo')}
                       </span>
                     )}
                   </div>
@@ -226,9 +231,9 @@ export function SheetPicker({
               <div className="flex items-center justify-between border-t-2 border-line px-4 py-3">
                 <div>
                   <p className="text-sm font-black">
-                    시안 {v.key} · {v.label}
+                    {t('시안', 'Draft')} {v.key} · {locale === 'en' ? ({ A: 'Classic', B: 'Round', C: 'Cool' }[v.key] ?? v.key) : v.label}
                   </p>
-                  <p className="text-[11px] text-sub">{TONES[tone].label} · 같은 사진 기준</p>
+                  <p className="text-[11px] text-sub">{toneCopy(locale, tone).label} · {t('같은 사진 기준', 'Same photo reference')}</p>
                 </div>
                 <span
                   className={clsx(
@@ -247,21 +252,21 @@ export function SheetPicker({
       <div className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-black">팩 사이즈</p>
-            <p className="text-xs text-sub">{unlimited ? '크레딧 차감 없음' : `1컷 = 1크레딧 · 보유 ${credits}크레딧`}</p>
+            <p className="text-sm font-black">{t('팩 사이즈', 'Pack size')}</p>
+            <p className="text-xs text-sub">{unlimited ? t('크레딧 차감 없음', 'No credit deduction') : t(`1컷 = 1크레딧 · 보유 ${credits}크레딧`, `1 cut = 1 credit · ${credits} credits available`)}</p>
           </div>
           <div className="flex gap-2">
             {(tone === 'photo-sticker' ? [12, 16] as const : [12, 24] as const).map((s) => (
               <button
                 key={s}
-                onClick={() => { setSize(s); if (comicMode) setComicIds(COMIC_EXPRESSIONS.slice(0, s).map((item) => item.id)); }}
+                onClick={() => { setSize(s); if (comicMode) setComicIds(expressions.slice(0, s).map((item) => item.id)); }}
                 className={clsx(
                   'rounded-xl border-2 px-4 py-2 text-sm font-black transition',
                   size === s ? 'border-ink bg-ink text-cream' : 'border-line bg-paper hover:border-ink',
                 )}
               >
-                {s}컷
-                <span className="ml-2 text-[11px] font-bold opacity-70">{unlimited ? '차감 없음' : `${s}크레딧`}</span>
+                {s}{t('컷', ' cuts')}
+                <span className="ml-2 text-[11px] font-bold opacity-70">{unlimited ? t('차감 없음', 'No charge') : t(`${s}크레딧`, `${s} credits`)}</span>
               </button>
             ))}
           </div>
@@ -269,22 +274,22 @@ export function SheetPicker({
 
         <div className="mt-5 rounded-xl border-2 border-line p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <div><p className="text-sm font-black">코믹 감정 표현</p><p className="mt-1 text-xs text-sub">일상에서 쓰기 좋은 오리지널 코믹 반응 24종. 원하는 컷을 직접 골라 주세요.</p></div>
-            <button type="button" aria-pressed={comicMode} onClick={() => { setComicMode(!comicMode); if (!comicMode) setComicIds(COMIC_EXPRESSIONS.slice(0, size).map((item) => item.id)); }} className="btn-ghost !px-3 !py-2 text-xs">{comicMode ? '기본 자동 구성으로' : '코믹 구성 선택'}</button>
+            <div><p className="text-sm font-black">{t('코믹 감정 표현', 'Comic reactions')}</p><p className="mt-1 text-xs text-sub">{t('일상에서 쓰기 좋은 오리지널 코믹 반응 24종. 원하는 컷을 직접 골라 주세요.', 'Choose from 24 original reactions written for everyday chats.')}</p></div>
+            <button type="button" aria-pressed={comicMode} onClick={() => { setComicMode(!comicMode); if (!comicMode) setComicIds(expressions.slice(0, size).map((item) => item.id)); }} className="btn-ghost !px-3 !py-2 text-xs">{comicMode ? t('기본 자동 구성으로', 'Use automatic pack') : t('코믹 구성 선택', 'Choose reactions')}</button>
           </div>
           {comicMode ? <>
-            <p className="mt-3 text-xs font-bold text-sub">{comicIds.length} / {size}개 선택 · 선택 순서대로 개별 이미지 생성</p>
-            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label="코믹 감정 표현 선택">
-              {COMIC_EXPRESSIONS.map((item) => { const selected = comicIds.includes(item.id); return <button key={item.id} type="button" aria-pressed={selected} disabled={!selected && comicIds.length >= size} onClick={() => setComicIds((prev) => selected ? prev.filter((id) => id !== item.id) : [...prev, item.id])} className={clsx('rounded-xl border-2 p-2 text-left text-xs font-bold disabled:opacity-40', selected ? 'border-ink bg-lemon/30 text-ink' : 'border-line bg-paper text-sub')}><span aria-hidden="true">{item.emoji}</span> {item.label} <span className="block pt-1 text-[10px] font-normal">{item.line}</span></button>; })}
+            <p className="mt-3 text-xs font-bold text-sub">{comicIds.length} / {size}{t('개 선택 · 선택 순서대로 개별 이미지 생성', ' selected · generated individually in selection order')}</p>
+            <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label={t('코믹 감정 표현 선택', 'Choose comic reactions')}>
+              {expressions.map((item) => { const selected = comicIds.includes(item.id); return <button key={item.id} type="button" aria-pressed={selected} disabled={!selected && comicIds.length >= size} onClick={() => setComicIds((prev) => selected ? prev.filter((id) => id !== item.id) : [...prev, item.id])} className={clsx('rounded-xl border-2 p-2 text-left text-xs font-bold disabled:opacity-40', selected ? 'border-ink bg-lemon/30 text-ink' : 'border-line bg-paper text-sub')}><span aria-hidden="true">{item.emoji}</span> {item.label} <span className="block pt-1 text-[10px] font-normal">{item.line}</span></button>; })}
             </div>
-            {comicIds.length !== size ? <p className="mt-2 text-xs font-bold text-coralink">{size}개를 선택해야 팩을 만들 수 있어요.</p> : null}
+            {comicIds.length !== size ? <p className="mt-2 text-xs font-bold text-coralink">{t(`${size}개를 선택해야 팩을 만들 수 있어요.`, `Select ${size} reactions to create this pack.`)}</p> : null}
           </> : null}
         </div>
 
         <div className="mt-4 rounded-xl border border-line bg-cream px-4 py-3 text-[12px] leading-relaxed text-sub">
           {tone === 'photo-sticker'
-            ? '표정마다 각각 독립된 이미지로 만들어집니다. 12·16컷은 개인 사용용이며 카카오 정식 제안 규격 충족을 보장하지 않습니다.'
-            : <><strong className="text-ink">24컷</strong>은 카카오 이모티콘 스튜디오 제안 규격과 동일한 구성입니다. 12컷은 개인 사용·빠른 제작에 적합합니다.</>}
+            ? t('표정마다 각각 독립된 이미지로 만들어집니다. 12·16컷은 개인 사용용이며 카카오 정식 제안 규격 충족을 보장하지 않습니다.', 'Each reaction is generated as an individual image. The 12- and 16-cut packs are for personal use; compliance with official Kakao submission requirements is not guaranteed.')
+            : <><strong className="text-ink">{t('24컷', '24 cuts')}</strong>{t('은 카카오 이모티콘 스튜디오 제안 규격과 동일한 구성입니다. 12컷은 개인 사용·빠른 제작에 적합합니다.', ' matches the cut count used for Kakao Emoticon Studio submissions. Twelve cuts is a quicker option for personal use.')}</>}
         </div>
 
         {error ? (
@@ -295,15 +300,15 @@ export function SheetPicker({
 
         <button className="btn-primary mt-4 w-full !py-4" disabled={!chosenReady || busy || (comicMode && comicIds.length !== size)} onClick={create}>
           {busy
-            ? '팩 만드는 중…'
+            ? t('팩 만드는 중…', 'Creating your pack…')
             : chosenReady
-              ? `${size}컷 만들기 (${unlimited ? '차감 없음' : `${size}크레딧`})`
+              ? t(`${size}컷 만들기 (${unlimited ? '차감 없음' : `${size}크레딧`})`, `Create ${size} cuts (${unlimited ? 'no charge' : `${size} credits`})`)
               : chosen
-                ? '시안을 그리는 중입니다'
-                : '마음에 드는 시안을 골라 주세요'}
+                ? t('시안을 그리는 중입니다', 'Your draft is still drawing')
+                : t('마음에 드는 시안을 골라 주세요', 'Choose your favorite draft')}
         </button>
         <p className="mt-2 text-center text-[11px] text-sub">
-          컷은 한 장씩 AI가 그리며, 완성되는 순서대로 팩에 나타납니다
+          {t('컷은 한 장씩 AI가 그리며, 완성되는 순서대로 팩에 나타납니다', 'AI draws each cut individually, and finished stickers appear in your pack as they become ready')}
         </p>
       </div>
     </div>

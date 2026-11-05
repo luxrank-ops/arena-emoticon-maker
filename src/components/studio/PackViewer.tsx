@@ -12,6 +12,7 @@ import { downloadBlob, exportKakaoPackZip, exportPackZip, renderPngBlob } from '
 import { formatKstDateTime } from '@/lib/time';
 import { formatBytes, KAKAO_RULES, type PackValidation } from '@/lib/packager';
 import type { FrameView, Pack, Plan } from '@/lib/types';
+import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 
 export function PackViewer({
   pack: initialPack,
@@ -20,6 +21,7 @@ export function PackViewer({
   total,
   watermark,
   kakao,
+  locale = 'ko',
 }: {
   pack: Pack;
   frames: FrameView[];
@@ -27,7 +29,10 @@ export function PackViewer({
   total: number;
   watermark: boolean;
   kakao: { validation: PackValidation; packaging: boolean; plan: Plan };
+  locale?: Locale;
 }) {
+  const t = (ko: string, en: string) => tr(locale, ko, en);
+  const lp = (href: string) => localizedPath(locale, href);
   const [frames, setFrames] = useState(initialFrames);
   const [zipBusy, setZipBusy] = useState(false);
   const [kakaoBusy, setKakaoBusy] = useState(false);
@@ -58,26 +63,27 @@ export function PackViewer({
         const url = await renderImage({ kind: 'frame', frameId: id }, photo, `pack:${initialPack.id}`, initialPack.subjectKind ?? 'person');
         setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, spec: { ...f.spec, imageUrl: url } } : f)));
       } catch (e) {
-        setGenErrors((prev) => ({ ...prev, [id]: (e as Error).message }));
+        setGenErrors((prev) => ({ ...prev, [id]: locale === 'en' ? 'Generation failed. Try again.' : (e as Error).message }));
       }
     }).finally(() => setGenerating(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genRound]);
 
   async function deletePackNow() {
-    const ok = window.confirm(
+    const ok = window.confirm(t(
       '이 팩과 컷 이미지를 모두 삭제할까요?\n삭제한 이미지는 복구할 수 없고, 삭제만으로 자동 환불되지는 않습니다. 환불 가능 여부는 정책을 확인해 주세요.',
-    );
+      'Delete this pack and all of its images?\nDeleted images cannot be restored. Deleting a pack does not automatically issue a refund; review the refund policy for eligibility.',
+    ));
     if (!ok) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/packs/${initialPack.id}`, { method: 'DELETE' });
       const json = await res.json();
-      if (!json.ok) throw new Error(json?.error?.message ?? '삭제하지 못했어요');
-      router.push('/studio/upload');
+      if (!json.ok) throw new Error(locale === 'en' ? 'The pack could not be deleted.' : (json?.error?.message ?? '삭제하지 못했어요'));
+      router.push(lp('/studio/upload'));
       router.refresh();
     } catch (e) {
-      setNotice((e as Error).message);
+      setNotice(locale === 'en' ? 'Something went wrong. Please try again.' : (e as Error).message);
       setDeleting(false);
     }
   }
@@ -88,7 +94,7 @@ export function PackViewer({
       setPhotoMissing(false);
       setGenRound((r) => r + 1);
     } catch (e) {
-      setNotice((e as Error).message);
+      setNotice(locale === 'en' ? 'Something went wrong. Please try again.' : (e as Error).message);
     }
   }
 
@@ -116,7 +122,7 @@ export function PackViewer({
         .map((f) => ({ spec: f.spec, filename: `${String(f.index + 1).padStart(2, '0')}-${f.label}` }));
       const blob = await exportPackZip(items, { watermark });
       downloadBlob(blob, `emotihak-${initialPack.id}.zip`);
-      setNotice(`${items.length}컷을 ZIP으로 내려받았어요.`);
+      setNotice(t(`${items.length}컷을 ZIP으로 내려받았어요.`, `Downloaded ${items.length} cuts as a ZIP file.`));
     } finally {
       setZipBusy(false);
     }
@@ -146,13 +152,13 @@ export function PackViewer({
 
   return (
     <div className="space-y-6">
-      {aiPack ? <ConsistencyNotice scope={`pack:${initialPack.id}`} subjectKind={initialPack.subjectKind ?? 'person'} /> : null}
+      {aiPack ? <ConsistencyNotice scope={`pack:${initialPack.id}`} subjectKind={initialPack.subjectKind ?? 'person'} locale={locale} /> : null}
       <div className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-black">{initialPack.title}</p>
             <p className="text-xs text-sub">
-              {initialPack.size}컷 · {initialPack.creditsSpent}크레딧 사용 ·{' '}
+              {t(`${initialPack.size}컷 · ${initialPack.creditsSpent}크레딧 사용`, `${initialPack.size} cuts · ${initialPack.creditsSpent} credits used`)}{' '}·{' '}
               {formatKstDateTime(initialPack.createdAt)}
             </p>
           </div>
@@ -163,7 +169,7 @@ export function PackViewer({
                 done ? '!border-mint/60 !bg-mint/10 !text-ink' : '!border-coral/50 !bg-coral/10 !text-coralink',
               )}
             >
-              {done ? '● 생성 완료' : '● 생성 중'}
+              {done ? t('● 생성 완료', '● Complete') : t('● 생성 중', '● Generating')}
             </span>
             <span className="text-sm font-black">
               {ready}/{total}
@@ -178,18 +184,18 @@ export function PackViewer({
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           <button className="btn-dark !py-2 text-xs" disabled={!done || zipBusy} onClick={downloadZip}>
-            {zipBusy ? 'ZIP 만드는 중…' : '전체 PNG ZIP 다운로드'}
+            {zipBusy ? t('ZIP 만드는 중…', 'Preparing ZIP…') : t('전체 PNG ZIP 다운로드', 'Download all PNGs (.zip)')}
           </button>
-          <Link href="/reply" className="btn-ghost !py-2 text-xs">톡 답장에 쓰기</Link>
+          {locale === 'ko' ? <Link href="/reply" className="btn-ghost !py-2 text-xs">톡 답장에 쓰기</Link> : null}
           <button
             onClick={deletePackNow}
             disabled={deleting}
             className="rounded-full border border-coral/50 px-3 py-2 text-xs font-bold text-coralink hover:bg-coral/10 disabled:opacity-50"
           >
-            {deleting ? '삭제 중…' : '팩 삭제'}
+            {deleting ? t('삭제 중…', 'Deleting…') : t('팩 삭제', 'Delete pack')}
           </button>
-          <Link href="/goods" className="btn-ghost !py-2 text-xs">굿즈로 만들기</Link>
-          {watermark ? (
+          {locale === 'ko' ? <Link href="/goods" className="btn-ghost !py-2 text-xs">굿즈로 만들기</Link> : null}
+          {watermark && locale === 'ko' ? (
             <Link href="/pricing" className="chip !border-coral/50 !bg-coral/10 !text-coralink">
               워터마크 제거는 Plus
             </Link>
@@ -203,31 +209,31 @@ export function PackViewer({
           {photoMissing ? (
             <>
               <p className="text-sm font-bold">
-                이 탭에 사진이 없어 컷을 그릴 수 없어요. 같은 원본 사진을 다시 올려 주세요.
+                {t('이 탭에 사진이 없어 컷을 그릴 수 없어요. 같은 원본 사진을 다시 올려 주세요.', 'This tab no longer has the photo needed to draw your cuts. Please add the same original photo again.')}
               </p>
               <label className="btn-primary cursor-pointer !py-2 text-xs">
-                사진 다시 올리기
+                {t('사진 다시 올리기', 'Add photo again')}
                 <input
                   type="file"
                   accept="image/*"
                   className="sr-only"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
-                    if (f && window.confirm('사진은 이미지 생성 전 확인과 생성 시 Google Gemini로 전송됩니다. AI 확인이 어려우면 파일만 확인하는 기본 방식으로 진행하며 일관성은 보장되지 않습니다. 동의하시면 확인을 눌러 주세요.')) void onPickPhoto(f);
+                    if (f && window.confirm(t('사진은 이미지 생성 전 확인과 생성 시 Google Gemini로 전송됩니다. AI 확인이 어려우면 파일만 확인하는 기본 방식으로 진행하며 일관성은 보장되지 않습니다. 동의하시면 확인을 눌러 주세요.', 'Your photo is sent to Google Gemini for pre-generation review and image creation. If AI review is unavailable, basic file checks are used and consistency is not guaranteed. Select OK to consent.'))) void onPickPhoto(f);
                     e.target.value = '';
                   }}
                 />
               </label>
             </>
           ) : generating ? (
-            <p className="text-sm font-bold text-sub">AI가 컷을 그리는 중이에요. 완성되는 순서대로 나타납니다.</p>
+            <p className="text-sm font-bold text-sub">{t('AI가 컷을 그리는 중이에요. 완성되는 순서대로 나타납니다.', 'AI is drawing your cuts. They will appear as they finish.')}</p>
           ) : (
             <>
               <p className="text-sm font-bold text-coralink">
-                일부 컷을 그리지 못했어요 ({Object.keys(genErrors).length}컷).
+                {t(`일부 컷을 그리지 못했어요 (${Object.keys(genErrors).length}컷).`, `${Object.keys(genErrors).length} cuts could not be generated.`)}
               </p>
               <button className="btn-ghost !py-2 text-xs" onClick={retryFailed}>
-                실패한 컷 다시 그리기
+                {t('실패한 컷 다시 그리기', 'Retry failed cuts')}
               </button>
             </>
           )}
@@ -245,10 +251,10 @@ export function PackViewer({
           >
             <div className="relative bg-cream p-2">
               {f.ready ? (
-                <Sticker spec={f.spec} ariaLabel={`${f.label} 컷`} />
+                <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
               ) : (
                 <div className="grid aspect-square place-items-center rounded-xl bg-[length:200%_100%] bg-gradient-to-r from-line/20 via-line/50 to-line/20 animate-shimmer">
-                  <span className="text-[11px] font-bold text-sub">생성 중…</span>
+                  <span className="text-[11px] font-bold text-sub">{t('생성 중…', 'Generating…')}</span>
                 </div>
               )}
               {!f.ready ? (
@@ -262,15 +268,15 @@ export function PackViewer({
               <p className="truncate text-[11px] text-sub">“{f.line}”</p>
               <div className="mt-2 flex gap-1">
                 <Link
-                  href={`/editor/${initialPack.id}/${f.id}`}
+                  href={lp(`/editor/${initialPack.id}/${f.id}`)}
                   className="flex-1 rounded-lg border-2 border-ink bg-paper py-1 text-center text-[11px] font-black hover:bg-lemon/40"
                 >
-                  편집
+                  {t('편집', 'Edit')}
                 </Link>
                 <button
                   onClick={() => downloadOne(f)}
                   disabled={!f.ready}
-                  title={f.ready ? '이 컷을 PNG로 저장' : '생성 중'}
+                  title={f.ready ? t('이 컷을 PNG로 저장', 'Download this cut as PNG') : t('생성 중', 'Generating')}
                   className="rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-sub hover:border-ink disabled:opacity-40"
                 >
                   PNG
@@ -282,7 +288,7 @@ export function PackViewer({
         ))}
       </div>
 
-      <div className="card p-5">
+      <div className={locale === 'en' ? 'hidden' : 'card p-5'}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-sm font-black">카카오 제안 규격 패키저</p>
@@ -340,9 +346,11 @@ export function PackViewer({
       </div>
 
       <div className="rounded-2xl border-2 border-dashed border-line p-4 text-center text-xs leading-relaxed text-sub">
+        {locale === 'en' ? <>Share the exported PNG or GIF in chats just like a photo.<br />Every caption remains editable before you download and share.</> : <>
         카톡에서는 내보낸 PNG/GIF를 사진처럼 보내면 됩니다. <br />
         <strong className="text-ink">Studio 플랜</strong>은 카카오 제안 규격(360×360, 개당 2MB 이하) 검증·패키징까지
         자동으로 해드려요.
+        </>}
       </div>
     </div>
   );

@@ -1,14 +1,17 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { PLAY_HEADER, uaIsTWA } from '@/lib/twa';
+import { LOCALE_HEADER, localeFromPathname, withoutLocalePrefix } from '@/lib/i18n/locale';
 
 export const SID_COOKIE = 'emotime_sid';
 
 export function middleware(req: NextRequest) {
   const existing = req.cookies.get(SID_COOKIE)?.value;
   const sid = existing ?? crypto.randomUUID();
+  const locale = localeFromPathname(req.nextUrl.pathname);
 
   const requestHeaders = new Headers(req.headers);
+  requestHeaders.set(LOCALE_HEADER, locale);
   if (!existing) {
     const cookie = requestHeaders.get('cookie');
     requestHeaders.set('cookie', `${SID_COOKIE}=${sid}${cookie ? `; ${cookie}` : ''}`);
@@ -20,7 +23,11 @@ export function middleware(req: NextRequest) {
     requestHeaders.set(PLAY_HEADER, '1');
   }
 
-  const res = NextResponse.next({ request: { headers: requestHeaders } });
+  // Keep one implementation per page while preserving /en in the browser and on shared links.
+  // Locale is carried in a trusted request header so server and client components share the same copy.
+  const res = locale === 'en'
+    ? NextResponse.rewrite(new URL(withoutLocalePrefix(req.nextUrl.pathname) + req.nextUrl.search, req.url), { request: { headers: requestHeaders } })
+    : NextResponse.next({ request: { headers: requestHeaders } });
   if (!existing) {
     res.cookies.set(SID_COOKIE, sid, {
       httpOnly: true,
