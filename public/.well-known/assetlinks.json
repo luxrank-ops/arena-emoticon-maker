@@ -1,14 +1,13 @@
 [
   {
-    "relation": [
-      "delegate_permission/common.handle_all_urls"
-    ],
+    "relation": ["delegate_permission/common.handle_all_urls"],
     "target": {
       "namespace": "android_app",
       "package_name": "com.emotihak.app",
       "sha256_cert_fingerprints": [
         "0A:89:29:87:27:5C:00:9C:C6:AF:16:1A:91:AE:04:A5:84:37:BD:92:D1:2D:81:E3:E3:4F:FB:D1:38:C0:C0:FE",
-        "E7:1C:0D:49:67:2F:4D:2A:A5:C1:13:C2:62:63:8C:14:3F:7B:E9:AC:0D:4E:EA:39:6C:F4:12:B0:CC:F0:41:01"
+        "E7:1C:0D:49:67:2F:4D:2A:A5:C1:13:C2:62:63:8C:14:3F:7B:E9:AC:0D:4E:EA:39:6C:F4:12:B0:CC:F0:41:01",
+        "52:6E:E3:9E:2E:EC:7D:28:6C:15:77:44:F7:D9:5F:C0:57:A5:CB:4E:E1:28:2E:E3:FC:A9:8B:23:A5:C3:E1:9E"
       ]
     }
   }
