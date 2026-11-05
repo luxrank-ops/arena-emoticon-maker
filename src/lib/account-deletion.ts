@@ -53,6 +53,7 @@ export async function deleteAccountPermanently(userId: string): Promise<AccountD
       return [order];
     });
     db.credits = db.credits.filter((entry) => entry.userId !== userId || entry.reason === 'PURCHASE' || entry.reason === 'REFUND');
+    db.quotePurchases = db.quotePurchases.filter((purchase) => purchase.userId !== userId);
 
     db.users = db.users.filter((item) => item.id !== userId);
     db.accounts = db.accounts.filter((item) => item.userId !== userId);

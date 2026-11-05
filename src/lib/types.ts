@@ -257,6 +257,14 @@ export interface CreditEntry {
   createdAt: string;
 }
 
+export interface QuotePurchase {
+  id: string;
+  userId: string;
+  packId: string;
+  creditsSpent: number;
+  createdAt: string;
+}
+
 export interface Order {
   id: string;
   userId: string;
@@ -349,6 +357,7 @@ export interface UsageEvent {
     | 'generate'
     | 'export'
     | 'order_paid'
+    | 'quote_pack_purchased'
     | 'content_reported'
     | 'content_moderated'
     | 'account_deleted'
