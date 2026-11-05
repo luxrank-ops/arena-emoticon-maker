@@ -18,8 +18,8 @@ export function LogoutButton({ locale = 'ko' }: { locale?: Locale }) {
     }
   }
   return (
-    <span className="flex shrink-0 flex-col items-end whitespace-nowrap">
-      <button onClick={logout} disabled={busy} className="whitespace-nowrap text-xs font-bold text-sub underline">{tr(locale, '로그아웃', 'Sign out')}</button>
+    <span className="flex min-w-max shrink-0 flex-col items-end whitespace-nowrap">
+      <button onClick={logout} disabled={busy} className="min-w-max whitespace-nowrap text-xs font-bold text-sub underline">{tr(locale, '로그아웃', 'Sign out')}</button>
       {error && <span role="alert" className="text-xs text-coralink">{tr(locale, '실패. 다시 시도해 주세요.', 'Could not sign out. Try again.')}</span>}
     </span>
   );
