@@ -5,6 +5,9 @@ const samples = [
   { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
   { src: '/samples/tone-doodle.webp', label: '손그림' },
   { src: '/samples/tone-clay-3d.webp', label: '클레이' },
+  { src: '/samples/tone-3d-cartoon.webp', label: '3D 카툰' },
+  { src: '/samples/tone-pixel-art.webp', label: '픽셀 아트' },
+  { src: '/samples/tone-watercolor.webp', label: '수채화' },
 ];
 const steps = [
   { number: '01', title: '사진 고르기', text: '밝은 정면 사진을 선택하고 사진 상태를 확인해요.' },
@@ -38,15 +41,23 @@ export default function LandingPage() {
             <p className="mt-4 text-xs leading-relaxed text-sub">원본 사진은 서버에 저장하지 않아요 · 생성 결과는 사진과 다를 수 있어요</p>
           </div>
           <div aria-label="이모티콘 스타일 예시" className="rounded-3xl border-2 border-ink bg-paper p-4 shadow-pop sm:p-5">
-            <div className="flex items-center justify-between gap-2"><p className="text-sm font-black">어떤 모습으로 만들까요?</p><span className="chip !bg-cream">스타일 예시</span></div>
+            <div className="flex items-center justify-between gap-2"><p className="text-sm font-black">어떤 모습으로 만들까요?</p><span className="chip !bg-cream">원본 + 6종</span></div>
+            <div className="mt-3 flex items-center gap-3 rounded-2xl border-2 border-line bg-lemon/25 p-2">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/samples/original-portrait.webp" alt="스타일 변환에 사용한 원본 인물 사진" width={512} height={512} className="aspect-square w-20 shrink-0 rounded-xl border border-line bg-white object-cover sm:w-24" />
+              <div>
+                <p className="text-xs font-black">원본 사진</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-sub">이 한 장을 아래 6가지 스타일로 바꿔요.</p>
+              </div>
+            </div>
             <div className="mt-3 grid grid-cols-3 gap-2 sm:gap-3">
               {samples.map((sample) => <div key={sample.src} className="overflow-hidden rounded-2xl border-2 border-line bg-cream p-1.5 text-center">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src={sample.src} alt={`${sample.label} 스타일 이모티콘 예시`} className="aspect-square w-full object-contain" />
-                <p className="pb-1 pt-1 text-xs font-black">{sample.label}</p>
+                <img src={sample.src} alt={`${sample.label} 스타일 이모티콘 예시`} width={512} height={512} className="aspect-square w-full object-contain" />
+                <p className="pb-1 pt-1 text-[11px] font-black sm:text-xs">{sample.label}</p>
               </div>)}
             </div>
-            <p className="mt-3 text-xs leading-relaxed text-sub">예시 이미지입니다. 실사 스티커와 다양한 코믹 표정도 선택할 수 있어요.</p>
+            <p className="mt-3 text-xs leading-relaxed text-sub">원본과 6가지 스타일의 예시입니다. 실사 스티커와 다른 화풍도 선택할 수 있어요.</p>
           </div>
         </div>
       </section>
