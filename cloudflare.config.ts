@@ -1,4 +1,4 @@
-﻿import { bindings, defineConfig, defineWorker } from "cf/config";
+import { bindings, defineConfig, defineWorker } from "cf/config";
 
 export default defineConfig({
   worker: defineWorker({
@@ -21,7 +21,9 @@ export default defineConfig({
       GEMINI_PHOTO_MODEL: bindings.text("gemini-3-pro-image-preview"),
       GEMINI_STYLE_MODEL: bindings.text("gemini-3.1-flash-image-preview"),
       GEMINI_TEXT_MODEL: bindings.text("gemini-flash-latest"),
-      PAYMENT_PROVIDER: bindings.text("mock"),
+      // 운영은 토스페이먼츠 실결제. 키는 대시보드 Variable/Secret 에서 관리한다
+      // (키가 없는 상태면 paymentsUnavailable() 이 503 으로 안전하게 차단한다).
+      PAYMENT_PROVIDER: bindings.text("toss"),
       STORE_BACKEND: bindings.text("auto"),
       RATE_LIMIT_DISABLED: bindings.text("1"),
       ASSETS: bindings.assets(),
