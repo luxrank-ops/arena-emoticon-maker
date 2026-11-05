@@ -31,42 +31,46 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b-2 border-ink/90 bg-cream/90 backdrop-blur">
-      {/* Keep every action visible. On narrow screens the action row moves below the logo instead of hiding items. */}
-      <div className="wrap flex flex-col gap-2 py-3 sm:min-h-16 sm:flex-row sm:items-center sm:gap-3 sm:py-0">
-        <Link href={lp('/')} className="flex min-w-max shrink-0 items-center gap-2 whitespace-nowrap">
+      {/* Fixed rows and tracks keep every action visible without irregular wrapping. */}
+      <div className="wrap grid grid-cols-1 items-center gap-2 py-3 lg:min-h-16 lg:grid-cols-[minmax(190px,1fr)_minmax(560px,1.6fr)] lg:gap-4 lg:py-0">
+        <Link href={lp('/')} className="flex min-w-max items-center gap-2 whitespace-nowrap">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border-2 border-ink bg-lemon text-lg shadow-card">🙂</span>
-          <span className="min-w-max whitespace-nowrap text-base font-black tracking-[-0.04em] min-[380px]:text-lg">{tr(locale, '이모티학', 'EmotiHak')}</span>
+          <span className="whitespace-nowrap text-base font-black tracking-[-0.04em] min-[380px]:text-lg">{tr(locale, '이모티학', 'EmotiHak')}</span>
           <span className="rounded-full border border-line px-2 py-0.5 text-[10px] font-bold text-sub">beta</span>
         </Link>
 
-        <div className="flex flex-wrap items-center gap-1.5 sm:ml-auto sm:flex-nowrap sm:justify-end sm:gap-2">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]">
           <LanguageLink locale={locale} />
-          <div className="min-w-max shrink-0">
-            <Link href={lp(locale === 'en' ? '/studio/packs' : '/billing')} className="chip min-w-max whitespace-nowrap hover:border-ink" title={tr(locale, '크레딧 · 플랜', 'Credits · Plan')}>
-              <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{planName}</span>
-              <span className="h-3 w-px bg-line" />
-              <span className="whitespace-nowrap">⚡ {credits}</span>
-            </Link>
-          </div>
+          <Link
+            href={lp(locale === 'en' ? '/studio/packs' : '/billing')}
+            className="chip h-10 min-w-0 w-full justify-center whitespace-nowrap border-2 !px-2 hover:border-ink"
+            title={tr(locale, '크레딧 · 플랜', 'Credits · Plan')}
+          >
+            <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{planName}</span>
+            <span className="h-3 w-px shrink-0 bg-line" />
+            <span className="whitespace-nowrap text-[10px] sm:text-xs">⚡ {credits}</span>
+          </Link>
           {user.isAuthenticated ? (
-            <div className="flex min-w-max shrink-0 items-center gap-2">
-              <span className="max-w-[100px] truncate whitespace-nowrap text-xs font-bold" title={user.name}>{user.name}</span>
+            <div className="flex h-10 min-w-0 items-center justify-center gap-2 rounded-full border-2 border-line bg-paper px-2">
+              <span className="w-14 truncate whitespace-nowrap text-center text-xs font-bold sm:w-20" title={user.name}>{user.name}</span>
               <LogoutButton locale={locale} />
             </div>
           ) : (
-            <Link href={lp('/login')} className="btn-primary min-w-max shrink-0 whitespace-nowrap !px-3 !py-2 text-xs sm:text-sm">{tr(locale, '로그인', 'Sign in')}</Link>
+            <Link href={lp('/login')} className="btn-primary h-10 min-w-0 w-full whitespace-nowrap !px-2 !py-0 text-xs">{tr(locale, '로그인', 'Sign in')}</Link>
           )}
-          <div className="min-w-max shrink-0">
-            <Link href={lp('/studio/upload')} className="btn-primary min-w-max whitespace-nowrap !px-4 !py-2 text-xs">{tr(locale, '만들기', 'Create')}</Link>
-          </div>
+          <Link href={lp('/studio/upload')} className="btn-primary h-10 min-w-0 w-full whitespace-nowrap !px-2 !py-0 text-xs">{tr(locale, '만들기', 'Create')}</Link>
         </div>
       </div>
 
-      {/* Navigation is never removed for alignment; scroll the complete list on small screens. */}
+      {/* Equal-width items share desktop space and retain those widths while scrolling on mobile. */}
       <nav aria-label={tr(locale, '주요 메뉴', 'Main navigation')} className="border-t border-line">
-        <div className="wrap flex gap-1 overflow-x-auto whitespace-nowrap py-1 xl:justify-center">
+        <div className="wrap flex gap-2 overflow-x-auto py-2">
           {nav.map((item) => (
-            <Link key={item.href} href={lp(item.href)} className="inline-flex min-h-10 min-w-max shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-bold text-ink hover:bg-paper focus-visible:bg-paper sm:text-sm">
+            <Link
+              key={item.href}
+              href={lp(item.href)}
+              className="flex min-h-10 min-w-[104px] flex-1 basis-0 items-center justify-center whitespace-nowrap rounded-full px-2 text-center text-xs font-bold text-ink hover:bg-paper focus-visible:bg-paper sm:text-sm"
+            >
               {item.label}
             </Link>
           ))}
