@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { createSheet, tonesForPlan } from '@/lib/packs';
-import { effectivePlan, isAdmin } from '@/lib/admin-access';
+import { bypassesRateLimit, effectivePlan } from '@/lib/admin-access';
 import { PLANS } from '@/lib/pricing';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'sheets', RATE_LIMITS.sheets);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
     const body = schema.parse(await req.json());
     const plan = effectivePlan(user);
     if (!tonesForPlan(plan).includes(body.tone)) {

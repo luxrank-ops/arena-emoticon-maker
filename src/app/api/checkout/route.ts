@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { bypassesRateLimit } from '@/lib/admin-access';
 import { validateAuthRequest } from '@/lib/auth-api';
 import { z } from 'zod';
 import { paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
@@ -18,16 +19,16 @@ export async function POST(req: Request) {
     if (forbidden) return forbidden;
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'checkout', RATE_LIMITS.checkout);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
     if (paymentsUnavailable()) return paymentsUnavailableResponse();
     const { sku } = schema.parse(await req.json());
     const item = SKUS[sku];
     if (!item) return fail('SKU_NOT_FOUND', '존재하지 않는 상품입니다');
     if (item.kind !== 'credits') return fail('PRODUCT_UNAVAILABLE', '구독 결제는 준비 중입니다.', 503);
-    // 구글 플레이 인앱결제 정책: TWA(안드로이드 앱) 안에서는 디지털 상품(크레딧)
-    // 웹 결제로 판매할 수 없다 → 차단하고 웹(브라우저) 구매를 안내한다.
+    // 유료 앱(TWA) 사용자: 결제는 이미 구글 플레이에서 완료(유료 다운로드) →
+    // 앱 안의 크레딧 주문은 정책상 허용되지 않을 뿐 아니라 불필요하다.
     if (uaIsTWA(req.headers.get('user-agent') ?? '') && item.kind === 'credits') {
-      return fail('IAP_POLICY_RESTRICTED', '안드로이드 앱에서는 크레딧 구매가 제한됩니다. 웹(브라우저)에서 구매해 주세요.', 409);
+      return fail('IAP_POLICY_RESTRICTED', '앱에서는 크레딧 구매가 필요 없습니다 — 모든 기능이 이미 포함되어 있습니다.', 409);
     }
 
     const order: Order = {

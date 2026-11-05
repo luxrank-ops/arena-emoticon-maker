@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
+import { bypassesRateLimit } from '@/lib/admin-access';
 import { withDB } from '@/lib/store';
 import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
@@ -17,7 +18,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'consistency-prepare', 10);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
     const { photo, subjectKind } = schema.parse(await req.json());
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(photo)!;
     const { guidance, method } = await prepareWithFallback({ mimeType: match[1], base64: match[2] }, subjectKind);

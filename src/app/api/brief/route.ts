@@ -3,7 +3,7 @@ import { getCurrentUser } from '@/lib/session';
 import { planBrief } from '@/lib/recommend/engine';
 import { TEMPLATES_BY_ID } from '@/lib/recommend/templates';
 import { specFor } from '@/lib/spec';
-import { isAdmin, planLabel } from '@/lib/admin-access';
+import { bypassesRateLimit, isFullAccess, planLabel } from '@/lib/admin-access';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { kstDateKey } from '@/lib/time';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
@@ -14,7 +14,7 @@ export async function GET() {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'brief', RATE_LIMITS.brief);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
     const date = kstDateKey();
 
     const existing = await withDB((db) =>
@@ -73,7 +73,7 @@ export async function GET() {
       items,
       headline: brief!.headline,
       plan: planLabel(user),
-      locked: !isAdmin(user) && user.plan === 'FREE',
+      locked: !isFullAccess(user) && user.plan === 'FREE',
     });
   } catch (e) {
     return handleError(e);

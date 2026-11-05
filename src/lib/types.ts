@@ -115,6 +115,8 @@ export interface User {
   plan: Plan;
   credits: number;
   role: 'user' | 'admin';
+  /** 구글 플레이에서 구매한 유료 앱(TWA) 사용자 — 모든 기능 무제한 */
+  play?: boolean;
   createdAt: string;
   lastGrantAt: string;
 }

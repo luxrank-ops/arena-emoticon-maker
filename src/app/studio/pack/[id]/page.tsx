@@ -13,7 +13,7 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
   const user = await getCurrentUser();
   let view: Awaited<ReturnType<typeof getPackView>> | null = null;
   try {
-    view = await getPackView(user.id, id);
+    view = await getPackView(user.id, id, user);
   } catch {
     notFound();
   }

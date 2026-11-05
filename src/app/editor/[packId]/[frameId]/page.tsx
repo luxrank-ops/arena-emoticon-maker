@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { isUnlimited } from '@/lib/admin-access';
 import { notFound } from 'next/navigation';
 import { FrameEditor } from '@/components/editor/FrameEditor';
 import { getCurrentUser } from '@/lib/session';
@@ -15,7 +16,7 @@ export default async function EditorPage({
   const user = await getCurrentUser();
   let view: Awaited<ReturnType<typeof getPackView>> | null = null;
   try {
-    view = await getPackView(user.id, packId);
+    view = await getPackView(user.id, packId, user);
   } catch {
     notFound();
   }
@@ -47,7 +48,7 @@ export default async function EditorPage({
         index={frame.index}
         total={view.total}
         aiPack={((view.pack.renderer as any) ?? 'ai') !== 'svg'}
-        unlimited={user.role === 'admin'}
+        unlimited={isUnlimited(user)}
       />
     </div>
   );

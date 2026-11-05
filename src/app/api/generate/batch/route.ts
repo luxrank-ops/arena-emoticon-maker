@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { bypassesRateLimit } from '@/lib/admin-access';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { logEvent, withDB } from '@/lib/store';
@@ -41,7 +42,7 @@ export async function POST(req: Request) {
   try {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'generateBatch', RATE_LIMITS.generateBatch);
-    if (limited && user.role !== 'admin') return limited;
+    if (limited && !bypassesRateLimit(user)) return limited;
 
     const body = batchSchema.parse(await req.json());
 

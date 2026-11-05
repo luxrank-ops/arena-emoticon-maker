@@ -3,7 +3,7 @@ import { BUSINESS } from '@/lib/business';
 import { CheckoutButton } from '@/components/payments/CheckoutButton';
 import { PLANS, SKUS, won } from '@/lib/pricing';
 import { getCurrentUser } from '@/lib/session';
-import { effectivePlan, isAdmin, planLabel } from '@/lib/admin-access';
+import { creditsLabel, effectivePlan, isAdmin, isFullAccess, isPlayUser, planLabel } from '@/lib/admin-access';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +28,7 @@ const FAQ = [
 
 export default async function PricingPage() {
   const user = await getCurrentUser();
+  const fullAccess = isFullAccess(user);
 
   return (
     <div className="wrap py-12">
@@ -36,10 +37,22 @@ export default async function PricingPage() {
         <h1 className="h1 mt-4 !text-[clamp(1.8rem,4vw,2.8rem)]">한 팩 값보다 싸게, 매달 새로</h1>
         <p className="mt-3 text-sm leading-relaxed text-sub">
           지금 플랜: <strong className="text-ink">{planLabel(user)}</strong> · 보유 크레딧{' '}
-          <strong className="text-ink">{isAdmin(user) ? '무제한' : user.credits}</strong>
+          <strong className="text-ink">{creditsLabel(user)}</strong>
         </p>
       </div>
 
+      {fullAccess ? (
+        <div className="mt-10 card p-8 text-center">
+          <p className="text-2xl font-black">🎉 모든 기능을 이용 중이에요</p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-sub">
+            {isPlayUser(user)
+              ? '구글 플레이에서 구매한 유료 앱 사용자입니다. 크레딧 차감 없이 모든 스타일·모든 기능을 이용할 수 있어요. (결제는 이미 플레이스토어에서 완료되어 추가 구매가 필요 없습니다.)'
+              : '관리자 계정은 크레딧 차감 없이 모든 스타일·모든 기능을 이용할 수 있어요.'}
+          </p>
+          <Link href="/studio/upload" className="btn-primary mt-5 !px-6 !py-3">팩 만들기</Link>
+        </div>
+      ) : (
+        <>
       <div className="mt-10 grid gap-4 md:grid-cols-3">
         {Object.values(PLANS).map((p) => {
           const sku = p.plan === 'PLUS' ? 'plan-plus-monthly' : p.plan === 'STUDIO' ? 'plan-studio-monthly' : null;
@@ -107,6 +120,8 @@ export default async function PricingPage() {
             ))}
         </div>
       </div>
+        </>
+      )}
 
       <div className="mt-12 grid gap-4 md:grid-cols-2">
         <div>

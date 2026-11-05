@@ -1,6 +1,7 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { createHash } from 'node:crypto';
 import { PLANS } from '@/lib/pricing';
+import { PLAY_HEADER } from '@/lib/twa';
 import type { User } from '@/lib/types';
 import { ensureSeed, findUser, uid, withDB } from '@/lib/store';
 import { maybePurgeFaces } from '@/lib/purge';
@@ -79,6 +80,13 @@ export async function getCurrentUser(): Promise<User & { isAuthenticated: boolea
   const sid = await sessionIdFromCookies();
   let token: string | undefined;
   try { token = (await cookies()).get(AUTH_COOKIE)?.value; } catch { /* 요청 밖에서는 게스트 */ }
+
+  // TWA(구글 플레이 유료 앱) 요청 여부 — 미들웨어가 x-emotihak-play 헤더로 전달.
+  // 앱(유료) 사용자는 모든 기능을 무제한으로 쓴다. DB 에 영속화하지 않고
+  // 매 요청 결정 → 같은 계정의 웹 세션에는 풀액세스가 누설되지 않는다.
+  let fromTwa = false;
+  try { fromTwa = (await headers()).get(PLAY_HEADER) === '1'; } catch { fromTwa = false; }
+
   let user: User | null = null;
   if (token && /^[a-f0-9]{64}$/.test(token)) {
     const tokenHash = hashSessionToken(token);
@@ -92,7 +100,7 @@ export async function getCurrentUser(): Promise<User & { isAuthenticated: boolea
   }
   const isAuthenticated = !!user;
   user ??= await resolve(sid);
-  return { ...user, isAuthenticated };
+  return { ...user, play: fromTwa || user.play || undefined, isAuthenticated };
 }
 
 export async function getUserById(id: string): Promise<User | null> {

@@ -9,7 +9,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const { id } = await params;
   try {
     const user = await getCurrentUser();
-    const view = await getPackView(user.id, id);
+    const view = await getPackView(user.id, id, user);
     return ok(view);
   } catch (e) {
     return handleError(e);
