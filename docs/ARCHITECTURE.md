@@ -1,4 +1,4 @@
-# 아키텍처 설계서 — EmotiMe
+# 아키텍처 설계서 — 이모티학(EmotiHak)
 
 > Step 2 구현의 단일 기준 문서(Single Source of Truth). 코드가 이 문서를 벗어나면 문서를 먼저 고친다.
 

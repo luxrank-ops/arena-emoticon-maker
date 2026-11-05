@@ -26,7 +26,7 @@ async function resolve(sessionId: string): Promise<User> {
 
     const user: User = {
       id: guestId,
-      name: '이모티미 사용자',
+      name: '이모티학 사용자',
       plan: 'FREE',
       credits: PLANS.FREE.credits,
       // 관리자 권한은 오직 운영자 코드 검증(/api/admin/login)으로만 부여한다.

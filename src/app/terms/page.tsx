@@ -1,11 +1,11 @@
 import type { Metadata } from 'next';
 
-export const metadata: Metadata = { title: '이용약관 · 이모티미' };
+export const metadata: Metadata = { title: '이용약관 · 이모티학' };
 
 const SECTIONS = [
   {
     h: '제1조 (목적)',
-    p: '본 약관은 이모티미(이하 "회사")가 제공하는 AI 이모티콘 제작 서비스(이하 "서비스")의 이용 조건과 절차, 회사와 회원의 권리·의무 및 책임 사항을 규정합니다.',
+    p: '본 약관은 이모티학(이하 "회사")가 제공하는 AI 이모티콘 제작 서비스(이하 "서비스")의 이용 조건과 절차, 회사와 회원의 권리·의무 및 책임 사항을 규정합니다.',
   },
   {
     h: '제2조 (정의)',

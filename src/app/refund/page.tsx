@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BUSINESS } from '@/lib/business';
 
-export const metadata: Metadata = { title: '환불·청약철회 정책 · 이모티미' };
+export const metadata: Metadata = { title: '환불·청약철회 정책 · 이모티학' };
 
 export default function RefundPage() {
   const email = BUSINESS.email;
@@ -62,7 +62,7 @@ export default function RefundPage() {
         </section>
         <section className="border-t border-line pt-5 text-xs">
           <h2 className="font-black text-ink">작성 시 참고한 자료</h2>
-          <p className="mt-2">카카오의 정책이 이모티미에 그대로 적용되는 것은 아닙니다.</p>
+          <p className="mt-2">카카오의 정책이 이모티학에 그대로 적용되는 것은 아닙니다.</p>
           <ul className="mt-2 list-disc space-y-1 pl-5">
             <li><a href="https://cs.kakao.com/helps_html/1073209001?locale=ko" target="_blank" rel="noopener noreferrer" className="text-coralink underline">카카오 이모티콘 결제 취소 안내</a></li>
             <li><a href="https://cs.kakao.com/helps_html/1073198521?locale=ko" target="_blank" rel="noopener noreferrer" className="text-coralink underline">카카오 My 구독 웹결제 해지 안내</a></li>

@@ -35,7 +35,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ order
       />
 
       <div className="mt-6 space-y-2 text-[11px] leading-relaxed text-sub">
-        <p>· 결제 승인이 완료되어야 주문이 접수됩니다. 카드 정보는 이모티미에 저장되지 않습니다.</p>
+        <p>· 결제 승인이 완료되어야 주문이 접수됩니다. 카드 정보는 이모티학에 저장되지 않습니다.</p>
         <p>· {order.kind === 'goods' ? '결제 후 운영자가 주문을 확인합니다.' : '크레딧은 결제 완료 즉시 지급됩니다.'}</p>
         <p>
           · 환불 규정은 <Link href="/refund" className="text-coralink underline">환불·청약철회 정책</Link>을

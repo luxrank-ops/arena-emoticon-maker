@@ -9,7 +9,7 @@ export function SiteFooter() {
         <div>
           <div className="flex items-center gap-2">
             <span className="grid h-9 w-9 place-items-center rounded-xl border-2 border-ink bg-lemon text-lg">🙂</span>
-            <span className="text-lg font-black tracking-[-0.04em]">이모티미</span>
+            <span className="text-lg font-black tracking-[-0.04em]">이모티학</span>
           </div>
           <p className="mt-3 max-w-sm text-sm leading-relaxed text-sub">
             사진 한 장으로 나만의 이모티콘을 만들고, 표정을 골라 편집하고 저장해 보세요.
@@ -60,7 +60,7 @@ export function SiteFooter() {
           </div>
         </div>
         <div className="wrap pb-8 text-[11px] text-sub">
-          © {new Date().getFullYear()} 이모티미. 생성 결과물은 AI가 만들었습니다.
+          © {new Date().getFullYear()} 이모티학. 생성 결과물은 AI가 만들었습니다.
         </div>
       </div>
     </footer>

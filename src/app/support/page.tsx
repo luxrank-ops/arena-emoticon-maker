@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { BUSINESS } from '@/lib/business';
 
-export const metadata: Metadata = { title: '고객센터 · 이모티미' };
+export const metadata: Metadata = { title: '고객센터 · 이모티학' };
 
 export default function SupportPage() {
   const email = BUSINESS.email;
