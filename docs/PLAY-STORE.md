@@ -57,9 +57,13 @@ TWA WebView (UA에 "TWA/1.0" 토큰 포함)
 |마스크어블 아이콘|`public/icons/icon-maskable-512.png`|✅|
 |브라우저/홈스크린 아이콘|`src/app/icon.png`, `src/app/apple-icon.png`|✅|
 |매니페스트 연결|`src/app/layout.tsx` (`manifest`, `themeColor`, `appleWebApp`)|✅|
-|Digital Asset Links 템플릿|`public/.well-known/assetlinks.json`|⚠️ **패키지명·지문은 TWA 빌드 후 실제 값으로 교체** (package `com.emotihak.app`, 지문 제로→실제)|
+|Digital Asset Links|`public/.well-known/assetlinks.json`|✅ **업로드 키 SHA-256 지문 기입 완료** (package `com.emotihak.app`). ⚠️ Play 앱 서명 키 지문은 첫 AAB 업로드 후 추가 필요 (§4-4)|
 |스토어 피처 그래픽(1024×500)|`public/marketing/feature-graphic-1024x500.png`|⚠️ 플레이스홀더 — 브랜드 명칭 텍스트를 디자인 도구로 추가 권장|
-|TWA 감지 + 풀액세스|`src/lib/twa.ts`, `src/middleware.ts`, `src/lib/session.ts`, `src/lib/admin-access.ts`|✅ (이번 PR)|
+|TWA 감지 + 풀액세스|`src/lib/twa.ts`, `src/middleware.ts`, `src/lib/session.ts`, `src/lib/admin-access.ts`|✅|
+|**TWA 안드로이드 프로젝트**|`twa/` (Bubblewrap 템플릿 생성: gradle, 아이콘, `twa-manifest.json`)|✅ **프로젝트 생성 완료** — 빌드만 남음 (JDK17+SDK 필요, §4-3)|
+|**서명 키 (업로드 + 백업)**|`twa/android-keystore.p12` (업로드), `twa/backup-keystore.p12` (백업, git 제외)|✅ **생성 완료** (RSA 4096, 25년). 비밀번호는 `twa/keystore-passwords.txt`(git 제외)|
+|TWA 프로젝트 재생성 스크립트|`scripts/generate-twa.mjs`|✅ (오프라인, 로컬 매니페스트/아이콘 사용)|
+|Asset Links 지문 추가 스크립트|`scripts/update-assetlinks.mjs`|✅ (Play 앱 서명 키 지문 등록용)|
 
 ## 4. 진행 순서 (Checklist)
 
@@ -83,26 +87,30 @@ TWA WebView (UA에 "TWA/1.0" 토큰 포함)
 9. **Play 앱 무결성(App Integrity):** 2025년 이후 신규 앱에 요구됨 — 콘솔에서 해당 앱에 적용이 요구되면 Google 문서(TWA 적용 방법)에 따라 처리. 요구가 없으면 건너뛰기
 10. 배포: **내부 테스트** 트랙에 AAB 업로드 → 심사 통과 확인 → **외부 테스트**(테스터 1~2명) → **본격 출시** 제출 (최초 심사 수일 소요)
 
-### [ ] 4-3. TWA 빌드 (Bubblewrap)
+### [ ] 4-3. TWA 빌드 (사용자 로컬 — JDK 17 + Android SDK 필요)
+> **샌드박스에서는 불가**: Android SDK/Gradle 의존성이 `dl.google.com`·`services.gradle.org` 에서 받아야 하는데 샌드박스 네트워크가 차단되어 있다. 그래서 **프로젝트(`twa/`)·서명 키·매니페스트는 이미 생성돼 있고, 사용자 로컬에서 `build --aab` 한 줄만** 남는다.
+
+`bubblewrap init`·서명 키는 이미 완료된 상태(`twa/` 참고). 본인 머신에서:
 ```bash
-npm i -g @bubblewrap/cli   # 또는 npx @bubblewrap/cli
-
-bubblewrap init \
-  --manifest https://emotihak.com/manifest.webmanifest \
-  --package com.emotihak.app \
-  --name 이모티학
-
-# 서명 키 생성 (업로드 키 + 백업 키)
+npm i -g @bubblewrap/cli   # JDK 17 이 없으면 프롬프트로 자동 설치 제안
+cd twa
 bubblewrap build --aab
+# 산출물: dist/*.aab   (빌드 시 저장소/키 비밀번호 입력 — twa/keystore-passwords.txt)
 ```
 - 산출물: **AAB(App Bundle)** — 플레이스토어는 APK 를 받지 않음.
-- **타겟 API:** Play 의 최신 타겟 API 요건 확인 (2026 기준 Android 15 / API 35 이상 기대 — 업로드 시 콘솔 알림이 사실). Bubblewrap 최신 버전(4.x)은 기본값이 최신.
-- `bubblewrap init/build` 출력에서 **SHA-256 인증서 지문**을 확인.
+- 프로젝트: compileSdk/targetSdk **36**(최신) · minSdk 24 · Gradle 8.11.1. Play 의 최신 타겟 API 요건에 자동으로 부합.
+- 서명 키: 업로드 키 `android-keystore.p12`(alias `emotihak`, RSA 4096, 25년) / 백업 키 `backup-keystore.p12`(git 제외 — **반드시 별도 보관**).
 
-### [ ] 4-4. Digital Asset Links 교체 (도메인 검증)
-1. `public/.well-known/assetlinks.json` 의 `sha256` 을 4-3의 실제 지문으로 교체 (현재는 제로 플레이스홀더).
-2. 배포 후 <https://emotihak.com/.well-known/assetlinks.json> 접근 확인.
-3. Asset Links 검증자(<https://developers.google.com/digital-asset-links/tools/validator>)로 확인.
+### [ ] 4-4. Digital Asset Links (도메인 검증)
+> **업로드 키 SHA-256 지문은 이미 `public/.well-known/assetlinks.json` 에 기입 완료.**
+
+1. 메인 머지 → 배포 후 <https://emotihak.com/.well-known/assetlinks.json> 접근 확인.
+2. Asset Links 검증자(<https://developers.google.com/digital-asset-links/tools/validator>)로 확인.
+3. ⚠️ **Play 앱 서명(Play App Signing) 추가 지문** — 신규 앱은 자동 가입되며, 설치된 앱은 **Play 서명 키**로 서명된다(업로드 키 아님). 첫 AAB 업로드 후 콘솔 **앱 무결성 → 앱 서명** 에서 Play 서명 키의 SHA-256 지문을 확인해:
+   ```bash
+   node scripts/update-assetlinks.mjs "AA:BB:CC:..."
+   ```
+   로 `assetlinks.json` 에 **추가** 후 재배포 (두 지문 모두 함께 유효).
 4. **TWA 안의 UA** 에 `TWA/1.0` 이 포함되면 풀액세스가 활성화되는지 앱에서 직접 확인 (요금제 페이지에 "모든 기능을 이용 중이에요" 표시).
 
 ### [ ] 4-5. 출시 전 최종 확인
@@ -191,8 +199,9 @@ bubblewrap build --aab
 |작업|담당|
 |---|---|
 |개발자 계정 가입, 인증 서류, $25, 세금/정산 정보|**사용자** (사업자 본인만 가능)|
-|콘솔: 앱 생성(유료), 가격/환불 정책, IARC, 데이터 안전, 스토어 목록, 스크린 업로드|**사용자** (차량 전달)|
-|`assetlinks.json` 실제 지문 교체 + 배포|에이전트 (TWA 빌드 지문 확인 후)|
-|TWA 빌드(AAB)|에이전트 또는 사용자 (로컬 `bubblewrap`)|
+|콘솔: 앱 생성(유료), 가격/환불 정책, IARC, 데이터 안전, 스토어 목록, 스크린 업로드|**사용자** (문서 §6 초안 사용)|
+|TWA 프로젝트 생성 + 서명 키(업로드/백업) + assetlinks 업로드 키 지문|✅ **완료** (에이전트)|
+|`bubblewrap build --aab` (JDK17+SDK) + AAB 업로드|**사용자** (로컬 한 명령, §4-3)|
+|Play 앱 서명 키 지문 추가 (`update-assetlinks.mjs`) + 재배포|에이전트 (사용자가 콘솔에서 지문 알려주면)|
 |테스트(내부/외부 트랙)·출시 제출|**사용자** (콘솔 권한)|
 |코드 변경(풀액세스 로직, 목록 문구 반영 등)|에이전트|

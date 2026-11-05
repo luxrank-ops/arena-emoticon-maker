@@ -1,0 +1,13 @@
+# 빌드 산출물
+build/
+app/build/
+.gradle/
+local.properties
+*.iml
+.idea/
+
+# 서명 키 — 백업 키는 git 에 넣지 않는다 (오프라인 보관 원칙).
+# 업로드 키(android-keystore.p12)는 로컬 빌드가 항상 가능하도록 저장소에 보관한다
+# (비공개 저장소 · Play 앱 서명 이중 안전장치 확인: docs/PLAY-STORE.md §4-3).
+backup-keystore.p12
+keystore-passwords.txt
