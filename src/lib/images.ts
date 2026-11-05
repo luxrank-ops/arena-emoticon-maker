@@ -1,4 +1,4 @@
-﻿import { KAKAO_RULES } from '@/lib/packager';
+import { KAKAO_RULES } from '@/lib/packager';
 import { firestoreImageDelete, firestoreImageGet, firestoreImagePut, hasFirestore } from '@/lib/firestore';
 
 export { KAKAO_RULES };
@@ -63,6 +63,17 @@ export async function loadImage(id: string): Promise<{ userId: string; data: Uin
   }
   const mem = memoryImages.get(id);
   return mem ? { userId: mem.userId, data: mem.data } : null;
+}
+
+export function detectImageMimeType(data: Uint8Array): string {
+  if (data.length >= 4) {
+    if (data[0] === 0x89 && data[1] === 0x50 && data[2] === 0x4e && data[3] === 0x47) return 'image/png';
+    if (data[0] === 0x52 && data[1] === 0x49 && data[2] === 0x46 && data[3] === 0x46) return 'image/webp';
+    if (data[0] === 0xff && data[1] === 0xd8) return 'image/jpeg';
+  }
+  const prefix = new TextDecoder('utf-8').decode(data.subarray(0, Math.min(data.length, 256))).trimStart();
+  if (/^<svg[\s>]/i.test(prefix)) return 'image/svg+xml';
+  return 'application/octet-stream';
 }
 
 function uint8ToBase64(data: Uint8Array): string {

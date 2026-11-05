@@ -9,7 +9,11 @@ import { tonesForLocale } from '@/lib/i18n/presets';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
 import { GenerationProgress } from '@/components/studio/GenerationProgress';
+import { CameraPermissionDialog, PhotoRetakeGuide } from '@/components/studio/PhotoSafety';
 import { compressPhotoFile, ensurePhotoConsistency, linkPhoto, loadPhoto, photoScopeId, savePhoto } from '@/lib/studio/photo';
+import { apiResponseError, clientErrorCode, clientErrorGuide, isRetryableError } from '@/lib/client-errors';
+import { clearStudioRetry, loadStudioRetry, saveStudioRetry } from '@/lib/studio/retry';
+import { rememberedShareAttribution, rememberShareAttribution } from '@/lib/share-attribution';
 import type { SubjectKind, Tone } from '@/lib/types';
 
 const CONSENT_VERSION = 'v1.2';
@@ -81,6 +85,10 @@ export function UploadFlow({
   const [busy, setBusy] = useState(false);
   const [stage, setStage] = useState('');
   const [error, setError] = useState<string | null>(null);
+  const [failureCode, setFailureCode] = useState<string | null>(null);
+  const [retryAvailable, setRetryAvailable] = useState(false);
+  const [fallbackNotice, setFallbackNotice] = useState(false);
+  const [cameraDisclosure, setCameraDisclosure] = useState(false);
   const [subjectKind, setSubjectKind] = useState<SubjectKind>('person');
   const [mode, setMode] = useState<'face' | 'full' | null>(null);
   const [photoPhase, setPhotoPhase] = useState<'mode' | 'upload'>('mode');
@@ -144,9 +152,20 @@ export function UploadFlow({
         if (allowedTones.includes(saved.tone)) setTone(saved.tone);
         if (saved.consent) setConsent(saved.consent);
       }
+      const retry = loadStudioRetry(photoScopeId('draft'));
+      if (retry && draftPhoto) {
+        setFailureCode(retry.code);
+        setRetryAvailable(true);
+        setError(clientErrorGuide(retry.code, locale).message);
+      }
     } catch { /* 잘못된 임시 정보는 무시하고 사진부터 다시 시작한다 */ }
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const attribution = rememberShareAttribution(window.location.search) ?? rememberedShareAttribution();
+    if (attribution) track('share_create_landing', { shareSource: attribution.source, shareMedium: attribution.medium, shareCampaign: attribution.campaign });
   }, []);
 
   useEffect(() => {
@@ -173,7 +192,7 @@ export function UploadFlow({
       const photoId = photoScopeId('draft');
       if (!photoId || !loadPhoto('draft')) throw new Error();
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind }));
-      setError(null);
+      if (!retryAvailable) setError(null);
       setMotion('forward');
       setCurrentStep('settings');
       try { window.history.pushState(null, '', lp('/studio/upload/settings')); } catch { /* ignore */ }
@@ -190,8 +209,21 @@ export function UploadFlow({
   }
 
 
+  function requestCamera() {
+    setCameraDisclosure(true);
+  }
+
+  function launchCamera() {
+    setCameraDisclosure(false);
+    window.setTimeout(() => cameraInputRef.current?.click(), 0);
+  }
+
   const onFile = useCallback(async (file: File) => {
     setError(null);
+    setFailureCode(null);
+    setRetryAvailable(false);
+    setFallbackNotice(false);
+    clearStudioRetry();
     setBusy(true);
     setProgress(undefined);
     try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* 저장 불가 시 다음 단계에서 안내 */ }
@@ -228,10 +260,20 @@ export function UploadFlow({
     const run = ++generationRunRef.current;
     setBusy(true);
     setError(null);
+    setFailureCode(null);
+    setRetryAvailable(false);
+    setFallbackNotice(false);
+    clearStudioRetry();
     setProgress(20);
     try {
       setStage(t('이미지 생성 전에 사진을 확인하고 있어요. AI 확인이 어려우면 기본 확인으로 전환합니다…', 'Checking your photo before generation. If AI review is unavailable, we will use basic checks…'));
-      await ensurePhotoConsistency(photo, 'draft', subjectKind);
+      if (!navigator.onLine) {
+        const offline = new Error('offline') as Error & { code?: string };
+        offline.code = 'OFFLINE';
+        throw offline;
+      }
+      const prepared = await ensurePhotoConsistency(photo, 'draft', subjectKind);
+      setFallbackNotice(prepared.method === 'basic');
       if (run !== generationRunRef.current) return;
       setProgress(50);
       setStage(t('사진 분석 정보를 준비하고 있어요…', 'Preparing your character settings…'));
@@ -247,7 +289,7 @@ export function UploadFlow({
       });
       if (run !== generationRunRef.current) return;
       const faceJson = await faceRes.json();
-      if (!faceRes.ok) throw new Error(locale === 'en' ? 'We could not prepare your photo. Please try again.' : (faceJson?.error?.message ?? '얼굴 정보를 저장하지 못했어요'));
+      if (!faceRes.ok) throw apiResponseError(faceRes, faceJson, t('얼굴 정보를 저장하지 못했어요', 'We could not prepare your photo. Please try again.'));
       setProgress(75);
       setStage(t('일관성 정보를 바탕으로 캐릭터 시안을 만들고 있어요…', 'Creating character drafts from your consistency profile…'));
 
@@ -258,7 +300,7 @@ export function UploadFlow({
       });
       if (run !== generationRunRef.current) return;
       const sheetJson = await sheetRes.json();
-      if (!sheetRes.ok) throw new Error(locale === 'en' ? 'We could not create your character drafts. Please try again.' : (sheetJson?.error?.message ?? '캐릭터 시트를 만들지 못했어요'));
+      if (!sheetRes.ok) throw apiResponseError(sheetRes, sheetJson, t('캐릭터 시트를 만들지 못했어요', 'We could not create your character drafts. Please try again.'));
       setProgress(100);
       setStage(t('캐릭터 시안이 준비됐어요. 선택 화면으로 이동합니다…', 'Your character drafts are ready. Opening the selection screen…'));
 
@@ -274,8 +316,17 @@ export function UploadFlow({
       }, 1000);
     } catch (e) {
       if (run !== generationRunRef.current) return;
-      track('sheet_failed', { tone });
-      setError(locale === 'en' ? 'We could not create your character drafts. Check the photo and try again.' : (e as Error).message);
+      const code = clientErrorCode(e);
+      const retryable = isRetryableError(e);
+      const guide = clientErrorGuide(code, locale);
+      track('sheet_failed', { tone, code });
+      setFailureCode(code);
+      setRetryAvailable(retryable);
+      const photoId = photoScopeId('draft');
+      if (retryable && photoId) saveStudioRetry({ target: 'character', photoId, code, createdAt: Date.now() });
+      setError(code.startsWith('ERR_') || code === 'OFFLINE' || code === 'PHOTO_NEEDS_REVIEW'
+        ? guide.message
+        : locale === 'en' ? 'We could not create your character drafts. Check the photo and try again.' : (e as Error).message);
       setBusy(false);
       setStage('');
       setProgress(undefined);
@@ -321,12 +372,23 @@ export function UploadFlow({
     return <>{stepHeader}<div className="card p-6"><p className="font-bold">{t('먼저 사진을 선택해 주세요.', 'Choose a photo first.')}</p><p className="mt-2 text-sm text-sub">{t('사진과 분석 정보는 이 탭에서만 보관됩니다.', 'Your photo and analysis stay temporarily in this tab.')}</p><button type="button" onClick={goToPhoto} className="btn-primary mt-4 inline-flex">{t('사진 선택으로 돌아가기', 'Back to photo selection')}</button></div></>;
   }
 
-  const errorNotice = error ? <p role="alert" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary-dark">{error}</p> : null;
+  const failureGuide = failureCode ? clientErrorGuide(failureCode, locale) : null;
+  const errorNotice = error ? (
+    <div role="alert" className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary-dark">
+      <p>{error}</p>
+      {failureCode ? <p className="mt-1 text-[11px] font-bold text-sub">CODE · {failureCode}</p> : null}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {failureGuide && failureGuide.action !== 'retry' ? <button type="button" onClick={goToPhoto} className="btn-ghost !min-h-12 !px-4 !text-xs">{t('사진 가이드로 돌아가기', 'Back to the photo guide')}</button> : null}
+        {retryAvailable ? <button type="button" onClick={submit} disabled={busy} className="btn-primary !min-h-12 !px-4 !text-xs">{t('보관된 사진으로 다시 시도', 'Retry with the saved photo')}</button> : null}
+      </div>
+    </div>
+  ) : null;
   if (currentStep === 'settings' && busy && stage) return (
     <>
       {stepHeader}
       <div key="generation-loading" className={clsx('mx-auto max-w-2xl', motionClass)}>
         <GenerationProgress locale={locale} label={stage} progress={progress} tip={t('Tip: 완성된 이모티콘은 개별 저장하거나 시스템 공유창에서 카카오톡으로 볼 수 있어요.', 'Tip: Save each sticker or share it through your device’s share sheet.')} />
+        {fallbackNotice ? <p role="status" className="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-center text-xs font-bold leading-relaxed text-amber-900">{t('AI 검토가 지연되어 기본 분석으로 진행합니다. 사진 형식과 해상도를 확인했으며, 얼굴 특징 재확인과 대상 일관성은 보장되지 않습니다.', 'AI review is delayed, so basic analysis is active. Only the photo format and dimensions were checked; facial feature verification and subject consistency are not guaranteed.')}</p> : null}
         <p role="alert" className="mt-4 rounded-xl border border-primary/20 bg-primary/5 px-4 py-3 text-center text-xs leading-relaxed text-primary-dark">
           {t('지금 이탈하시면 크레딧이 차감될 수 있으며 생성이 취소될 수 있어요. 100%까지 완료되면 자동으로 이동합니다.', 'Leaving now may use credits and cancel generation. You will be moved automatically at 100%.')}
         </p>
@@ -443,7 +505,7 @@ export function UploadFlow({
                 <button className="btn-primary" onClick={() => galleryInputRef.current?.click()} disabled={busy}>
                   {busy ? t('분석 중…', 'Checking…') : t('사진 선택', 'Choose photo')}
                 </button>
-                <button className="btn-ghost" onClick={() => cameraInputRef.current?.click()} disabled={busy}>
+                <button className="btn-ghost" onClick={requestCamera} disabled={busy}>
                   {t('카메라로 찍기', 'Take a photo')}
                 </button>
               </div>
@@ -482,6 +544,15 @@ export function UploadFlow({
                   ))
                 )}
               </ul>
+
+              {analysis.issues.some((issue) => issue.code === 'NO_FACE' || issue.code === 'BLUR') ? (
+                <PhotoRetakeGuide
+                  locale={locale}
+                  issueCode={analysis.issues.find((issue) => issue.code === 'NO_FACE' || issue.code === 'BLUR')!.code}
+                  onCamera={requestCamera}
+                  onGallery={() => galleryInputRef.current?.click()}
+                />
+              ) : null}
 
               {subjectKind === 'person' ? <div className="mt-4 flex items-center gap-2 text-left">
                 <span className="text-xs font-bold text-sub">{t('추출된 팔레트', 'Extracted palette')}</span>
@@ -590,6 +661,7 @@ export function UploadFlow({
         <p className="py-2 text-center text-[11px] leading-relaxed text-sub">{busy ? t('작업이 끝날 때까지 이 화면을 유지해 주세요. ', 'Keep this screen open until the current step finishes. ') : null}{t('생성 전 사진을 확인합니다. AI 확인이 어려우면 기본 확인으로 진행합니다', 'We check your photo before generation and use basic checks if AI review is unavailable')} · {unlimited ? t('크레딧 차감 없음', 'No credit deduction') : t(`보유 크레딧 ${credits}`, `${credits} credits available`)}</p>
       </div>
     </div>
+    {cameraDisclosure ? <CameraPermissionDialog locale={locale} onCancel={() => setCameraDisclosure(false)} onConfirm={launchCamera} /> : null}
     </>
   );
 }

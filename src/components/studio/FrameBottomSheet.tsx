@@ -19,6 +19,9 @@ export function FrameBottomSheet({
   onClose,
   onDownload,
   onShare,
+  shareLink,
+  onCopyShareLink,
+  onRevokeShareLink,
   onSaveCaption,
 }: {
   frame: FrameView;
@@ -30,6 +33,9 @@ export function FrameBottomSheet({
   onClose: () => void;
   onDownload: () => void;
   onShare: () => void;
+  shareLink: string | null;
+  onCopyShareLink: () => void;
+  onRevokeShareLink: () => void;
   onSaveCaption: (line: string) => Promise<void>;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
@@ -162,8 +168,18 @@ export function FrameBottomSheet({
             </button>
           </div>
           <p className="mt-2 text-center text-[11px] leading-relaxed text-sub">
-            {t('공유는 모바일 시스템 공유창에서 카카오톡을 선택해 주세요. 지원하지 않는 환경에서는 PNG를 저장한 뒤 사진으로 볼 수 있어요.', 'Choose KakaoTalk in your device’s share sheet. If sharing is unavailable, save the PNG and send it as a photo.')}
+            {t('카카오 직접 공유가 설정되지 않았거나 공유 창을 열 수 없으면 시스템 공유·링크 복사·PNG 저장으로 전환됩니다.', 'If direct Kakao sharing is not configured or unavailable, the app falls back to system sharing, link copying, or PNG download.')}
           </p>
+          {shareLink ? (
+            <div className="mt-3 rounded-xl border border-line bg-cream p-3">
+              <label htmlFor="share-result-link" className="text-left text-[11px] font-black text-cyber">{t('읽기 전용 결과 링크', 'Read-only result link')}</label>
+              <input id="share-result-link" readOnly value={shareLink} onFocus={(event) => event.currentTarget.select()} className="mt-1 min-h-12 w-full rounded-lg border border-line bg-white px-3 text-xs" />
+              <div className="mt-2 grid grid-cols-2 gap-2">
+                <button type="button" onClick={onCopyShareLink} className="btn-ghost min-h-12 !py-3 text-xs">{t('링크 복사', 'Copy link')}</button>
+                <button type="button" onClick={onRevokeShareLink} disabled={!!busy} className="btn-ghost min-h-12 !py-3 text-xs !text-coralink">{t('링크 해제', 'Revoke link')}</button>
+              </div>
+            </div>
+          ) : null}
           {notice ? <p role="status" className="mt-3 rounded-xl border border-line bg-cream p-3 text-center text-xs font-bold text-sub">{notice}</p> : null}
           <div className="mt-3 flex justify-center">
             <ContentReportButton packId={packId} frameId={frame.id} className="min-h-12 rounded-full border border-line px-4 py-3 text-xs font-bold text-sub hover:border-coral hover:text-coralink" />

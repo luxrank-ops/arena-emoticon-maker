@@ -13,6 +13,7 @@ import { formatKstDateTime } from '@/lib/time';
 import { formatBytes, KAKAO_RULES, type PackValidation } from '@/lib/packager';
 import type { FrameView, Pack, Plan } from '@/lib/types';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
+import { shareKakaoFeed } from '@/lib/kakao-share';
 
 export function PackViewer({
   pack: initialPack,
@@ -49,7 +50,8 @@ export function PackViewer({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [actionBusy, setActionBusy] = useState<'download' | 'share' | null>(null);
   const [sheetNotice, setSheetNotice] = useState<string | null>(null);
-  const closeSheet = useCallback(() => setSelectedId(null), []);
+  const [shareLink, setShareLink] = useState<string | null>(null);
+  const closeSheet = useCallback(() => { setSelectedId(null); setShareLink(null); }, []);
 
   // AI 컷 생성: 아직 이미지가 없는 컷만 3개씩 병렬로 만든다 (사진은 이 탭의 임시 보관본)
   useEffect(() => {
@@ -130,19 +132,88 @@ export function PackViewer({
   async function shareOne(f: FrameView) {
     setActionBusy('share');
     setSheetNotice(null);
+    setShareLink(null);
     try {
       const blob = await renderPngBlob(f.spec, { watermark });
       const filename = `${initialPack.id}-${f.index + 1}-${f.label}.png`;
       const file = new File([blob], filename, { type: 'image/png' });
+      const title = t(`이모티학 ${f.label} 이모티콘`, `EmotiHak ${f.label} sticker`);
+      let feed: { title: string; description: string; imageUrl: string; resultUrl: string; createUrl: string } | null = null;
+      try {
+        const res = await fetch(`/api/packs/${initialPack.id}/share`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ frameId: f.id }) });
+        const json = await res.json().catch(() => null);
+        if (!res.ok || !json?.ok) throw new Error(json?.error?.message ?? 'share link failed');
+        const tracking = new URLSearchParams({ utm_source: 'kakaotalk', utm_medium: 'share', utm_campaign: 'emoticon_share' });
+        const resultUrl = new URL(json.share.path, window.location.origin);
+        resultUrl.search = tracking.toString();
+        const createUrl = new URL('/studio/upload', window.location.origin);
+        createUrl.search = tracking.toString();
+        setShareLink(resultUrl.toString());
+        feed = { title: json.share.title, description: json.share.description, imageUrl: new URL(json.share.imagePath, window.location.origin).toString(), resultUrl: resultUrl.toString(), createUrl: createUrl.toString() };
+      } catch {
+        setSheetNotice(t('결과 링크를 만들지 못해 PNG 공유로 진행합니다.', 'Could not create a result link, so PNG sharing will be used.'));
+      }
+
+      if (feed) {
+        try {
+          if (await shareKakaoFeed(feed)) {
+            setSheetNotice(t('카카오톡 공유 창을 열었어요. 전송 여부는 카카오톡에서 확인해 주세요.', 'The KakaoTalk share dialog was opened. Check KakaoTalk to confirm whether you sent it.'));
+            return;
+          }
+        } catch {
+          setSheetNotice(t('카카오 직접 공유를 열지 못해 시스템 공유로 전환합니다.', 'Direct Kakao sharing could not open, so system sharing will be used.'));
+        }
+      }
+
       if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
-        await navigator.share({ files: [file], title: t(`이모티학 ${f.label} 이모티콘`, `EmotiHak ${f.label} sticker`) });
+        await navigator.share({ files: [file], title, text: `${title}\n${f.line}` });
         setSheetNotice(t('시스템 공유창에서 카카오톡을 선택해 주세요.', 'Choose KakaoTalk in the system share sheet.'));
+      } else if (typeof navigator.share === 'function') {
+        await navigator.share({ title, text: feed?.description ?? `${title}\n${f.line}`, url: feed?.resultUrl });
+        setSheetNotice(t('시스템 공유창을 열었어요.', 'The system share sheet was opened.'));
       } else {
         downloadBlob(blob, filename);
-        setSheetNotice(t('이 환경에서는 직접 공유할 수 없어 PNG를 저장했어요. 카카오톡에서 사진으로 볼 수 있습니다.', 'Direct sharing is unavailable here, so the PNG was saved. You can send it as a photo in KakaoTalk.'));
+        setSheetNotice(t('PNG를 저장했어요. 카카오톡에서 사진으로 볼 수 있고 결과 링크도 복사할 수 있어요.', 'The PNG was saved. You can send it as a photo in KakaoTalk or copy the result link.'));
       }
     } catch (cause) {
       if ((cause as Error).name !== 'AbortError') setSheetNotice(t('공유를 준비하지 못했어요. PNG 저장을 이용해 주세요.', 'Could not prepare sharing. Please save the PNG instead.'));
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
+  async function copyShareLink() {
+    if (!shareLink) return;
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(shareLink);
+      } else {
+        const textarea = document.createElement('textarea');
+        textarea.value = shareLink;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const copied = document.execCommand('copy');
+        textarea.remove();
+        if (!copied) throw new Error('copy failed');
+      }
+      setSheetNotice(t('결과 링크를 복사했어요.', 'Copied the result link.'));
+    } catch {
+      setSheetNotice(t('링크를 길게 눌러 직접 복사해 주세요.', 'Long-press the link to copy it manually.'));
+    }
+  }
+
+  async function revokeShareLink(frameId: string) {
+    setActionBusy('share');
+    try {
+      const res = await fetch(`/api/packs/${initialPack.id}/share`, { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ frameId }) });
+      const json = await res.json().catch(() => null);
+      if (!res.ok || !json?.ok) throw new Error('revoke failed');
+      setShareLink(null);
+      setSheetNotice(t('이 컷의 공유 링크를 모두 해제했어요.', 'Revoked all shared links for this sticker.'));
+    } catch {
+      setSheetNotice(t('링크를 해제하지 못했어요. 잠시 후 다시 시도해 주세요.', 'Could not revoke the link. Please try again.'));
     } finally {
       setActionBusy(null);
     }
@@ -305,7 +376,7 @@ export function PackViewer({
               disabled={!f.ready}
               aria-haspopup="dialog"
               aria-label={f.ready ? t(`${f.label} 컷 관리하기`, `Manage ${f.label} sticker`) : t(`${f.label} 컷 생성 중`, `${f.label} sticker is generating`)}
-              onClick={() => { setSelectedId(f.id); setSheetNotice(null); }}
+              onClick={() => { setSelectedId(f.id); setSheetNotice(null); setShareLink(null); }}
               className="group flex h-full w-full flex-col text-left disabled:cursor-wait"
             >
               <div className="relative w-full bg-cream p-2">
@@ -406,6 +477,9 @@ export function PackViewer({
           onClose={closeSheet}
           onDownload={() => void downloadOne(selectedFrame)}
           onShare={() => void shareOne(selectedFrame)}
+          shareLink={shareLink}
+          onCopyShareLink={() => void copyShareLink()}
+          onRevokeShareLink={() => void revokeShareLink(selectedFrame.id)}
           onSaveCaption={(line) => saveCaption(selectedFrame.id, line)}
         />
       ) : null}

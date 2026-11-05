@@ -13,7 +13,8 @@ export function AnalyticsProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useEffect(() => {
-    if (pathname) pageview(pathname);
+    // Bearer share tokens must never be sent as analytics page URLs.
+    if (pathname && !/^(\/en)?\/share\//.test(pathname)) pageview(pathname);
   }, [pathname]);
 
   return <>{children}</>;

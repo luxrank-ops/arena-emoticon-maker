@@ -5,7 +5,7 @@ import { preparedSchema } from '@/lib/ai/consistency';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 import { z } from 'zod';
-import { fail, handleError, ok } from '@/lib/api';
+import { fail, handleError, ok, photoInputError } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
@@ -248,6 +248,8 @@ export async function POST(req: Request) {
       throw e;
     }
   } catch (e) {
+    const inputError = photoInputError(e);
+    if (inputError) return inputError;
     if (e instanceof RenderError) {
       const status = e.code === 'AI_BUSY' || e.code === 'AI_NOT_CONFIGURED' ? 503 : 502;
       return fail(e.code, e.message, status);

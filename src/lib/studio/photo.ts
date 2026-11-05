@@ -2,6 +2,7 @@
 
 import type { PreparedIdentity } from '@/lib/ai/consistency';
 import type { SubjectKind } from '@/lib/types';
+import { apiResponseError } from '@/lib/client-errors';
 
 // ─────────────────────────────────────────────────────────────
 // 브라우저 측 사진 보관 & 생성 요청 도우미
@@ -119,7 +120,7 @@ export async function ensurePhotoConsistency(photo: string, scope: PhotoScope, s
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo, consent: true, subjectKind }),
     });
     const json = await res.json().catch(() => null);
-    if (!res.ok || !json?.prepared) throw new Error(json?.error?.message ?? '일관성 준비를 완료하지 못했어요.');
+    if (!res.ok || !json?.prepared) throw apiResponseError(res, json, '일관성 준비를 완료하지 못했어요.');
     if (sessionStorage.getItem(scopeKey(scope)) !== id || sessionStorage.getItem(dataKey(id)) !== photo) throw new Error('준비 중 사진이 변경됐어요. 다시 시작해 주세요.');
     try {
       sessionStorage.setItem(profileKey, JSON.stringify(json.prepared));
@@ -163,7 +164,7 @@ export async function renderImage(target: RenderTarget, photo: string, scope: Ph
       consistency = await ensurePhotoConsistency(photo, scope, subjectKind);
       continue;
     }
-    throw new Error((json && 'error' in json && json.error?.message) || 'AI 생성에 실패했어요. 다시 시도해 주세요');
+    throw apiResponseError(res, json, 'AI 생성에 실패했어요. 다시 시도해 주세요');
   }
   throw new Error('사진의 일관성 준비를 완료하지 못했어요.');
 }

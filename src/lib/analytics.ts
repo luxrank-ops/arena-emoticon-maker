@@ -27,7 +27,7 @@ export function initAnalytics() {
       persistence: 'memory', // 쿠키 미사용
       person_profiles: 'identified_only',
       capture_pageview: false, // 페이지뷰는 라우트 변경 시 직접 전송 (App Router)
-      capture_pageleave: true,
+      capture_pageleave: false, // 공유 토큰 등 현재 URL이 자동 이벤트에 포함되지 않도록 한다
       autocapture: false, // DOM 자동 수집 금지 (입력값 유출 방지)
       disable_session_recording: true,
       mask_all_text: true,

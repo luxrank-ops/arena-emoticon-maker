@@ -234,6 +234,17 @@ export interface Pack {
   identity?: IdentitySnapshot;
 }
 
+export interface PackShareLink {
+  /** SHA-256 only; the raw bearer token is returned once and never persisted. */
+  tokenHash: string;
+  packId: string;
+  frameId: string;
+  userId: string;
+  createdAt: string;
+  expiresAt: string;
+  revokedAt?: string;
+}
+
 export interface IdentitySnapshot {
   palette: Palette;
   signature: FaceSignature;

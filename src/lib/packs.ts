@@ -402,6 +402,7 @@ export async function deletePack(userId: string, packId: string): Promise<{ imag
     const pack = db.packs[idx];
     const imageIds = pack.frames.map((f) => f.imageId).filter((x): x is string => !!x);
     db.packs.splice(idx, 1);
+    db.sharedLinks = (db.sharedLinks ?? []).filter((link) => link.packId !== packId);
 
     const sheetStillUsed = db.packs.some((p) => p.sheetId === pack.sheetId);
     if (!sheetStillUsed) {
