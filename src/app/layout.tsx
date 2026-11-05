@@ -15,6 +15,9 @@ export const metadata: Metadata = {
     type: 'website',
   },
   robots: { index: true, follow: true },
+  verification: {
+    google: 'lrB1CBJAO7vWKLVV5KuNM-6qrDfY06GRAP1daWMikjE',
+  },
   // PWA / 플레이스토어(TWA) 준비
   manifest: '/manifest.webmanifest',
   appleWebApp: {
