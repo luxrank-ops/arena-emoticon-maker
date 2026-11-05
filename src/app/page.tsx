@@ -1,5 +1,7 @@
 import Link from 'next/link';
 import { ACCESSORIES } from '@/lib/accessories';
+import { getLocale } from '@/lib/i18n/server';
+import { EnglishLanding } from '@/components/home/EnglishLanding';
 
 const samples = [
   { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
@@ -22,7 +24,9 @@ const questions = [
   { q: '카카오톡에서 사용할 수 있나요?', a: '내려받은 PNG나 GIF를 채팅방에 사진으로 보낼 수 있습니다. 카카오 이모티콘 스토어 정식 출품과 심사 통과는 별개이며 보장되지 않습니다.' },
 ];
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  const locale = await getLocale();
+  if (locale === 'en') return <EnglishLanding />;
   return (
     <div className="overflow-hidden">
       <section className="relative border-b-2 border-ink/90">
