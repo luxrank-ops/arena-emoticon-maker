@@ -30,42 +30,46 @@ export async function SiteHeader() {
 
   return (
     <header className="sticky top-0 z-40 border-b-2 border-ink/90 bg-cream/90 backdrop-blur">
-      <div className="wrap flex h-16 items-center justify-between gap-3">
-        <Link href={lp('/')} className="flex items-center gap-2">
-          <span className="grid h-9 w-9 place-items-center rounded-xl border-2 border-ink bg-lemon text-lg shadow-card">🙂</span>
-          <span className="text-lg font-black tracking-[-0.04em]">{tr(locale, '이모티학', 'EmotiHak')}</span>
-          <span className="hidden rounded-full border border-line px-2 py-0.5 text-[10px] font-bold text-sub sm:inline">beta</span>
+      <div className="wrap flex h-16 items-center gap-2 sm:gap-3">
+        <Link href={lp('/')} className="flex shrink-0 items-center gap-2 whitespace-nowrap">
+          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border-2 border-ink bg-lemon text-lg shadow-card">🙂</span>
+          <span className="whitespace-nowrap text-base font-black tracking-[-0.04em] min-[380px]:text-lg">{tr(locale, '이모티학', 'EmotiHak')}</span>
+          <span className="hidden rounded-full border border-line px-2 py-0.5 text-[10px] font-bold text-sub md:inline">beta</span>
         </Link>
 
-        <nav aria-label={tr(locale, '주요 메뉴', 'Main navigation')} className="hidden items-center gap-1 md:flex">
+        <nav aria-label={tr(locale, '주요 메뉴', 'Main navigation')} className="hidden min-w-0 flex-1 items-center justify-center gap-0.5 xl:flex">
           {nav.map((item) => (
-            <Link key={item.href} href={lp(item.href)} className="rounded-full px-3 py-2 text-sm font-bold text-ink/80 transition hover:bg-paper hover:text-ink">
+            <Link key={item.href} href={lp(item.href)} className="shrink-0 whitespace-nowrap rounded-full px-3 py-2 text-sm font-bold text-ink/80 transition hover:bg-paper hover:text-ink">
               {item.label}
             </Link>
           ))}
         </nav>
 
-        <div className="flex items-center gap-2">
+        <div className="ml-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
           <LanguageLink locale={locale} />
-          <Link href={lp(locale === 'en' ? '/studio/packs' : '/billing')} className="chip hidden hover:border-ink sm:inline-flex" title={tr(locale, '크레딧 · 플랜', 'Credits · Plan')}>
-            <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{planName}</span>
-            <span className="h-3 w-px bg-line" />
-            <span>⚡ {credits}</span>
-          </Link>
+          <div className="hidden shrink-0 sm:block">
+            <Link href={lp(locale === 'en' ? '/studio/packs' : '/billing')} className="chip whitespace-nowrap hover:border-ink" title={tr(locale, '크레딧 · 플랜', 'Credits · Plan')}>
+              <span className="text-[10px] font-black uppercase tracking-wide text-coralink">{planName}</span>
+              <span className="h-3 w-px bg-line" />
+              <span>⚡ {credits}</span>
+            </Link>
+          </div>
           {user.isAuthenticated ? (
-            <div className="flex flex-col items-end gap-0.5">
-              <span className="hidden max-w-[80px] truncate text-xs font-bold lg:block" title={user.name}>{user.name}</span>
+            <div className="flex shrink-0 items-center gap-2">
+              <span className="hidden max-w-[100px] truncate text-xs font-bold lg:block" title={user.name}>{user.name}</span>
               <LogoutButton locale={locale} />
             </div>
           ) : (
-            <Link href={lp('/login')} className="btn-primary !px-3 !py-2 text-xs sm:text-sm">{tr(locale, '로그인', 'Sign in')}</Link>
+            <Link href={lp('/login')} className="btn-primary shrink-0 whitespace-nowrap !px-3 !py-2 text-xs sm:text-sm">{tr(locale, '로그인', 'Sign in')}</Link>
           )}
-          <Link href={lp('/studio/upload')} className="btn-primary hidden !px-4 !py-2 text-xs lg:inline-flex">{tr(locale, '만들기', 'Create')}</Link>
+          <div className="hidden shrink-0 lg:block">
+            <Link href={lp('/studio/upload')} className="btn-primary whitespace-nowrap !px-4 !py-2 text-xs">{tr(locale, '만들기', 'Create')}</Link>
+          </div>
         </div>
       </div>
-      <nav aria-label={tr(locale, '모바일 주요 메뉴', 'Mobile navigation')} className="border-t border-line md:hidden">
+      <nav aria-label={tr(locale, '모바일 주요 메뉴', 'Mobile navigation')} className="border-t border-line xl:hidden">
         <div className="wrap flex gap-1 overflow-x-auto whitespace-nowrap py-1">
-          {nav.map((item) => <Link key={item.href} href={lp(item.href)} className="inline-flex min-h-10 shrink-0 items-center rounded-full px-3 text-xs font-bold text-ink hover:bg-paper focus-visible:bg-paper">{item.label}</Link>)}
+          {nav.map((item) => <Link key={item.href} href={lp(item.href)} className="inline-flex min-h-10 shrink-0 items-center whitespace-nowrap rounded-full px-3 text-xs font-bold text-ink hover:bg-paper focus-visible:bg-paper">{item.label}</Link>)}
         </div>
       </nav>
     </header>
