@@ -26,13 +26,13 @@ def twaManifest = [
     launchUrl: '/', // The start path for the TWA. Must be relative to the domain.
     name: '이모티학', // The application name.
     launcherName: '이모티학', // The name shown on the Android Launcher.
-    themeColor: '#FF6B5B', // The color used for the status bar.
-    themeColorDark: '#000000', // The color used for the dark status bar.
-    navigationColor: '#000000', // The color used for the navigation bar.
+    themeColor: '#7C4DFF', // The color used for the status bar.
+    themeColorDark: '#1A237E', // The color used for the dark status bar.
+    navigationColor: '#1A237E', // The color used for the navigation bar.
     navigationColorDark: '#000000', // The color used for the dark navbar.
-    navigationDividerColor: '#000000', // The navbar divider color.
+    navigationDividerColor: '#1A237E', // The navbar divider color.
     navigationDividerColorDark: '#000000', // The dark navbar divider color.
-    backgroundColor: '#FFF3DF', // The color used for the splash screen background.
+    backgroundColor: '#F8F9FA', // The color used for the splash screen background.
     enableNotifications: true, // Set to true to enable notification delegation.
     // Every shortcut must include the following fields:
     // - name: String that will show up in the shortcut.

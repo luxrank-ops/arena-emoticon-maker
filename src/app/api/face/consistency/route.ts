@@ -2,7 +2,7 @@ import { createHash, randomBytes } from 'node:crypto';
 import { bypassesRateLimit } from '@/lib/admin-access';
 import { withDB } from '@/lib/store';
 import { z } from 'zod';
-import { fail, handleError, ok } from '@/lib/api';
+import { fail, handleError, ok, photoInputError } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { enforceRateLimit } from '@/lib/ratelimit';
 import { ConsistencyError, prepareWithFallback } from '@/lib/ai/consistency';
@@ -33,6 +33,8 @@ export async function POST(req: Request) {
     });
     return ok({ prepared: { token, createdAt: now, method }, playUsage });
   } catch (e) {
+    const inputError = photoInputError(e);
+    if (inputError) return inputError;
     if (e instanceof ConsistencyError) return fail(e.code, e.message, e.code === 'PHOTO_NEEDS_REVIEW' ? 422 : 503);
     return handleError(e);
   }

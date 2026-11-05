@@ -39,6 +39,13 @@ bubblewrap build --aab
 - target/compile SDK 36, min SDK 24, version 1입니다.
 - AAB 생성·서명과 실제 기기 설치는 별도 검증 단계이며, 저장소의 정적 검사만으로 대체할 수 없습니다.
 
+## PWA · 오프라인 · 브랜드 색상
+
+- 웹 매니페스트와 TWA/Gradle 색상은 `#7C4DFF`, `#1A237E`, `#F8F9FA`를 사용한다.
+- 프로덕션 웹은 `/sw.js`를 등록하며 `/offline.html`과 정적 자산만 캐시한다. API·인증·공유 결과·사적 페이지는 저장하지 않는다.
+- 사진 촬영 전 사전 고지, TWA 히스토리/루트 종료, App Link와 오프라인 동작은 실기기에서 확인한다.
+- 텍스트 선택과 핀치 확대는 접근성을 위해 유지한다. 자세한 명세는 `docs/FAILSAFE-SHARING-TWA.md`를 참고한다.
+
 ## Digital Asset Links
 
 `public/.well-known/assetlinks.json`에는 새 업로드 인증서 지문이 등록돼 있습니다. 이 파일은 웹에 배포된 후에야 도메인 연결이 갱신됩니다.

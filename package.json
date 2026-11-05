@@ -23,6 +23,7 @@
     "test:play:static": "node scripts/test-play-static.mjs",
     "test:text-effects": "tsx scripts/test-text-effects.ts",
     "test:i18n": "tsx scripts/test-i18n.ts",
+    "test:failsafe": "tsx scripts/test-failsafe-sharing.ts",
     "test:quotes": "tsx scripts/test-quote-packs.ts"
   },
   "dependencies": {

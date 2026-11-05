@@ -13,6 +13,7 @@ import type {
   ImageDeletionJob,
   Order,
   Pack,
+  PackShareLink,
   PlayUsage,
   QuotePurchase,
   UsageEvent,
@@ -36,6 +37,7 @@ export interface DB {
   faces: FaceProfile[];
   sheets: CharacterSheet[];
   packs: Pack[];
+  sharedLinks: PackShareLink[];
   credits: CreditEntry[];
   quotePurchases: QuotePurchase[];
   orders: (Order | GoodsOrder)[];
@@ -56,6 +58,7 @@ const EMPTY: DB = {
   faces: [],
   sheets: [],
   packs: [],
+  sharedLinks: [],
   credits: [],
   quotePurchases: [],
   orders: [],
@@ -560,7 +563,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
     }
   };
 
-  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'credits' | 'quotePurchases' | 'orders' | 'contentReports' | 'deletionJobs' | 'playUsage' | 'adminLoginAttempts'>>(rawUsers);
+  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'sharedLinks' | 'credits' | 'quotePurchases' | 'orders' | 'contentReports' | 'deletionJobs' | 'playUsage' | 'adminLoginAttempts'>>(rawUsers);
   const pShard = parseShard<Pick<DB, 'consistencyPreparations'>>(rawPrep);
   const fShard = parseShard<Pick<DB, 'faces'>>(rawFaces);
   const sShard = parseShard<Pick<DB, 'sheets'>>(rawSheets);
@@ -628,6 +631,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
         }),
       }),
     ),
+    sharedLinks: mergeById(local.sharedLinks ?? [], uShard.data?.sharedLinks ?? legacyDB?.sharedLinks ?? [], (x) => x.tokenHash, uRemoteNewer),
     credits: mergeById(local.credits ?? [], uShard.data?.credits ?? legacyDB?.credits ?? [], (x) => x.id, uRemoteNewer),
     quotePurchases: mergeById(local.quotePurchases ?? [], uShard.data?.quotePurchases ?? legacyDB?.quotePurchases ?? [], (x) => x.id, uRemoteNewer),
     orders: mergeById(local.orders ?? [], uShard.data?.orders ?? legacyDB?.orders ?? [], (x) => x.id, uRemoteNewer),
@@ -676,7 +680,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
   }
   if (pendingLookups.length > 0) await Promise.all(pendingLookups);
 
-  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, credits: db.credits, quotePurchases: db.quotePurchases, orders: db.orders, contentReports: db.contentReports, deletionJobs: db.deletionJobs, playUsage: db.playUsage, adminLoginAttempts: db.adminLoginAttempts });
+  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, sharedLinks: db.sharedLinks, credits: db.credits, quotePurchases: db.quotePurchases, orders: db.orders, contentReports: db.contentReports, deletionJobs: db.deletionJobs, playUsage: db.playUsage, adminLoginAttempts: db.adminLoginAttempts });
   const snapPrep = () => JSON.stringify({ consistencyPreparations: db.consistencyPreparations });
   const snapFaces = () => JSON.stringify({ faces: db.faces });
   const snapSheets = () => JSON.stringify({ sheets: db.sheets });

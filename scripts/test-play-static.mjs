@@ -21,6 +21,7 @@ function pngSize(file) {
 
 const manifest = json('twa/twa-manifest.json');
 const links = json('public/.well-known/assetlinks.json');
+const webManifest = json('public/manifest.webmanifest');
 check('TWA package and SDK settings', manifest.packageId === 'com.emotihak.app' && manifest.minSdkVersion === 24 && /targetSdkVersion 36/.test(read('twa/app/build.gradle').toString()));
 check('signing key is outside Git-tracked paths', manifest.signingKey.path === 'private/android-keystore.p12' && manifest.signingKey.alias === 'emotihak');
 const tracked = execFileSync('git', ['ls-files'], { cwd: root, encoding: 'utf8' }).split('\n');
@@ -38,6 +39,12 @@ if (existsSync(path.join(root, 'twa/private/android-keystore-cert.pem'))) {
   const local = createHash('sha256').update(der).digest('hex').toUpperCase().match(/.{2}/g).join(':');
   check('local upload certificate matches Asset Links', fingerprints.includes(local));
 }
+
+check('PWA standalone and required icons', webManifest.start_url === '/' && webManifest.display === 'standalone' && ['192x192', '512x512'].every((size) => webManifest.icons.some((icon) => icon.sizes === size)));
+check('TWA and web palettes aligned', manifest.themeColor === webManifest.theme_color && manifest.backgroundColor === webManifest.background_color);
+check('offline service worker and registration', ['public/sw.js', 'public/offline.html', 'src/components/PwaRegistration.tsx'].every((file) => existsSync(path.join(root, file))) && read('public/sw.js').toString().includes("request.mode === 'navigate'") && read('src/app/layout.tsx').toString().includes('<PwaRegistration />'));
+check('camera pre-disclosure and native capture', read('src/components/studio/UploadFlow.tsx').toString().includes('CameraPermissionDialog') && read('src/components/studio/UploadFlow.tsx').toString().includes('capture={subjectKind'));
+check('pinch zoom remains accessible', !/user-scalable\s*=\s*no/i.test(read('src/app/layout.tsx').toString() + read('public/offline.html').toString()));
 
 check('store icon dimensions', JSON.stringify(pngSize('public/icons/icon-512.png')) === '[512,512]');
 check('feature graphic dimensions', JSON.stringify(pngSize('public/marketing/feature-graphic-1024x500.png')) === '[1024,500]');

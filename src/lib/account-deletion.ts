@@ -62,6 +62,7 @@ export async function deleteAccountPermanently(userId: string): Promise<AccountD
     db.faces = db.faces.filter((item) => item.userId !== userId);
     db.sheets = db.sheets.filter((item) => item.userId !== userId);
     db.packs = db.packs.filter((item) => item.userId !== userId);
+    db.sharedLinks = (db.sharedLinks ?? []).filter((item) => item.userId !== userId);
     db.briefs = db.briefs.filter((item) => item.userId !== userId);
     db.contentReports = db.contentReports.filter((item) => item.userId !== userId);
     db.playUsage = db.playUsage.filter((item) => item.userId !== userId);

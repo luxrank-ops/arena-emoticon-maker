@@ -3,6 +3,7 @@ import './globals.css';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
+import { PwaRegistration } from '@/components/PwaRegistration';
 import { getLocale } from '@/lib/i18n/server';
 import { tr } from '@/lib/i18n/locale';
 
@@ -52,6 +53,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
     <html lang={locale}>
       <body className="flex min-h-screen flex-col">
         <AnalyticsProvider>
+          <PwaRegistration />
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
