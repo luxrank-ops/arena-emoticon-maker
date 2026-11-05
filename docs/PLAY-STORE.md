@@ -20,11 +20,13 @@
 앱에서 디지털 상품 판매는 **Google Play Billing** 사용이 원칙이며, TWA에서 웹 결제로
 디지털 상품을 파는 구조는 심사 반려 가능성이 있습니다.
 
-- **최소 리스크 출시안(권장)**: TWA에서는 무료 기능만 제공하고, 충전 버튼이
+- **최소 리스크 출시안(권장)**: TWA에서는 크레딧 결제를 제외하고, 충전 UI가
   "웹에서 열기"(브라우저 딥링크 → `https://emotihak.com/pricing`)로 연결되게 합니다.
-  (소형 코드 수정 — 필요하면 별도 PR로 진행)
-- 대안: TWA에 Play Billing 연동 (작업량 큼)
-- 참고: 실물 굿즈(물류) 결제는 디지털 상품이 아니므로 상대적으로 유연합니다.
+  ✅ **구현 완료** — TWA 감지(`src/lib/twa.ts`, UA `TWA/` 토큰)로
+  ① 클라이언트: `PayPanel` 이 TWA+크레딧이면 결제 대신 웹 딥링크 안내로 대체
+  ② 서버: `POST /api/checkout` 이 TWA 요청+크레딧 SKU면 409 `IAP_POLICY_RESTRICTED` 로 차단
+- 대안(향후): TWA에 Play Billing 연동 (작업량 큼)
+- 참고: 실물 굿즈(물류) 결제는 디지털 상품이 아니므로 TWA 내 웹 결제 유지(영향 없음).
 
 출시 전 [Google Play 정책 — 인앱 결제](https://play.google.com/console/about/policies) 최신 문서를 반드시 확인하세요.
 
@@ -150,7 +152,7 @@ bubblewrap build --mode release     # APK
 | 일 | 담당 |
 |---|---|
 | 매니페스트·아이콘·assetlinks 템플릿·스토어 초안 | ✅ 이번 PR (저) |
-| TWA에서 결제 UI를 웹 딥링크로 전환 (정책 대응) | 필요 시 별도 PR (저) |
+| TWA에서 크레딧 결제 차단 + 웹 딥링크 전환 (정책 대응) | ✅ 구현 완료 (TWA UA 감지, UI·API 이중 차단) |
 | Play 개발자 계정 가입 · $25 · 사업자 인증 | **사용자** |
 | Bubblewrap 실행 · 키 생성 · assetlinks 실제 값 채우기 | 사용자 (지문값 알려주시면 채워드립니다) |
 | 스크린샷 2장 촬영 | 사용자 (또는 제가 웹 캡처 스크립트로 대용 제공 가능) |

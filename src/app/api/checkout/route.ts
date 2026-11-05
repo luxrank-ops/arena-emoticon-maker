@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { validateAuthRequest } from '@/lib/auth-api';
 import { z } from 'zod';
 import { paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
+import { uaIsTWA } from '@/lib/twa';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { SKUS } from '@/lib/pricing';
@@ -23,6 +24,11 @@ export async function POST(req: Request) {
     const item = SKUS[sku];
     if (!item) return fail('SKU_NOT_FOUND', '존재하지 않는 상품입니다');
     if (item.kind !== 'credits') return fail('PRODUCT_UNAVAILABLE', '구독 결제는 준비 중입니다.', 503);
+    // 구글 플레이 인앱결제 정책: TWA(안드로이드 앱) 안에서는 디지털 상품(크레딧)
+    // 웹 결제로 판매할 수 없다 → 차단하고 웹(브라우저) 구매를 안내한다.
+    if (uaIsTWA(req.headers.get('user-agent') ?? '') && item.kind === 'credits') {
+      return fail('IAP_POLICY_RESTRICTED', '안드로이드 앱에서는 크레딧 구매가 제한됩니다. 웹(브라우저)에서 구매해 주세요.', 409);
+    }
 
     const order: Order = {
       id: `ord_${randomUUID()}`,
