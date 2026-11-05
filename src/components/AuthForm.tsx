@@ -26,8 +26,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
       const res = await fetch(`/api/auth/${mode}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? '요청을 처리하지 못했어요');
-      router.push('/');
-      router.refresh();
+      window.location.assign('/');
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);
