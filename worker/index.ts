@@ -7,6 +7,11 @@ export default {
       if (env.STORE_KV) {
         (globalThis as any).STORE_KV = env.STORE_KV;
       }
+      if (typeof process !== "undefined" && process.env) {
+        for (const [k, v] of Object.entries(env)) {
+          if (typeof v === "string") process.env[k] = v;
+        }
+      }
     }
     return (vinextHandler as any).fetch(request, env, ctx);
   },

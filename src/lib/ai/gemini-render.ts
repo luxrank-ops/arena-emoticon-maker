@@ -154,15 +154,31 @@ export class RenderError extends Error {
   }
 }
 
+const VERTEX_PROJECT = process.env.GCP_VERTEX_PROJECT || '426739829072';
+
+function toVertexModel(model: string): string {
+  if (model === 'gemini-3.1-flash-image-preview') return 'gemini-3.1-flash-image';
+  if (model === 'gemini-3-pro-image-preview') return 'gemini-3-pro-image';
+  return model.replace(/-preview$/, '');
+}
+
+function endpointUrls(model: string, apiKey: string): string[] {
+  const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+  const vModel = toVertexModel(model);
+  const vertexUrl = `https://aiplatform.googleapis.com/v1beta1/projects/${VERTEX_PROJECT}/locations/global/publishers/google/models/${vModel}:generateContent?key=${apiKey}`;
+  return (globalThis as any).CLOUDFLARE_ENV ? [vertexUrl, genUrl] : [genUrl, vertexUrl];
+}
+
 /** 사진을 참조해 컷 1장을 만든다. 실패 시 RenderError */
 export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = ((globalThis as any).CLOUDFLARE_ENV?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) throw new RenderError('AI_NOT_CONFIGURED', 'AI 생성 키가 설정되지 않았습니다');
 
   const model = modelForTone(input.tone);
   const body = JSON.stringify({
     contents: [
       {
+        role: 'user',
         parts: [
           { text: buildRenderPrompt(input) },
           { inlineData: { mimeType: input.mimeType, data: input.photoBase64 } },
@@ -180,18 +196,23 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
     },
   });
 
-  // 일시적 과부하(429/503)는 한 번 재시도한다
+  const urls = endpointUrls(model, apiKey);
+
+  // 일시적 과부하(429/503) 및 리전 제한(400/404) 시 대체 엔드포인트/재시도 수행
   for (let attempt = 0; attempt < 2; attempt++) {
-    const res = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`,
-      {
+    let res: Response | null = null;
+    for (const url of urls) {
+      res = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body,
         signal: AbortSignal.timeout(TIMEOUT_MS),
         cache: 'no-store',
-      },
-    );
+      });
+      if (res.ok || res.status === 429 || res.status === 503) break;
+      await res.body?.cancel().catch(() => undefined);
+    }
+    if (!res) throw new RenderError('AI_FAILED', 'AI 생성에 실패했어요. 다시 시도해 주세요');
 
     if (res.status === 429 || res.status === 503) {
       await res.body?.cancel().catch(() => undefined);

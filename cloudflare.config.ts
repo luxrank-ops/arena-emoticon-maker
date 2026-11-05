@@ -20,7 +20,7 @@ export default defineConfig({
       DEMO_MODE: bindings.text("0"),
       GEMINI_PHOTO_MODEL: bindings.text("gemini-3-pro-image-preview"),
       GEMINI_STYLE_MODEL: bindings.text("gemini-3.1-flash-image-preview"),
-      GEMINI_TEXT_MODEL: bindings.text("gemini-2.5-flash"),
+      GEMINI_TEXT_MODEL: bindings.text("gemini-flash-latest"),
       PAYMENT_PROVIDER: bindings.text("mock"),
       STORE_BACKEND: bindings.text("auto"),
       RATE_LIMIT_DISABLED: bindings.text("1"),

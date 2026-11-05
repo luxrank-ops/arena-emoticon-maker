@@ -31,9 +31,8 @@ export async function purgeExpiredFaces(
     if (!opts.dryRun) db.consistencyPreparations = db.consistencyPreparations.filter((entry) => entry.expiresAt > now);
 
     if (opts.dryRun || due.length === 0) {
-      if (!opts.dryRun) {
-        // 파기할 대상이 없어도 호출 기록은 남긴다 (스케줄러 생존 확인)
-        logEvent(db, 'system', 'face_purged', { purged: 0, reason: opts.force ? 'manual' : 'scheduled' });
+      if (!opts.dryRun && opts.force) {
+        logEvent(db, 'system', 'face_purged', { purged: 0, reason: 'manual' });
       }
       return {
         purged: 0,

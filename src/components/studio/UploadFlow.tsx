@@ -40,6 +40,20 @@ export function UploadFlow({
   const [consent, setConsent] = useState({ terms: false, privacy: false, overseas: false });
   const [dragging, setDragging] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [currentStep, setCurrentStep] = useState<'photo' | 'settings'>(step);
+
+  useEffect(() => {
+    setCurrentStep(step);
+  }, [step]);
+
+  useEffect(() => {
+    const onPopState = () => {
+      if (window.location.pathname.endsWith('/settings')) setCurrentStep('settings');
+      else if (window.location.pathname.endsWith('/upload')) setCurrentStep('photo');
+    };
+    window.addEventListener('popstate', onPopState);
+    return () => window.removeEventListener('popstate', onPopState);
+  }, []);
 
   useEffect(() => {
     try {
@@ -54,7 +68,8 @@ export function UploadFlow({
       }
     } catch { /* 잘못된 임시 정보는 무시하고 사진부터 다시 시작한다 */ }
     setHydrated(true);
-  }, [allowedTones]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!hydrated || !analysis) return;
@@ -70,8 +85,17 @@ export function UploadFlow({
       const photoId = photoScopeId('draft');
       if (!photoId || !loadPhoto('draft')) throw new Error();
       sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind }));
-      router.push('/studio/upload/settings');
+      setError(null);
+      setCurrentStep('settings');
+      try { window.history.pushState(null, '', '/studio/upload/settings'); } catch { /* ignore */ }
     } catch { setError('임시 정보를 저장하지 못했어요. 사진을 다시 선택해 주세요.'); }
+  }
+
+  function goToPhoto() {
+    if (busy) return;
+    setError(null);
+    setCurrentStep('photo');
+    try { window.history.pushState(null, '', '/studio/upload'); } catch { /* ignore */ }
   }
 
 
@@ -135,7 +159,13 @@ export function UploadFlow({
 
       linkPhoto('draft', `sheet:${sheetJson.sheet.id}`);
       track('sheet_created', { tone, credits });
-      router.push(`/studio/sheet/${sheetJson.sheet.id}`);
+      const targetUrl = `/studio/sheet/${sheetJson.sheet.id}`;
+      router.push(targetUrl);
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.location.pathname !== targetUrl) {
+          window.location.assign(targetUrl);
+        }
+      }, 1000);
     } catch (e) {
       track('sheet_failed', { tone });
       setError((e as Error).message);
@@ -144,14 +174,48 @@ export function UploadFlow({
     }
   }
 
-  if (!hydrated) return <p role="status" className="text-sm text-sub">준비 중이에요…</p>;
-  if (step === 'settings' && (!analysis?.ok || !loadPhoto('draft'))) {
-    return <div className="card p-6"><p className="font-bold">먼저 사진을 선택해 주세요.</p><p className="mt-2 text-sm text-sub">사진과 분석 정보는 이 탭에서만 보관됩니다.</p><Link href="/studio/upload" className="btn-primary mt-4 inline-flex">사진 선택으로 돌아가기</Link></div>;
+  const isPhoto = currentStep === 'photo';
+  const stepHeader = (
+    <>
+      <nav className="mb-6 flex items-center gap-2 text-xs font-bold text-sub" aria-label="현재 위치">
+        <Link href="/" className="hover:text-ink">홈</Link><span>/</span>
+        {isPhoto ? (
+          <span className="text-ink">사진 선택</span>
+        ) : (
+          <>
+            <button type="button" onClick={goToPhoto} className="hover:text-ink">사진 선택</button>
+            <span>/</span>
+            <span className="text-ink">스타일과 동의</span>
+          </>
+        )}
+        <span className="ml-auto chip">STEP {isPhoto ? '1' : '2'} / 4</span>
+      </nav>
+      <div className="mx-auto mb-8 max-w-3xl">
+        <h1 className="h2">{isPhoto ? '어떤 사진으로 만들까요?' : '이모티콘 스타일을 골라주세요'}</h1>
+        <p className="mt-2 text-sm leading-relaxed text-sub">
+          {isPhoto ? '사람 또는 반려동물을 선택하고 사진 한 장으로 시작해요.' : '구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.'}
+        </p>
+        <ol aria-label="제작 진행 단계" className="mt-5 grid grid-cols-4 gap-1 text-center text-xs font-bold sm:gap-2 sm:text-sm">
+          {['사진 선택', '스타일·동의', '시안 선택', '팩 완성'].map((label, index) => (
+            <li key={label} aria-current={index === (isPhoto ? 0 : 1) ? 'step' : undefined} className={`rounded-xl border-2 px-1 py-2 ${index === (isPhoto ? 0 : 1) ? 'border-ink bg-lemon/30 text-ink' : 'border-line text-sub'}`}>
+              {index + 1}. {label}
+            </li>
+          ))}
+        </ol>
+      </div>
+    </>
+  );
+
+  if (!hydrated) return <>{stepHeader}<p role="status" className="text-sm text-sub">준비 중이에요…</p></>;
+  if (currentStep === 'settings' && (!analysis?.ok || !loadPhoto('draft'))) {
+    return <>{stepHeader}<div className="card p-6"><p className="font-bold">먼저 사진을 선택해 주세요.</p><p className="mt-2 text-sm text-sub">사진과 분석 정보는 이 탭에서만 보관됩니다.</p><button type="button" onClick={goToPhoto} className="btn-primary mt-4 inline-flex">사진 선택으로 돌아가기</button></div></>;
   }
 
   const errorNotice = error ? <p role="alert" className="rounded-xl border-2 border-coral/50 bg-coral/10 px-4 py-3 text-sm font-bold text-coralink">{error}</p> : null;
-  if (step === 'photo') return (
-    <div className="mx-auto max-w-2xl space-y-4">
+  if (currentStep === 'photo') return (
+    <>
+      {stepHeader}
+      <div className="mx-auto max-w-2xl space-y-4">
         <div role="group" aria-label="사진 대상 선택" className="card flex gap-2 p-3">
           {([['person', '사람'], ['pet', '반려동물']] as const).map(([kind, label]) => (
             <button key={kind} type="button" disabled={busy} aria-pressed={subjectKind === kind} onClick={() => {
@@ -274,9 +338,12 @@ export function UploadFlow({
       <button className="btn-primary w-full !py-4 text-base" disabled={!analysis?.ok || busy} onClick={goToSettings}>다음 · 스타일 선택 →</button>
       <p className="text-center text-xs text-sub">사진 분석은 브라우저에서 진행되며, 다음 단계에서 구도와 스타일을 선택합니다.</p>
     </div>
+    </>
   );
   return (
-    <div className="mx-auto max-w-3xl space-y-4">
+    <>
+      {stepHeader}
+      <div className="mx-auto max-w-3xl space-y-4">
       <div className="card p-5"><p className="text-sm font-black">구도 선택</p><p className="mt-1 text-xs text-sub">얼굴 중심 또는 전신 이모티콘을 선택해 주세요.</p></div>
           <div role="group" aria-label="이모티콘 구도 선택" className="card flex gap-2 p-3">
             <button type="button" aria-pressed={mode === 'face'} onClick={() => setMode('face')} className={clsx("flex-1 rounded-xl border-2 px-4 py-3 text-sm font-black", mode === 'face' ? "border-ink bg-ink text-cream" : "border-line bg-paper text-ink")}>얼굴 모드</button>
@@ -337,10 +404,11 @@ export function UploadFlow({
       {busy && stage ? <p role="status" className="rounded-xl border-2 border-line bg-cream px-4 py-3 text-sm font-bold">{stage}</p> : null}
       {errorNotice}
       <div className="flex flex-col-reverse gap-2 sm:flex-row">
-        <Link href="/studio/upload" aria-disabled={busy} onClick={(e) => { if (busy) e.preventDefault(); }} className="btn-ghost text-center sm:flex-1">← 사진 선택</Link>
+        <button type="button" disabled={busy} onClick={goToPhoto} className="btn-ghost text-center sm:flex-1">← 사진 선택</button>
         <button className="btn-primary !py-4 text-base sm:flex-[2]" disabled={!ready} onClick={submit}>{busy ? '처리 중…' : '다음 · 캐릭터 시안 만들기 →'}</button>
       </div>
       <p className="text-center text-[11px] text-sub">생성 전 사진을 확인합니다. AI 확인이 어려우면 기본 확인으로 진행합니다 · 보유 크레딧 {unlimited ? '무제한' : credits}</p>
     </div>
+    </>
   );
 }

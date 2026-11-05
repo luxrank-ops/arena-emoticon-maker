@@ -215,6 +215,9 @@ interface StoreGlobal {
   fallbackWrites: number;
   /** Firestore 최초 사용 시 KV 스냅샷을 승계했는지 (kv | null) */
   importedFrom: 'kv' | null;
+  shardUpdatedAt?: Record<string, number>;
+  deletedIds?: Set<string>;
+  imageBindings?: Map<string, string>;
 }
 const g = globalThis as unknown as { __emotimeStore?: StoreGlobal };
 g.__emotimeStore ??= {
@@ -228,8 +231,14 @@ g.__emotimeStore ??= {
   remoteDownUntil: 0,
   fallbackWrites: 0,
   importedFrom: null,
+  shardUpdatedAt: {},
+  deletedIds: new Set<string>(),
+  imageBindings: new Map<string, string>(),
 };
 const state = g.__emotimeStore;
+state.shardUpdatedAt ??= {};
+state.deletedIds ??= new Set<string>();
+state.imageBindings ??= new Map<string, string>();
 
 function candidateDirs(): { dir: string; mode: StoreMode }[] {
   const out: { dir: string; mode: StoreMode }[] = [];
@@ -466,8 +475,282 @@ export class StoreBusyError extends Error {
   }
 }
 
+function mergeById<T>(
+  localArr: T[],
+  remoteArr: T[],
+  keyFn: (item: T) => string,
+  preferRemote: boolean,
+  deleted?: Set<string>,
+  mergeItem?: (newer: T, older: T) => T,
+): T[] {
+  const map = new Map<string, T>();
+  const first = preferRemote ? localArr : remoteArr;
+  const second = preferRemote ? remoteArr : localArr;
+  for (const item of first) {
+    const k = keyFn(item);
+    if (deleted?.has(k)) continue;
+    map.set(k, item);
+  }
+  for (const item of second) {
+    const k = keyFn(item);
+    if (deleted?.has(k)) continue;
+    const prev = map.get(k);
+    map.set(k, prev && mergeItem ? mergeItem(item, prev) : item);
+  }
+  return Array.from(map.values());
+}
+
+async function kvGetSafe(kv: any, key: string): Promise<string | null> {
+  try {
+    return await withTimeout<string | null>(kv.get(key), 3000);
+  } catch {
+    return null;
+  }
+}
+
+async function kvPutSafe(kv: any, key: string, value: string): Promise<void> {
+  try {
+    await withTimeout(kv.put(key, value), 4000);
+  } catch (e) {
+    state.lastError = (e as Error)?.message ?? 'kv put error';
+  }
+}
+
+async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = false): Promise<T> {
+  const kv = getCFKV();
+  const shardUpdated = state.shardUpdatedAt!;
+  const deleted = state.deletedIds!;
+  const imgMap = state.imageBindings!;
+
+  const [rawUsers, rawPrep, rawFaces, rawSheets, rawPacks] = await Promise.all([
+    kvGetSafe(kv, 'emotime:shard:users'),
+    kvGetSafe(kv, 'emotime:shard:prep'),
+    kvGetSafe(kv, 'emotime:shard:faces'),
+    kvGetSafe(kv, 'emotime:shard:sheets'),
+    kvGetSafe(kv, 'emotime:shard:packs'),
+  ]);
+
+  let legacyDB: Partial<DB> | null = null;
+  if (!rawUsers && !rawSheets && !state.cache) {
+    const legacyRaw = await kvGetSafe(kv, 'emotime:store');
+    if (legacyRaw) {
+      try { legacyDB = JSON.parse(legacyRaw) as Partial<DB>; } catch { /* ignore */ }
+    }
+  }
+
+  const parseShard = <S>(raw: string | null): { updatedAt: number; data: S | null } => {
+    if (!raw) return { updatedAt: 0, data: null };
+    try {
+      const parsed = JSON.parse(raw);
+      return { updatedAt: Number(parsed?.updatedAt ?? 0), data: parsed?.data ?? null };
+    } catch {
+      return { updatedAt: 0, data: null };
+    }
+  };
+
+  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'credits' | 'orders' | 'adminLoginAttempts'>>(rawUsers);
+  const pShard = parseShard<Pick<DB, 'consistencyPreparations'>>(rawPrep);
+  const fShard = parseShard<Pick<DB, 'faces'>>(rawFaces);
+  const sShard = parseShard<Pick<DB, 'sheets'>>(rawSheets);
+  const kShard = parseShard<Pick<DB, 'packs' | 'briefs'>>(rawPacks);
+
+  const local = state.cache ?? { ...EMPTY, ...(legacyDB ?? {}) };
+  const now = Date.now();
+
+  const uRemoteNewer = uShard.updatedAt > (shardUpdated.users ?? 0);
+  const fRemoteNewer = fShard.updatedAt > (shardUpdated.faces ?? 0);
+  const sRemoteNewer = sShard.updatedAt > (shardUpdated.sheets ?? 0);
+  const kRemoteNewer = kShard.updatedAt > (shardUpdated.packs ?? 0);
+
+  if (uShard.updatedAt > (shardUpdated.users ?? 0)) shardUpdated.users = uShard.updatedAt;
+  if (pShard.updatedAt > (shardUpdated.prep ?? 0)) shardUpdated.prep = pShard.updatedAt;
+  if (fShard.updatedAt > (shardUpdated.faces ?? 0)) shardUpdated.faces = fShard.updatedAt;
+  if (sShard.updatedAt > (shardUpdated.sheets ?? 0)) shardUpdated.sheets = sShard.updatedAt;
+  if (kShard.updatedAt > (shardUpdated.packs ?? 0)) shardUpdated.packs = kShard.updatedAt;
+
+  const db: DB = {
+    version: Math.max(local.version || 1, 1),
+    users: mergeById(local.users ?? [], uShard.data?.users ?? legacyDB?.users ?? [], (x) => x.id, uRemoteNewer),
+    accounts: mergeById(local.accounts ?? [], uShard.data?.accounts ?? legacyDB?.accounts ?? [], (x) => x.userId, uRemoteNewer),
+    sessions: mergeById(local.sessions ?? [], uShard.data?.sessions ?? legacyDB?.sessions ?? [], (x) => x.tokenHash, uRemoteNewer)
+      .filter((s) => Date.parse(s.expiresAt) > now),
+    adminLoginAttempts: uRemoteNewer ? (uShard.data?.adminLoginAttempts ?? local.adminLoginAttempts ?? []) : (local.adminLoginAttempts ?? []),
+    consistencyPreparations: mergeById(
+      local.consistencyPreparations ?? [],
+      pShard.data?.consistencyPreparations ?? legacyDB?.consistencyPreparations ?? [],
+      (x) => x.tokenHash,
+      true,
+    ).filter((entry) => entry.expiresAt > now),
+    faces: mergeById(local.faces ?? [], fShard.data?.faces ?? legacyDB?.faces ?? [], (x) => x.id, fRemoteNewer, deleted),
+    sheets: mergeById(
+      local.sheets ?? [],
+      sShard.data?.sheets ?? legacyDB?.sheets ?? [],
+      (x) => x.id,
+      sRemoteNewer,
+      deleted,
+      (newer, older) => ({
+        ...older,
+        ...newer,
+        chosenKey: newer.chosenKey ?? older.chosenKey,
+        variants: newer.variants.map((nv) => {
+          const ov = older.variants.find((x) => x.key === nv.key);
+          const bound = imgMap.get(`var:${newer.id}:${nv.key}`);
+          return { ...ov, ...nv, imageId: bound ?? nv.imageId ?? ov?.imageId };
+        }),
+      }),
+    ),
+    packs: mergeById(
+      local.packs ?? [],
+      kShard.data?.packs ?? legacyDB?.packs ?? [],
+      (x) => x.id,
+      kRemoteNewer,
+      deleted,
+      (newer, older) => ({
+        ...older,
+        ...newer,
+        characterReferenceImageId: newer.characterReferenceImageId ?? older.characterReferenceImageId,
+        frames: newer.frames.map((nf) => {
+          const ofrm = older.frames.find((x) => x.id === nf.id);
+          const bound = imgMap.get(`frm:${nf.id}`);
+          return { ...ofrm, ...nf, imageId: bound ?? nf.imageId ?? ofrm?.imageId };
+        }),
+      }),
+    ),
+    credits: mergeById(local.credits ?? [], uShard.data?.credits ?? legacyDB?.credits ?? [], (x) => x.id, uRemoteNewer),
+    orders: mergeById(local.orders ?? [], uShard.data?.orders ?? legacyDB?.orders ?? [], (x) => x.id, uRemoteNewer),
+    briefs: mergeById(local.briefs ?? [], kShard.data?.briefs ?? legacyDB?.briefs ?? [], (x) => x.date, kRemoteNewer),
+    events: (local.events ?? []).slice(-500),
+  };
+
+  // 최근 15분 이내 생성된 시트/팩에서 병렬 렌더링된 개별 이미지 바인딩을 KV에서 보강한다
+  const pendingLookups: Promise<void>[] = [];
+  for (const s of db.sheets.slice(-5)) {
+    if (now - Date.parse(s.createdAt) > 15 * 60_000) continue;
+    for (const v of s.variants) {
+      const memImg = imgMap.get(`var:${s.id}:${v.key}`);
+      if (memImg && !v.imageId) v.imageId = memImg;
+      if (!v.imageId && !imgMap.has(`miss:var:${s.id}:${v.key}`)) {
+        pendingLookups.push(
+          kvGetSafe(kv, `emotime:var:${s.id}:${v.key}`).then((id) => {
+            if (id) {
+              v.imageId = id;
+              imgMap.set(`var:${s.id}:${v.key}`, id);
+            }
+          }),
+        );
+      }
+    }
+  }
+  for (const p of db.packs.slice(-3)) {
+    if (now - Date.parse(p.createdAt) > 15 * 60_000) continue;
+    for (const f of p.frames) {
+      const memImg = imgMap.get(`frm:${f.id}`);
+      if (memImg && !f.imageId) f.imageId = memImg;
+      if (!f.imageId) {
+        pendingLookups.push(
+          kvGetSafe(kv, `emotime:frm:${f.id}`).then((id) => {
+            if (id) {
+              f.imageId = id;
+              imgMap.set(`frm:${f.id}`, id);
+            }
+          }),
+        );
+      }
+    }
+  }
+  if (pendingLookups.length > 0) await Promise.all(pendingLookups);
+
+  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, credits: db.credits, orders: db.orders, adminLoginAttempts: db.adminLoginAttempts });
+  const snapPrep = () => JSON.stringify({ consistencyPreparations: db.consistencyPreparations });
+  const snapFaces = () => JSON.stringify({ faces: db.faces });
+  const snapSheets = () => JSON.stringify({ sheets: db.sheets });
+  const snapPacks = () => JSON.stringify({ packs: db.packs, briefs: db.briefs });
+
+  const bUsers = snapUsers();
+  const bPrep = snapPrep();
+  const bFaces = snapFaces();
+  const bSheets = snapSheets();
+  const bPacks = snapPacks();
+
+  const prevSheetIds = new Set(db.sheets.map((s) => s.id));
+  const prevPackIds = new Set(db.packs.map((p) => p.id));
+  const prevFaceIds = new Set(db.faces.map((f) => f.id));
+  const prevVarImgs = new Map<string, string>();
+  for (const s of db.sheets) for (const v of s.variants) if (v.imageId) prevVarImgs.set(`${s.id}:${v.key}`, v.imageId);
+  const prevFrmImgs = new Map<string, string>();
+  for (const p of db.packs) for (const f of p.frames) if (f.imageId) prevFrmImgs.set(f.id, f.imageId);
+
+  const result = await fn(db);
+
+  const curSheetIds = new Set(db.sheets.map((s) => s.id));
+  const curPackIds = new Set(db.packs.map((p) => p.id));
+  const curFaceIds = new Set(db.faces.map((f) => f.id));
+  for (const id of prevSheetIds) if (!curSheetIds.has(id)) deleted.add(id);
+  for (const id of prevPackIds) if (!curPackIds.has(id)) deleted.add(id);
+  for (const id of prevFaceIds) if (!curFaceIds.has(id)) deleted.add(id);
+
+  const writes: Promise<void>[] = [];
+  for (const s of db.sheets) {
+    for (const v of s.variants) {
+      if (v.imageId && prevVarImgs.get(`${s.id}:${v.key}`) !== v.imageId) {
+        imgMap.set(`var:${s.id}:${v.key}`, v.imageId);
+        writes.push(kvPutSafe(kv, `emotime:var:${s.id}:${v.key}`, v.imageId));
+      }
+    }
+  }
+  for (const p of db.packs) {
+    for (const f of p.frames) {
+      if (f.imageId && prevFrmImgs.get(f.id) !== f.imageId) {
+        imgMap.set(`frm:${f.id}`, f.imageId);
+        writes.push(kvPutSafe(kv, `emotime:frm:${f.id}`, f.imageId));
+      }
+    }
+  }
+
+  const writeTime = Date.now();
+  const aUsers = snapUsers();
+  const aPrep = snapPrep();
+  const aFaces = snapFaces();
+  const aSheets = snapSheets();
+  const aPacks = snapPacks();
+
+  if (aUsers !== bUsers || (!rawUsers && legacyDB)) {
+    shardUpdated.users = writeTime;
+    writes.push(kvPutSafe(kv, 'emotime:shard:users', JSON.stringify({ updatedAt: writeTime, data: JSON.parse(aUsers) })));
+  }
+  if (aPrep !== bPrep || (!rawPrep && legacyDB)) {
+    shardUpdated.prep = writeTime;
+    writes.push(kvPutSafe(kv, 'emotime:shard:prep', JSON.stringify({ updatedAt: writeTime, data: JSON.parse(aPrep) })));
+  }
+  if (aFaces !== bFaces || (!rawFaces && legacyDB)) {
+    shardUpdated.faces = writeTime;
+    writes.push(kvPutSafe(kv, 'emotime:shard:faces', JSON.stringify({ updatedAt: writeTime, data: JSON.parse(aFaces) })));
+  }
+  if (aSheets !== bSheets || (!rawSheets && legacyDB)) {
+    shardUpdated.sheets = writeTime;
+    writes.push(kvPutSafe(kv, 'emotime:shard:sheets', JSON.stringify({ updatedAt: writeTime, data: JSON.parse(aSheets) })));
+  }
+  if (aPacks !== bPacks || (!rawPacks && legacyDB)) {
+    shardUpdated.packs = writeTime;
+    writes.push(kvPutSafe(kv, 'emotime:shard:packs', JSON.stringify({ updatedAt: writeTime, data: JSON.parse(aPacks) })));
+  }
+
+  state.cache = db;
+  state.mode = 'remote';
+  state.remoteDownUntil = 0;
+  state.lastError = null;
+
+  if (writes.length > 0) {
+    await Promise.all(writes);
+  }
+  return result;
+}
+
 /** 모든 읽기/쓰기는 이 함수를 통과 → 직렬화된 단일 트랜잭션 */
 export function withDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
+  if (getCFKV()) {
+    return withCloudflareKV(fn, false);
+  }
   const run = state.chain.then(async () => {
     if (remoteUsable()) return withRemote(fn);
     return fallbackLocal(fn);
@@ -478,6 +761,9 @@ export function withDB<T>(fn: (db: DB) => T | Promise<T>): Promise<T> {
 
 /** 결제·원장은 원격 CAS 실패 시 절대 로컬/메모리로 폴백하지 않는다. */
 export function withPaymentDB<T>(fn: (db: DB) => T): Promise<T> {
+  if (getCFKV()) {
+    return withCloudflareKV(fn, true);
+  }
   const run = state.chain.then(async () => {
     if (getDriver()) return withRemote(fn, true);
     // 단일 프로세스 로컬 개발 외에는 파일 저장소를 결제에 사용하지 않는다.

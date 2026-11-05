@@ -135,7 +135,13 @@ export function SheetPicker({
       } catch {
         // 팩은 이미 생성되었으므로 중복 결제를 유발하지 않도록 이동한다. 팩에서 사진을 다시 올릴 수 있다.
       }
-      router.push(`/studio/pack/${packJson.packId}`);
+      const targetUrl = `/studio/pack/${packJson.packId}`;
+      router.push(targetUrl);
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.location.pathname !== targetUrl) {
+          window.location.assign(targetUrl);
+        }
+      }, 1000);
     } catch (e) {
       setError((e as Error).message);
       setBusy(false);

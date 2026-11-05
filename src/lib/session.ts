@@ -91,9 +91,6 @@ export async function getCurrentUser(): Promise<User & { isAuthenticated: boolea
   }
   const isAuthenticated = !!user;
   user ??= await resolve(sid);
-  // 얼굴 파기 기회적 스윕 (5분에 1회, 비동기 fire-and-forget)
-  //  · 크론이 없는 환경에서도 24시간 파기 정책이 실제로 지켜지게 하는 안전망
-  void maybePurgeFaces();
   return { ...user, isAuthenticated };
 }
 

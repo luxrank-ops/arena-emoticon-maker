@@ -12,26 +12,42 @@ export const preparedSchema = z.object({
   method: z.enum(['ai', 'basic']).optional(),
 }).strict();
 export type PreparedIdentity = z.infer<typeof preparedSchema>;
-const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-2.5-flash';
+const TEXT_MODEL = process.env.GEMINI_TEXT_MODEL || 'gemini-flash-latest';
 
 export class ConsistencyError extends Error {
   constructor(public code: string, message: string) { super(message); }
 }
 
+const VERTEX_PROJECT = process.env.GCP_VERTEX_PROJECT || '426739829072';
+
 async function analyze(photo: { mimeType: string; base64: string }, instruction: string): Promise<IdentityGuidance> {
-  const key = process.env.GEMINI_API_KEY;
+  const key = ((globalThis as any).CLOUDFLARE_ENV?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
+  const model = ((globalThis as any).CLOUDFLARE_ENV?.GEMINI_TEXT_MODEL || TEXT_MODEL).trim();
   if (!key) throw new ConsistencyError('CONSISTENCY_UNAVAILABLE', 'AI config missing.');
-  let res: Response;
+  const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
+  const vertexModel = model === 'gemini-flash-latest' || model === 'gemini-2.5-flash' ? 'gemini-3.8-flash' : model;
+  const vertexUrl = `https://aiplatform.googleapis.com/v1beta1/projects/${VERTEX_PROJECT}/locations/global/publishers/google/models/${vertexModel}:generateContent?key=${key}`;
+  const urls = (globalThis as any).CLOUDFLARE_ENV ? [vertexUrl, genUrl] : [genUrl, vertexUrl];
+  const reqBody = JSON.stringify({
+    contents: [{ role: 'user', parts: [{ text: instruction }, { inlineData: { mimeType: photo.mimeType, data: photo.base64 } }] }],
+    generationConfig: { temperature: 0, maxOutputTokens: 512, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } },
+  });
+  let res: Response | null = null;
   try {
-    res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${TEXT_MODEL}:generateContent?key=${key}`, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', signal: AbortSignal.timeout(8_000),
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: instruction }, { inlineData: { mimeType: photo.mimeType, data: photo.base64 } }] }],
-        generationConfig: { temperature: 0, maxOutputTokens: 512, responseMimeType: 'application/json', thinkingConfig: { thinkingBudget: 0 } },
-      }),
-    });
-  } catch { throw new ConsistencyError('CONSISTENCY_UNAVAILABLE', 'Connection failed.'); }
-  if (!res.ok) throw new ConsistencyError('CONSISTENCY_UNAVAILABLE', 'Request failed.');
+    for (const url of urls) {
+      res = await fetch(url, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, cache: 'no-store', signal: AbortSignal.timeout(8_000),
+        body: reqBody,
+      });
+      if (res.ok) break;
+      await res.body?.cancel().catch(() => undefined);
+    }
+  } catch {
+    throw new ConsistencyError('CONSISTENCY_UNAVAILABLE', 'Connection failed.');
+  }
+  if (!res || !res.ok) {
+    throw new ConsistencyError('CONSISTENCY_UNAVAILABLE', 'Request failed.');
+  }
   try {
     const body = await res.json() as { candidates?: { content?: { parts?: { text?: string }[] }[] }[] };
     const text = body.candidates?.[0]?.content?.parts?.map((part) => part.text ?? '').join('') ?? '';
