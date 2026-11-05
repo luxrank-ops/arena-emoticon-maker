@@ -2,7 +2,7 @@ import { z } from 'zod';
 import { bypassesRateLimit } from '@/lib/admin-access';
 import { validateAuthRequest } from '@/lib/auth-api';
 import { fail, handleError, ok } from '@/lib/api';
-import { paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
+import { checkoutSuspended, checkoutSuspendedResponse, paymentProvider, paymentsUnavailable, paymentsUnavailableResponse } from '@/lib/payments';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 import { getCurrentUser } from '@/lib/session';
 import { withPaymentDB } from '@/lib/store';
@@ -15,6 +15,7 @@ export async function POST(req: Request) {
     const limited = enforceRateLimit(user.id, 'confirm', RATE_LIMITS.confirm);
     if (limited && !bypassesRateLimit(user)) return limited;
     if (paymentsUnavailable()) return paymentsUnavailableResponse();
+    if (checkoutSuspended()) return checkoutSuspendedResponse();
     const { orderId } = schema.parse(await req.json());
     const result = await withPaymentDB((db) => {
       const order = db.orders.find((o) => o.id === orderId && o.userId === user.id);

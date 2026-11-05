@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { PayPanel } from '@/components/payments/PayPanel';
 import { getCurrentUser } from '@/lib/session';
 import { withPaymentDB } from '@/lib/store';
-import { paymentProvider, paymentsUnavailable } from '@/lib/payments';
+import { checkoutSuspended, paymentProvider, paymentsUnavailable } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -31,7 +31,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ order
         kind={order.kind}
         provider={paymentProvider()}
         clientKey={process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || ''}
-        available={!paymentsUnavailable() && order.status === 'PENDING' && order.provider === paymentProvider() && (order.kind === 'credits' || order.kind === 'goods') && !order.paymentKey}
+        available={!paymentsUnavailable() && !checkoutSuspended() && order.status === 'PENDING' && order.provider === paymentProvider() && (order.kind === 'credits' || order.kind === 'goods') && !order.paymentKey}
       />
 
       <div className="mt-6 space-y-2 text-[11px] leading-relaxed text-sub">

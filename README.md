@@ -20,8 +20,8 @@
 | 굿즈 | `/goods` | 아크릴·포토카드·머그 주문 (POD 시뮬레이션) |
 | 카카오 패키저 | `/studio/pack/[id]` | 24종 · 360×360 · PNG · 개당 2MB 검증 후 ZIP (Studio) |
 | 요금제/결제 | `/pricing` → `/checkout/[orderId]` | Plus/Studio/크레딧, 청약철회 동의 · 서버 금액 검증 · 원장 지급 |
-| 마이페이지 | `/billing` | 크레딧 원장 · 결제 내역 · 내 팩 |
-| 운영 콘솔 | `/admin` | 매출 · 원가 · 플랜 분포 · 최다 사용 컷 · 얼굴 파기 현황/실행 |
+| 마이페이지 | `/billing` | 크레딧 원장 · 결제 내역 · 승인 결과 복구 · 내 팩 |
+| 운영 콘솔 | `/admin` | 매출 · 결제 대사/미지급 복구 · 플랜 분포 · 최다 사용 컷 · 얼굴 파기 현황/실행 |
 | 정책 | `/terms` `/privacy` `/refund` `/support` | PG 심사 대응 문서 |
 | 관측 | Sentry · PostHog | 에러 추적 + 퍼널 분석(사진·대사 미전송, 키 없으면 no-op) |
 | 점검 | `docs/QA-REPORT.md` | 기능별 실작동 점검 결과 · 수정 이력 · 남은 리스크 |
@@ -64,6 +64,8 @@ Firebase 연동 절차는 [`docs/FIREBASE.md`](docs/FIREBASE.md) 참고.
 | [docs/STEP1-REPORT.md](docs/STEP1-REPORT.md) | 시장 분석 · 4대 킬러 기능 · BM · 아키텍처 · 로드맵 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Identity Lock 파이프라인 · 데이터 모델 · API 계약 · ADR |
 | [docs/COMPLIANCE.md](docs/COMPLIANCE.md) | 토스페이먼츠 심사 · 청약철회 · 개인정보 · AI 표시 의무 |
+| [docs/TOSS_PAYMENTS_SETUP.md](docs/TOSS_PAYMENTS_SETUP.md) | 토스 설정 · 결제 preflight · 자동 검증 |
+| [docs/PAYMENT_OPERATIONS.md](docs/PAYMENT_OPERATIONS.md) | 결제 대사 · 미지급 복구 · 비상 중단 · 환불 접수 |
 | [docs/STEP2-BUILD-NOTES.md](docs/STEP2-BUILD-NOTES.md) | **구현 결과 · 설계 대비 변경 로그 · 보안 현황** |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | **Sentry · PostHog 실연동** — 붙은 지점 · 개인정보 설계 · 무료 쿼터 가드레일 |
 | [AGENTS.md](AGENTS.md) | 5개 서브 에이전트 조직 · 스프린트 보드 |

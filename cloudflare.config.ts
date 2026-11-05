@@ -24,8 +24,10 @@ export default defineConfig({
       // 운영은 토스페이먼츠 실결제. 키는 대시보드 Variable/Secret 에서 관리한다
       // (키가 없는 상태면 paymentsUnavailable() 이 503 으로 안전하게 차단한다).
       PAYMENT_PROVIDER: bindings.text("toss"),
+      // 새 주문만 중단하는 비상 스위치 (기존 승인·복구는 계속 허용)
+      PAYMENT_CHECKOUT_DISABLED: bindings.text("0"),
       STORE_BACKEND: bindings.text("auto"),
-      RATE_LIMIT_DISABLED: bindings.text("1"),
+      RATE_LIMIT_DISABLED: bindings.text("0"),
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
       STORE_KV: bindings.kv({ id: "cf10a2fa249a4c80b1163ea04948162e" }),
