@@ -44,7 +44,7 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
       <div className="mb-8">
         <h1 className="h2">{t('내 이모티콘 팩', 'My sticker pack')}</h1>
         <p className="mt-2 text-sm text-sub">
-          {t('컷을 눌러 대사·표정·악세사리를 편집해 보세요. AI 이미지에 변경 사항을 적용하려면 다시 그리기가 필요합니다.', 'Select a cut to edit its caption, expression, or accessories. Regenerate the AI image to apply visual changes.')}
+          {t('컷을 눌러 크게 보고 저장·공유하거나 대사와 표정을 수정해 보세요. AI 이미지의 변경 사항은 다시 그리기로 적용됩니다.', 'Select a cut to preview, save, share, or edit. Regenerate AI images to apply visual changes.')}
         </p>
       </div>
 

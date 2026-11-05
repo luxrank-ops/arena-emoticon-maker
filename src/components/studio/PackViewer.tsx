@@ -1,12 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
 import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
-import { ContentReportButton } from '@/components/moderation/ContentReportButton';
+import { FrameBottomSheet } from '@/components/studio/FrameBottomSheet';
 import { compressPhotoFile, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import { downloadBlob, exportKakaoPackZip, exportPackZip, renderPngBlob } from '@/lib/export';
 import { formatKstDateTime } from '@/lib/time';
@@ -46,6 +46,10 @@ export function PackViewer({
   const aiPack = initialPack.renderer === 'ai';
   const router = useRouter();
   const [deleting, setDeleting] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [actionBusy, setActionBusy] = useState<'download' | 'share' | null>(null);
+  const [sheetNotice, setSheetNotice] = useState<string | null>(null);
+  const closeSheet = useCallback(() => setSelectedId(null), []);
 
   // AI 컷 생성: 아직 이미지가 없는 컷만 3개씩 병렬로 만든다 (사진은 이 탭의 임시 보관본)
   useEffect(() => {
@@ -107,10 +111,41 @@ export function PackViewer({
   const visible = frames.map((f) => ({ ...f, ready: aiPack ? !!f.spec.imageUrl : f.ready }));
   const ready = visible.filter((f) => f.ready).length;
   const done = ready >= total;
+  const selectedFrame = visible.find((frame) => frame.id === selectedId && frame.ready) ?? null;
 
   async function downloadOne(f: FrameView) {
-    const blob = await renderPngBlob(f.spec, { watermark });
-    downloadBlob(blob, `${initialPack.id}-${f.index + 1}-${f.label}.png`);
+    setActionBusy('download');
+    setSheetNotice(null);
+    try {
+      const blob = await renderPngBlob(f.spec, { watermark });
+      downloadBlob(blob, `${initialPack.id}-${f.index + 1}-${f.label}.png`);
+      setSheetNotice(t('PNG를 기기에 저장했어요.', 'Saved the PNG to your device.'));
+    } catch {
+      setSheetNotice(t('PNG를 저장하지 못했어요. 잠시 후 다시 시도해 주세요.', 'Could not save the PNG. Please try again.'));
+    } finally {
+      setActionBusy(null);
+    }
+  }
+
+  async function shareOne(f: FrameView) {
+    setActionBusy('share');
+    setSheetNotice(null);
+    try {
+      const blob = await renderPngBlob(f.spec, { watermark });
+      const filename = `${initialPack.id}-${f.index + 1}-${f.label}.png`;
+      const file = new File([blob], filename, { type: 'image/png' });
+      if (typeof navigator.share === 'function' && typeof navigator.canShare === 'function' && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: t(`이모티학 ${f.label} 이모티콘`, `EmotiHak ${f.label} sticker`) });
+        setSheetNotice(t('시스템 공유창에서 카카오톡을 선택해 주세요.', 'Choose KakaoTalk in the system share sheet.'));
+      } else {
+        downloadBlob(blob, filename);
+        setSheetNotice(t('이 환경에서는 직접 공유할 수 없어 PNG를 저장했어요. 카카오톡에서 사진으로 볼 수 있습니다.', 'Direct sharing is unavailable here, so the PNG was saved. You can send it as a photo in KakaoTalk.'));
+      }
+    } catch (cause) {
+      if ((cause as Error).name !== 'AbortError') setSheetNotice(t('공유를 준비하지 못했어요. PNG 저장을 이용해 주세요.', 'Could not prepare sharing. Please save the PNG instead.'));
+    } finally {
+      setActionBusy(null);
+    }
   }
 
   async function downloadZip() {
@@ -240,51 +275,36 @@ export function PackViewer({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
         {visible.map((f) => (
-          <div
-            key={f.id}
-            className={clsx(
-              'card overflow-hidden p-0 transition',
-              f.ready ? 'animate-pop' : 'opacity-60',
-            )}
-          >
-            <div className="relative bg-cream p-2">
-              {f.ready ? (
-                <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
-              ) : (
-                <div className="grid aspect-square place-items-center rounded-xl bg-[length:200%_100%] bg-gradient-to-r from-line/20 via-line/50 to-line/20 animate-shimmer">
-                  <span className="text-[11px] font-bold text-sub">{t('생성 중…', 'Generating…')}</span>
-                </div>
-              )}
-              {!f.ready ? (
-                <span className="absolute right-2 top-2 rounded-full border border-line bg-paper px-2 py-0.5 text-[10px] font-bold text-sub">
-                  {f.index + 1}
-                </span>
-              ) : null}
-            </div>
-            <div className="border-t-2 border-line px-3 py-2">
-              <p className="truncate text-[13px] font-black">{f.label}</p>
-              <p className="truncate text-[11px] text-sub">“{f.line}”</p>
-              <div className="mt-2 flex gap-1">
-                <Link
-                  href={lp(`/editor/${initialPack.id}/${f.id}`)}
-                  className="flex-1 rounded-lg border-2 border-ink bg-paper py-1 text-center text-[11px] font-black hover:bg-lemon/40"
-                >
-                  {t('편집', 'Edit')}
-                </Link>
-                <button
-                  onClick={() => downloadOne(f)}
-                  disabled={!f.ready}
-                  title={f.ready ? t('이 컷을 PNG로 저장', 'Download this cut as PNG') : t('생성 중', 'Generating')}
-                  className="rounded-lg border border-line px-2 py-1 text-[11px] font-bold text-sub hover:border-ink disabled:opacity-40"
-                >
-                  PNG
-                </button>
-                {f.ready ? <ContentReportButton packId={initialPack.id} frameId={f.id} /> : null}
+          <article key={f.id} className={clsx('card overflow-hidden p-0 transition', f.ready ? 'animate-pop' : 'opacity-60')}>
+            <button
+              type="button"
+              disabled={!f.ready}
+              aria-haspopup="dialog"
+              aria-label={f.ready ? t(`${f.label} 컷 관리하기`, `Manage ${f.label} sticker`) : t(`${f.label} 컷 생성 중`, `${f.label} sticker is generating`)}
+              onClick={() => { setSelectedId(f.id); setSheetNotice(null); }}
+              className="group flex h-full w-full flex-col text-left disabled:cursor-wait"
+            >
+              <div className="relative w-full bg-cream p-2">
+                {f.ready ? (
+                  <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
+                ) : (
+                  <div className="grid aspect-square place-items-center rounded-xl bg-[length:200%_100%] bg-gradient-to-r from-line/20 via-line/50 to-line/20 animate-shimmer">
+                    <span className="text-[11px] font-bold text-sub">{t('생성 중…', 'Generating…')}</span>
+                  </div>
+                )}
+                <span className="absolute right-2 top-2 grid h-7 min-w-7 place-items-center rounded-full border border-line bg-paper px-1.5 text-[10px] font-bold text-sub">{f.index + 1}</span>
               </div>
-            </div>
-          </div>
+              <div className="flex w-full flex-1 flex-col border-t-2 border-line p-3">
+                <p className="truncate text-[13px] font-black">{f.label}</p>
+                <p className="mt-0.5 truncate text-[11px] text-sub">“{f.line}”</p>
+                <span className="mt-2 flex min-h-12 w-full items-center justify-center gap-1 rounded-xl border-2 border-ink bg-paper px-2 py-2 text-center text-xs font-black transition group-hover:bg-lemon/35">
+                  {f.ready ? t('관리하기', 'Manage') : t('생성 중…', 'Generating…')}{f.ready ? <span aria-hidden="true">↑</span> : null}
+                </span>
+              </div>
+            </button>
+          </article>
         ))}
       </div>
 
@@ -352,6 +372,19 @@ export function PackViewer({
         자동으로 해드려요.
         </>}
       </div>
+
+      {selectedFrame ? (
+        <FrameBottomSheet
+          frame={selectedFrame}
+          packId={initialPack.id}
+          locale={locale}
+          busy={actionBusy}
+          notice={sheetNotice}
+          onClose={closeSheet}
+          onDownload={() => void downloadOne(selectedFrame)}
+          onShare={() => void shareOne(selectedFrame)}
+        />
+      ) : null}
     </div>
   );
 }
