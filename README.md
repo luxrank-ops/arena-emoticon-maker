@@ -62,6 +62,7 @@ Firebase 연동 절차는 [`docs/FIREBASE.md`](docs/FIREBASE.md) 참고.
 | 문서 | 내용 |
 | --- | --- |
 | [docs/STEP1-REPORT.md](docs/STEP1-REPORT.md) | 시장 분석 · 4대 킬러 기능 · BM · 아키텍처 · 로드맵 |
+| [docs/MARKETING-PLAN.md](docs/MARKETING-PLAN.md) | **출시 홍보 전략** — 0원·4주 캘린더 · 바이럴 엔진 · 채널 · 콘텐츠 24종 · 런칭 플레이북 |
 | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) | Identity Lock 파이프라인 · 데이터 모델 · API 계약 · ADR |
 | [docs/COMPLIANCE.md](docs/COMPLIANCE.md) | 토스페이먼츠 심사 · 청약철회 · 개인정보 · AI 표시 의무 |
 | [docs/TOSS_PAYMENTS_SETUP.md](docs/TOSS_PAYMENTS_SETUP.md) | 토스 설정 · 결제 preflight · 자동 검증 |
