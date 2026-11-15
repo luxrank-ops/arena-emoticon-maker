@@ -75,6 +75,29 @@ export function creditsLabel(viewer: Viewer | null | undefined): string {
 export { ADMIN_NICKNAME };
 
 // ── 운영자 코드 검증 (서버 전용) ─────────────────────────────
+// ── AI 생성 허용 범위 (베타 정비) ────────────────────────────
+/** 관리자 전용 안내 문구 (API 응답·화면 공용) */
+export const AI_ADMIN_ONLY_MESSAGE = '현재 베타 정비 중으로 관리자만 AI 생성이 가능합니다.';
+
+/**
+ * AI 생성(이미지 생성·사진 특징 재확인)을 관리자에게만 허용할지.
+ *  · 기본값 1(관리자 전용) — 유료 등급 정비가 끝날 때까지 무료 사용자 유입으로 인한 역마진을 막는다.
+ *  · 운영에서 전체 공개로 되돌리려면 Worker 변수 GENERATION_ADMIN_ONLY=0.
+ */
+export function generationAdminOnly(): boolean {
+  const raw = String((globalThis as any).CLOUDFLARE_ENV?.GENERATION_ADMIN_ONLY ?? process.env.GENERATION_ADMIN_ONLY ?? '1').trim();
+  return raw !== '0';
+}
+
+/** 이 사용자가 지금 AI 생성을 요청할 수 있는지 (서버 측 단일 판단 지점) */
+export function canUseAiGeneration(viewer: Viewer | null | undefined): boolean {
+  if (!generationAdminOnly()) return true;
+  // DEMO_MODE 는 AI 를 호출하지 않고 절차적 SVG 로만 그리므로 비용이 0 → CI·시연 경로는 막지 않는다.
+  const demo = String((globalThis as any).CLOUDFLARE_ENV?.DEMO_MODE ?? process.env.DEMO_MODE ?? '').trim();
+  if (demo === '1') return true;
+  return isAdmin(viewer);
+}
+
 /** 운영자 코드가 서버에 설정돼 있는지. 미설정이면 관리자 로그인은 fail-closed. */
 export function hasAdminPasscode(): boolean {
   return !!process.env[ADMIN_PASSCODE_ENV];

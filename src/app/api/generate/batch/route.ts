@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { bypassesRateLimit } from '@/lib/admin-access';
+import { AI_ADMIN_ONLY_MESSAGE, bypassesRateLimit, canUseAiGeneration } from '@/lib/admin-access';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { logEvent, withDB } from '@/lib/store';
@@ -44,6 +44,8 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'generateBatch', RATE_LIMITS.generateBatch);
     if (limited && !bypassesRateLimit(user)) return limited;
+    // 베타 정비 기간에는 관리자만 AI 생성을 허용한다 (공정 이용·크레딧 소비 전에 막는다).
+    if (!canUseAiGeneration(user)) return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
 
     const body = batchSchema.parse(await req.json());
 
