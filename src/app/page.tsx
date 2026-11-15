@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { ACCESSORIES } from '@/lib/accessories';
 import { getLocale } from '@/lib/i18n/server';
 import { EnglishLanding } from '@/components/home/EnglishLanding';
+import { getCurrentUser } from '@/lib/session';
+import { canUseAiGeneration } from '@/lib/admin-access';
 
 const samples = [
   { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
@@ -26,7 +28,11 @@ const questions = [
 
 export default async function LandingPage() {
   const locale = await getLocale();
-  if (locale === 'en') return <EnglishLanding />;
+  const user = await getCurrentUser();
+  // AI 스튜디오가 관리자 전용으로 잠겨 있는 동안에는 첫 화면이 막다른 길이 되지 않게
+  // 지금 100% 동작하는 대사 스튜디오를 주 CTA 로 안내한다.
+  const aiEnabled = canUseAiGeneration(user);
+  if (locale === 'en') return <EnglishLanding aiEnabled={aiEnabled} />;
   return (
     <div className="overflow-hidden">
       <section className="relative border-b border-line">
@@ -36,13 +42,28 @@ export default async function LandingPage() {
             <span className="chip !border-primary/20 !bg-primary/10 !text-primary-dark">사람과 반려동물 사진 한 장으로 시작해요</span>
             <h1 className="h1 mt-4">내 사진으로 만드는<br /><span className="text-primary">나만의 이모티콘</span></h1>
             <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-sub sm:text-base">
-              사진을 올리고 마음에 드는 스타일과 표정을 골라 보세요. AI가 컷을 하나씩 만들고, 완성된 팩은 언제든 편집하고 저장할 수 있어요.
+              {aiEnabled
+                ? '사진을 올리고 마음에 드는 스타일과 표정을 골라 보세요. AI가 컷을 하나씩 만들고, 완성된 팩은 언제든 편집하고 저장할 수 있어요.'
+                : '지금은 대사 스튜디오가 바로 열려 있어요. 마음에 드는 한 줄을 고르고 표정을 바꿔 내 대화방용 이모티콘을 만들어 보세요.'}
             </p>
             <div className="mt-6 grid gap-2 sm:flex sm:flex-wrap">
-              <Link href="/studio/upload" className="btn-primary !py-4 text-base">이모티콘 만들기 <span aria-hidden="true">→</span></Link>
-              <Link href="/studio/packs" className="btn-ghost !py-4">내 팩 보기</Link>
+              {aiEnabled ? (
+                <>
+                  <Link href="/studio/upload" className="btn-primary !py-4 text-base">이모티콘 만들기 <span aria-hidden="true">→</span></Link>
+                  <Link href="/quotes" className="btn-ghost !py-4">대사 스튜디오</Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/quotes" className="btn-primary !py-4 text-base">대사로 바로 만들기 <span aria-hidden="true">→</span></Link>
+                  <Link href="/studio/upload" className="btn-ghost !py-4">AI 스튜디오 (준비 중)</Link>
+                </>
+              )}
             </div>
-            <p className="mt-4 text-xs leading-relaxed text-sub">원본 사진은 서버에 저장하지 않아요 · 생성 결과는 사진과 다를 수 있어요</p>
+            <p className="mt-4 text-xs leading-relaxed text-sub">
+              {aiEnabled
+                ? '원본 사진은 서버에 저장하지 않아요 · 생성 결과는 사진과 다를 수 있어요'
+                : '내 사진으로 만드는 AI 스튜디오는 정비 중이에요 · 대사 스튜디오는 지금 바로 쓸 수 있어요'}
+            </p>
           </div>
           <div aria-label="이모티콘 스타일 예시" className="rounded-2xl border border-line bg-paper p-4 shadow-pop sm:p-5">
             <div className="flex items-center justify-between gap-2"><p className="text-sm font-black">어떤 모습으로 만들까요?</p><span className="chip !bg-cream">원본 + 6종</span></div>
@@ -73,7 +94,9 @@ export default async function LandingPage() {
         <ol className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-4">
           {steps.map((step) => <li key={step.number} className="card h-full p-4 sm:p-5"><span className="text-xs font-black text-coralink sm:text-sm">STEP {step.number}</span><h3 className="mt-2 text-base font-black sm:text-lg">{step.title}</h3><p className="mt-2 text-xs leading-relaxed text-sub sm:text-sm">{step.text}</p></li>)}
         </ol>
-        <Link href="/studio/upload" className="btn-dark mt-6">사진 선택하기 →</Link>
+        <Link href={aiEnabled ? '/studio/upload' : '/quotes'} className="btn-dark mt-6">
+          {aiEnabled ? '사진 선택하기 →' : '대사 스튜디오에서 시작하기 →'}
+        </Link>
       </section>
 
       <section className="border-y border-line bg-paper py-12 sm:py-16" aria-labelledby="use-title">
@@ -82,9 +105,12 @@ export default async function LandingPage() {
           <p className="mt-2 text-sm text-sub">만든 이모티콘을 다시 열거나 대화에 어울리는 컷을 찾아보세요.</p>
           <div className="mt-6 grid gap-3 md:grid-cols-3">
             {[
+              { icon: '🎬', title: '대사 스튜디오', desc: '영화·드라마 무드의 오리지널 대사로 바로 이모티콘을 만들어요.', href: '/quotes', link: '대사 스튜디오 열기' },
               { icon: '🗂️', title: '내 이모티콘 팩', desc: '만든 팩의 컷을 확인하고 편집하거나 내려받아요.', href: '/studio/packs', link: '내 팩 열기' },
               { icon: '💬', title: '톡 답장 추천', desc: '대화를 입력하고 어울리는 답장 컷을 찾아요.', href: '/reply', link: '답장 추천하기' },
-              { icon: '🎨', title: '다양한 표정', desc: '코믹한 감정 표현 24종과 여러 스타일을 골라 만들어요.', href: '/studio/upload', link: '새 팩 만들기' },
+              ...(aiEnabled
+                ? [{ icon: '🎨', title: '내 사진으로 만들기', desc: '사진 한 장으로 같은 얼굴의 여러 표정을 만들어요.', href: '/studio/upload', link: '사진으로 만들기' }]
+                : []),
             ].map((item) => <Link key={item.href + item.title} href={item.href} className="card group flex min-h-[150px] flex-col p-5 transition hover:-translate-y-0.5 hover:shadow-pop"><span aria-hidden="true" className="text-2xl">{item.icon}</span><h3 className="mt-3 text-base font-black">{item.title}</h3><p className="mt-1 flex-1 text-sm leading-relaxed text-sub">{item.desc}</p><span className="mt-4 text-sm font-black text-coralink group-hover:underline">{item.link} →</span></Link>)}
           </div>
         </div>

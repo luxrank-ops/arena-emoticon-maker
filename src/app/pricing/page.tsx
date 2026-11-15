@@ -1,9 +1,12 @@
 import Link from 'next/link';
 import { BUSINESS } from '@/lib/business';
 import { CheckoutButton } from '@/components/payments/CheckoutButton';
-import { PLANS, SKUS, won } from '@/lib/pricing';
+import { PLANS, PLAN_DISCLOSURES, SKUS, won } from '@/lib/pricing';
 import { getCurrentUser } from '@/lib/session';
-import { creditsLabel, effectivePlan, isAdmin, isFullAccess, isPlayUser, planLabel } from '@/lib/admin-access';
+import { creditsLabel, effectivePlan, hasPlayEntitlement, isAdmin, isFullAccess, planLabel } from '@/lib/admin-access';
+import { playBillingEnabled } from '@/lib/play-purchases';
+import { PLAY_CREDITS_PRODUCT_ID, PLAY_SUBSCRIPTION_PRODUCT_ID } from '@/lib/play-products';
+import { PlayBillingButton } from '@/components/payments/PlayBillingButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,8 +48,8 @@ export default async function PricingPage() {
         <div className="mt-10 card p-8 text-center">
           <p className="text-2xl font-black">🎉 모든 기능을 이용 중이에요</p>
           <p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-sub">
-            {isPlayUser(user)
-              ? '구글 플레이에서 구매한 유료 앱 사용자입니다. 크레딧 차감 없이 모든 스타일·모든 기능을 이용할 수 있어요. (결제는 이미 플레이스토어에서 완료되어 추가 구매가 필요 없습니다.)'
+            {hasPlayEntitlement(user)
+              ? '구글 플레이에서 구매가 확인된 계정입니다. 크레딧 차감 없이 모든 스타일·모든 기능을 이용할 수 있어요.'
               : '관리자 계정은 크레딧 차감 없이 모든 스타일·모든 기능을 이용할 수 있어요.'}
           </p>
           <Link href="/studio/upload" className="btn-primary mt-5 !px-6 !py-3">팩 만들기</Link>
@@ -122,6 +125,27 @@ export default async function PricingPage() {
       </div>
         </>
       )}
+
+      <div className="card-flat mt-10 p-5">
+        <h2 className="text-sm font-black">요금제 표기 안내</h2>
+        <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-sub">
+          {PLAN_DISCLOSURES.map((line) => <li key={line}>· {line}</li>)}
+        </ul>
+      </div>
+
+      {playBillingEnabled() ? (
+        <div className="card mt-4 p-5">
+          <h2 className="text-sm font-black">플레이 스토어 앱에서 구독·크레딧 결제</h2>
+          <p className="mt-1 text-[11px] leading-relaxed text-sub">
+            앱(플레이 스토어)에서 열면 구글 플레이 결제로 구독과 크레딧을 살 수 있어요. 결제는 계정에 연결되고,
+            구매 확인은 구글 플레이 서버에서 검증합니다.
+          </p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+            <PlayBillingButton productId={PLAY_SUBSCRIPTION_PRODUCT_ID} kind="SUBS" label="Plus 구독" className="btn-primary w-full" />
+            <PlayBillingButton productId={PLAY_CREDITS_PRODUCT_ID} kind="INAPP" label="크레딧 20팩" className="btn-dark w-full" />
+          </div>
+        </div>
+      ) : null}
 
       <div className="mt-12 grid gap-4 md:grid-cols-2">
         <div>

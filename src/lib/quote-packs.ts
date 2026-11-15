@@ -156,6 +156,27 @@ export function quotePackById(id: string): QuotePack | undefined {
   return QUOTE_PACKS.find((pack) => pack.id === id);
 }
 
+/**
+ * 오늘 쓸 대사 추천 — 날짜로 결정되는(같은 날엔 항상 같은) 4개.
+ *  · 컷이 하나도 없는 사용자에게 빈 카드 대신 '바로 쓸 수 있는 문장'을 보여준다.
+ *  · AI 생성 없이 동작하므로 원가가 들지 않는다.
+ */
+export function dailyQuotePicks(now: Date = new Date(), count = 4): { packId: string; packTitle: string; packEmoji: string; line: QuoteLine }[] {
+  const seed = Math.floor(Date.parse(new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()) / 86_400_000);
+  const pool = QUOTE_PACKS.flatMap((pack) => pack.lines.map((line) => ({ packId: pack.id, packTitle: pack.title, packEmoji: pack.emoji, line })));
+  if (pool.length === 0) return [];
+  const picks: typeof pool = [];
+  const used = new Set<string>();
+  for (let i = 0; picks.length < Math.min(count, pool.length) && i < pool.length * 2; i++) {
+    const index = (seed * 7 + i * 13) % pool.length;
+    const candidate = pool[index];
+    if (used.has(candidate.line.id)) continue;
+    used.add(candidate.line.id);
+    picks.push(candidate);
+  }
+  return picks;
+}
+
 /** Locked packs expose only two public sample lines to the browser. */
 export function quotePackView(pack: QuotePack, fullAccess: boolean): QuotePackView {
   return {

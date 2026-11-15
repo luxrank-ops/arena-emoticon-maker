@@ -36,7 +36,6 @@ export async function SiteHeader() {
         <Link href={lp('/')} className="flex min-w-max items-center gap-2 whitespace-nowrap">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/25 bg-primary text-lg text-white">🙂</span>
           <span className="whitespace-nowrap text-base font-bold tracking-[-0.025em] min-[360px]:text-lg">{tr(locale, '이모티학', 'EmotiHak')}</span>
-          <span className="rounded-full border border-white/20 px-2 py-0.5 text-[10px] font-semibold text-white/70">beta</span>
         </Link>
 
         <div className={`grid grid-cols-2 gap-2 ${locale === 'ko' ? 'min-[360px]:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]' : ''} sm:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]`}>

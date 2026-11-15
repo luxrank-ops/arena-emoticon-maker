@@ -26,6 +26,11 @@
         <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
     
 
+        <!-- Play Billing (Digital Goods API) — twa-manifest.json 의 features.playBilling 으로도
+             생성되지만, AAB 빌드 전 저장소 상태로도 권한이 보이도록 함께 둔다. -->
+        <uses-permission android:name="com.android.vending.BILLING"/>
+    
+
     
 
     

@@ -337,6 +337,32 @@ export interface PlayUsage {
   updatedAt: string;
 }
 
+/**
+ * 구글 플레이 인앱결제 구매 기록 (서버 검증 결과만 저장).
+ *  · 자격은 계정(userId)에 귀속한다 — 기기·UA 신호가 아니다.
+ *  · status 가 ACTIVE 이고 만료되지 않은 기록만 유료 자격으로 인정한다.
+ *  · 환불·취소는 status 를 REVOKED 로 바꿔 자격을 회수한다 (기록 자체는 법정 보존).
+ */
+export interface PlayPurchase {
+  id: string;
+  userId: string;
+  packageName: string;
+  productId: string;
+  /** 서버 검증·재검증에 쓰는 구매 토큰. 화면·로그에 노출하지 않는다. */
+  purchaseToken: string;
+  kind: 'INAPP' | 'SUBS';
+  status: 'ACTIVE' | 'REVOKED';
+  /** Play 응답의 purchaseState(0 구매완료 / 1 취소 / 2 보류) 또는 구독 상태 문자열 */
+  purchaseState: string;
+  orderId?: string;
+  acknowledged: boolean;
+  /** 구독인 경우 만료 시각(ISO). 단품은 null */
+  expiresAt?: string | null;
+  verifiedAt: string;
+  revokedAt?: string | null;
+  revokeReason?: string | null;
+}
+
 export interface BriefItem {
   frameId: string;
   templateId: string;

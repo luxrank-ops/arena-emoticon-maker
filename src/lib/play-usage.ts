@@ -1,4 +1,4 @@
-import { isAdmin, isPlayUser, type Viewer } from '@/lib/admin-access';
+import { hasPlayEntitlement, isAdmin, type Viewer } from '@/lib/admin-access';
 import { uid, withDB } from '@/lib/store';
 import { kstDateKey } from '@/lib/time';
 import type { PlayUsage } from '@/lib/types';
@@ -20,7 +20,7 @@ export function playDailyLimit() {
 type PlayViewer = Viewer & { id: string };
 
 export async function getPlayUsage(viewer: PlayViewer | null | undefined): Promise<PlayUsage | null> {
-  if (!isPlayUser(viewer) || isAdmin(viewer)) return null;
+  if (!hasPlayEntitlement(viewer) || isAdmin(viewer)) return null;
   const userId = viewer!.id;
   const date = kstDateKey();
   return withDB((db) => db.playUsage.find((item) => item.userId === userId && item.date === date) ?? { id: '', userId, date, count: 0, updatedAt: new Date().toISOString() });
@@ -28,7 +28,7 @@ export async function getPlayUsage(viewer: PlayViewer | null | undefined): Promi
 
 /** 실제 생성 직전에만 1회 소비한다. 실패한 공급자 호출도 원가 방어를 위해 시도로 계산한다. */
 export async function consumePlayGeneration(viewer: PlayViewer | null | undefined, attempts = 1): Promise<PlayUsage | null> {
-  if (!isPlayUser(viewer) || isAdmin(viewer)) return null;
+  if (!hasPlayEntitlement(viewer) || isAdmin(viewer)) return null;
   const userId = viewer!.id;
   const date = kstDateKey();
   const limit = playDailyLimit();
