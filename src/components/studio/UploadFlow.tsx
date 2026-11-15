@@ -324,7 +324,7 @@ export function UploadFlow({
       setRetryAvailable(retryable);
       const photoId = photoScopeId('draft');
       if (retryable && photoId) saveStudioRetry({ target: 'character', photoId, code, createdAt: Date.now() });
-      setError(code.startsWith('ERR_') || code === 'OFFLINE' || code === 'PHOTO_NEEDS_REVIEW'
+      setError(code.startsWith('ERR_') || code === 'OFFLINE' || code === 'PHOTO_NEEDS_REVIEW' || code === 'AI_ADMIN_ONLY'
         ? guide.message
         : locale === 'en' ? 'We could not create your character drafts. Check the photo and try again.' : (e as Error).message);
       setBusy(false);

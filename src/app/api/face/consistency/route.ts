@@ -1,5 +1,5 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { bypassesRateLimit } from '@/lib/admin-access';
+import { bypassesRateLimit, AI_ADMIN_ONLY_MESSAGE, canUseAiGeneration } from '@/lib/admin-access';
 import { withDB } from '@/lib/store';
 import { z } from 'zod';
 import { fail, handleError, ok, photoInputError } from '@/lib/api';
@@ -21,6 +21,8 @@ export async function POST(req: Request) {
     const limited = enforceRateLimit(user.id, 'consistency-prepare', 10);
     if (limited && !bypassesRateLimit(user)) return limited;
     const { photo, subjectKind } = schema.parse(await req.json());
+    // 사진 특징 재확인도 AI 호출이다. 관리자 전용 기간에는 AI·공정 이용을 소비하기 전에 막는다.
+    if (!canUseAiGeneration(user)) return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(photo)!;
     const playUsage = await consumePlayGeneration(user);
     const { guidance, method } = await prepareWithFallback({ mimeType: match[1], base64: match[2] }, subjectKind);

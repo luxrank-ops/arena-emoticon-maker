@@ -163,19 +163,22 @@ export class RenderError extends Error {
   }
 }
 
-const VERTEX_PROJECT = process.env.GCP_VERTEX_PROJECT || '426739829072';
-
-function toVertexModel(model: string): string {
-  if (model === 'gemini-3.1-flash-image-preview') return 'gemini-3.1-flash-image';
-  if (model === 'gemini-3-pro-image-preview') return 'gemini-3-pro-image';
-  return model.replace(/-preview$/, '');
+/**
+ * AI Studio API 키는 Generative Language API 에서만 인증된다.
+ * (Vertex `aiplatform` 엔드포인트는 OAuth 서비스 계정 전용이라 키로 호출하면 항상 400)
+ * 따라서 키 방식에서는 Vertex 경로를 호출하지 않고 단일 엔드포인트만 쓴다.
+ */
+function endpointUrl(model: string, apiKey: string): string {
+  return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 }
 
-function endpointUrls(model: string, apiKey: string): string[] {
-  const genUrl = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
-  const vModel = toVertexModel(model);
-  const vertexUrl = `https://aiplatform.googleapis.com/v1beta1/projects/${VERTEX_PROJECT}/locations/global/publishers/google/models/${vModel}:generateContent?key=${apiKey}`;
-  return (globalThis as any).CLOUDFLARE_ENV ? [vertexUrl, genUrl] : [genUrl, vertexUrl];
+/** 429 응답 본문이 "이 등급에서는 생성 자체가 불가" 인지 판별한다. */
+function isQuotaExhausted(body: string): boolean {
+  const text = body.toLowerCase();
+  const limit = /limit:\s*(\d+)/.exec(text);
+  if (limit && Number(limit[1]) === 0) return true;
+  if (text.includes('billing') || text.includes('paid tier') || text.includes('free tier is not')) return true;
+  return false;
 }
 
 function isDemoMode(): boolean {
@@ -239,26 +242,34 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
     },
   });
 
-  const urls = endpointUrls(model, apiKey);
+  const url = endpointUrl(model, apiKey);
 
-  // 일시적 과부하(429/503) 및 리전 제한(400/404) 시 대체 엔드포인트/재시도 수행
+  // 429(분당 한도/과부하)와 503 은 한 번만 재시도한다.
+  // 한도가 0인 등급(무료 등급의 이미지 모델)에서는 재시도해도 결과가 같으므로 즉시 AI_QUOTA 로 끝낸다.
   for (let attempt = 0; attempt < 2; attempt++) {
-    let res: Response | null = null;
-    for (const url of urls) {
-      res = await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body,
-        signal: AbortSignal.timeout(TIMEOUT_MS),
-        cache: 'no-store',
-      });
-      if (res.ok || res.status === 429 || res.status === 503) break;
-      await res.body?.cancel().catch(() => undefined);
-    }
-    if (!res) throw new RenderError('AI_FAILED', 'AI 생성에 실패했어요. 다시 시도해 주세요');
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body,
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+      cache: 'no-store',
+    });
 
-    if (res.status === 429 || res.status === 503) {
-      await res.body?.cancel().catch(() => undefined);
+    if (res.status === 429) {
+      const text = await res.text().catch(() => '');
+      console.error('[gemini-render] 429', model, text.slice(0, 500));
+      if (isQuotaExhausted(text)) {
+        throw new RenderError('AI_QUOTA', 'AI 생성 할당량이 이 등급에서는 0이라 이미지를 만들 수 없습니다. 관리자 확인이 필요합니다');
+      }
+      if (attempt === 0) {
+        await new Promise((r) => setTimeout(r, 2500));
+        continue;
+      }
+      throw new RenderError('AI_BUSY', 'AI 생성 요청이 몰려 있어요. 잠시 후 다시 시도해 주세요');
+    }
+    if (res.status === 503) {
+      const text = await res.text().catch(() => '');
+      console.error('[gemini-render] 503', model, text.slice(0, 300));
       if (attempt === 0) {
         await new Promise((r) => setTimeout(r, 2500));
         continue;
@@ -267,7 +278,7 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
     }
     if (!res.ok) {
       const text = await res.text().catch(() => '');
-      console.error('[gemini-render] http', model, res.status, text.slice(0, 300));
+      console.error('[gemini-render] http', model, res.status, text.slice(0, 500));
       throw new RenderError('AI_FAILED', 'AI 생성에 실패했어요. 다시 시도해 주세요');
     }
 

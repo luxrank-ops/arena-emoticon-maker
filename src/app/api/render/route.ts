@@ -1,6 +1,6 @@
 import { ACCESSORIES } from '@/lib/accessories';
 import { createHash } from 'node:crypto';
-import { bypassesRateLimit, isUnlimited } from '@/lib/admin-access';
+import { AI_ADMIN_ONLY_MESSAGE, bypassesRateLimit, canUseAiGeneration, isUnlimited } from '@/lib/admin-access';
 import { preparedSchema } from '@/lib/ai/consistency';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
@@ -64,6 +64,8 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'generate', RATE_LIMITS.generate);
     if (limited && !bypassesRateLimit(user)) return limited;
+    // 베타 정비 기간에는 관리자만 AI 생성을 허용한다 (크레딧·사진 처리 전에 막는다).
+    if (!canUseAiGeneration(user)) return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
 
     const body = schema.parse(await req.json());
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(body.photo);
@@ -251,7 +253,7 @@ export async function POST(req: Request) {
     const inputError = photoInputError(e);
     if (inputError) return inputError;
     if (e instanceof RenderError) {
-      const status = e.code === 'AI_BUSY' || e.code === 'AI_NOT_CONFIGURED' ? 503 : 502;
+      const status = e.code === 'AI_BUSY' || e.code === 'AI_NOT_CONFIGURED' || e.code === 'AI_QUOTA' ? 503 : 502;
       return fail(e.code, e.message, status);
     }
     const code = (e as { code?: string })?.code;

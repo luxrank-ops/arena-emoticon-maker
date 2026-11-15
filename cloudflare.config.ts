@@ -18,6 +18,8 @@ export default defineConfig({
     env: {
       // 비밀이 아닌 운영 설정 (API 키는 여기에 넣지 않고 Secret 으로 관리)
       DEMO_MODE: bindings.text("0"),
+      // 유료 등급 정비 기간에는 관리자만 AI 생성(이미지·특정 재확인). 전체 공개로 전환하려면 "0".
+      GENERATION_ADMIN_ONLY: bindings.text("1"),
       GEMINI_PHOTO_MODEL: bindings.text("gemini-3-pro-image-preview"),
       GEMINI_STYLE_MODEL: bindings.text("gemini-3.1-flash-image-preview"),
       GEMINI_TEXT_MODEL: bindings.text("gemini-flash-latest"),

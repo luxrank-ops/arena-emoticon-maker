@@ -52,6 +52,10 @@ export function clientErrorGuide(code: string, locale: Locale) {
       return { message: tr(locale, '사진이 흐리거나 분석하기 어렵습니다. 눈과 얼굴이 선명하게 나오도록 다시 촬영해 주세요.', 'The photo is blurry or hard to analyze. Retake it with sharp eyes and facial features.'), action: 'camera' as const };
     case 'OFFLINE':
       return { message: tr(locale, '오프라인 상태입니다. 사진은 이 탭에 보관되어 있으니 네트워크 연결 후 다시 시도해 주세요.', 'You are offline. Your photo is kept in this tab; reconnect and try again.'), action: 'retry' as const };
+    case 'AI_ADMIN_ONLY':
+      return { message: tr(locale, '현재 베타 정비 중으로 관리자만 AI 생성이 가능합니다.', 'AI creation is temporarily limited to administrators during beta maintenance.'), action: 'retry' as const };
+    case 'AI_QUOTA':
+      return { message: tr(locale, 'AI 생성 할당량이 소진되어 지금은 이미지를 만들 수 없습니다. 관리자 확인 후 다시 이용할 수 있어요.', 'The AI generation quota is exhausted, so images cannot be created right now. It will be available again after the operator checks it.'), action: 'retry' as const };
     default:
       return { message: tr(locale, '연결이 잠시 불안정합니다. 사진은 이 탭에 보관되어 있으니 잠시 후 다시 시도해 주세요.', 'A temporary connection problem occurred. Your photo is kept in this tab; try again shortly.'), action: 'retry' as const };
   }
