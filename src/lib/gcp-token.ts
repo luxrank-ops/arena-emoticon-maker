@@ -21,11 +21,15 @@ interface TokenCache {
   /** epoch ms */
   expiresAt: number;
 }
-let cache: TokenCache | null = null;
+/**
+ * scope 별 캐시. 토큰은 발급 받은 scope 에서만 유효하므로
+ * (Firestore datastore ↔ Play androidpublisher) 하나의 캐시를 공유하면 403 이 난다.
+ */
+const caches = new Map<string, TokenCache>();
 
 /** 테스트용 — 캐시 비우기 */
 export function resetTokenCache(): void {
-  cache = null;
+  caches.clear();
 }
 
 function b64url(input: Buffer | string): string {
@@ -65,7 +69,10 @@ export async function getAccessToken(
   opts: { scope?: string; tokenUrl?: string; now?: number; timeoutMs?: number } = {},
 ): Promise<string> {
   const now = opts.now ?? Date.now();
-  if (cache && cache.expiresAt > now + 60_000) return cache.token;
+  const scope = opts.scope ?? FIRESTORE_SCOPE;
+  const cacheKey = `${scope}|${opts.tokenUrl ?? GOOGLE_TOKEN_URL}|${sa.clientEmail}`;
+  const cached = caches.get(cacheKey);
+  if (cached && cached.expiresAt > now + 60_000) return cached.token;
 
   const tokenUrl = opts.tokenUrl ?? GOOGLE_TOKEN_URL;
   const assertion = buildAssertion(sa, { scope: opts.scope, aud: tokenUrl, now });
@@ -86,8 +93,8 @@ export async function getAccessToken(
     if (!res.ok) throw new Error(`google token ${res.status}`);
     const json = (await res.json()) as { access_token?: string; expires_in?: number };
     if (!json.access_token) throw new Error('google token: no access_token');
-    cache = { token: json.access_token, expiresAt: now + (json.expires_in ?? 3600) * 1000 };
-    return cache.token;
+    caches.set(cacheKey, { token: json.access_token, expiresAt: now + (json.expires_in ?? 3600) * 1000 });
+    return json.access_token;
   } finally {
     clearTimeout(timer);
   }

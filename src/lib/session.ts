@@ -5,6 +5,7 @@ import { PLAY_HEADER } from '@/lib/twa';
 import type { User } from '@/lib/types';
 import { ensureSeed, findUser, uid, withDB } from '@/lib/store';
 import { maybePurgeFaces } from '@/lib/purge';
+import { activePlayEntitlementInDB } from '@/lib/play-purchases';
 
 export const SID_COOKIE = 'emotime_sid';
 export const AUTH_COOKIE = 'emotime_auth';
@@ -76,19 +77,17 @@ export async function sessionIdFromCookies(): Promise<string> {
   }
 }
 
-export async function getCurrentUser(): Promise<User & { isAuthenticated: boolean }> {
+export async function getCurrentUser(): Promise<User & { isAuthenticated: boolean; playVerified: boolean }> {
   const sid = await sessionIdFromCookies();
   let token: string | undefined;
   try { token = (await cookies()).get(AUTH_COOKIE)?.value; } catch { /* 요청 밖에서는 게스트 */ }
 
-  // TWA(구글 플레이 유료 앱) 요청 여부 — 미들웨어가 x-emotihak-play 헤더로 전달.
-  // TWA 환경에서는 크레딧 무차감·기능 플랜을 적용하되 DB에는 영속화하지 않는다.
-  // UA는 구매 증명이 아니며 요청 제한과 일일 AI 공정 이용 한도는 별도로 적용한다.
-  // 매 요청 결정 → 같은 계정의 웹 세션에는 앱 전용 혜택이 누설되지 않는다.
+  // TWA(플레이 앱) 환경 신호 — 미들웨어가 x-emotihak-play 헤더로 전달.
+  // 이 값은 UI 안내용이며 구매 증명이 아니다. 유료 자격은 아래 playVerified 로만 판정한다.
   let fromTwa = false;
   try { fromTwa = (await headers()).get(PLAY_HEADER) === '1'; } catch { fromTwa = false; }
 
-  let user: User | null = null;
+  let user: (User & { playVerified?: boolean }) | null = null;
   if (token && /^[a-f0-9]{64}$/.test(token)) {
     const tokenHash = hashSessionToken(token);
     user = await withDB((db) => {
@@ -96,12 +95,17 @@ export async function getCurrentUser(): Promise<User & { isAuthenticated: boolea
       const accountUser = session && findUser(db, session.userId);
       if (!accountUser || (accountUser.id === ADMIN_USER_ID && !process.env.ADMIN_PASSCODE)) return null;
       if (accountUser.id !== ADMIN_USER_ID && !db.accounts.some((a) => a.userId === accountUser.id)) return null;
-      return { ...grantMonthly(db, accountUser), role: accountUser.id === ADMIN_USER_ID ? 'admin' as const : 'user' as const };
+      // 구글 플레이 구매 자격은 서버 검증 기록에서만 읽는다 (UA 헤더를 쓰지 않는다).
+      return {
+        ...grantMonthly(db, accountUser),
+        role: accountUser.id === ADMIN_USER_ID ? 'admin' as const : 'user' as const,
+        playVerified: activePlayEntitlementInDB(db, accountUser.id),
+      };
     });
   }
   const isAuthenticated = !!user;
-  user ??= await resolve(sid);
-  return { ...user, play: fromTwa || user.play || undefined, isAuthenticated };
+  user ??= { ...(await resolve(sid)), playVerified: false };
+  return { ...user, play: fromTwa || user.play || undefined, playVerified: user.playVerified === true, isAuthenticated };
 }
 
 export async function getUserById(id: string): Promise<User | null> {

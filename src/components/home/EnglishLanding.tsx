@@ -18,7 +18,7 @@ const questions = [
   { q: 'Are these official KakaoTalk emoticons?', a: 'No. Download PNG or GIF files and share them in chats that support image stickers. Submission and acceptance to the Kakao emoticon store are separate processes and are not guaranteed.' },
 ];
 
-export function EnglishLanding() {
+export function EnglishLanding({ aiEnabled = true }: { aiEnabled?: boolean }) {
   const expressions = localizedComicExpressions('en');
   return (
     <div className="overflow-hidden">
@@ -32,8 +32,17 @@ export function EnglishLanding() {
               Turn a favorite photo into expressive stickers with natural English captions. Pick a style, choose your reactions, and make every line your own.
             </p>
             <div className="mt-7 grid gap-3 sm:flex sm:flex-wrap">
-              <Link href="/en/studio/upload" className="btn-primary !px-7 !py-4 text-base">Make my stickers <span aria-hidden="true">→</span></Link>
-              <Link href="/en/studio/packs" className="btn-ghost !py-4">Open my packs</Link>
+              {aiEnabled ? (
+                <>
+                  <Link href="/en/studio/upload" className="btn-primary !px-7 !py-4 text-base">Make my stickers <span aria-hidden="true">→</span></Link>
+                  <Link href="/en/quotes" className="btn-ghost !py-4">Quote studio</Link>
+                </>
+              ) : (
+                <>
+                  <Link href="/en/quotes" className="btn-primary !px-7 !py-4 text-base">Start from a quote <span aria-hidden="true">→</span></Link>
+                  <Link href="/en/studio/upload" className="btn-ghost !py-4">AI studio (coming soon)</Link>
+                </>
+              )}
             </div>
             <div className="mt-6 flex flex-wrap gap-x-5 gap-y-2 text-xs font-extrabold text-sub">
               <span>✓ 11 art styles</span><span>✓ 24 reaction presets</span><span>✓ PNG & GIF downloads</span>

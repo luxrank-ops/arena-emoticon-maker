@@ -378,7 +378,9 @@ export function UploadFlow({
       <p>{error}</p>
       {failureCode ? <p className="mt-1 text-[11px] font-bold text-sub">CODE · {failureCode}</p> : null}
       <div className="mt-3 flex flex-wrap gap-2">
-        {failureGuide && failureGuide.action !== 'retry' ? <button type="button" onClick={goToPhoto} className="btn-ghost !min-h-12 !px-4 !text-xs">{t('사진 가이드로 돌아가기', 'Back to the photo guide')}</button> : null}
+        {/* AI 게이트가 닫힌 동안에는 '다시 시도' 대신 지금 동작하는 대사 스튜디오로 보낸다. */}
+        {failureGuide?.action === 'quotes' ? <Link href={lp('/quotes')} className="btn-primary !min-h-12 !px-4 !text-xs">{t('대사 스튜디오로 가기', 'Open the quote studio')}</Link> : null}
+        {failureGuide && failureGuide.action !== 'retry' && failureGuide.action !== 'quotes' ? <button type="button" onClick={goToPhoto} className="btn-ghost !min-h-12 !px-4 !text-xs">{t('사진 가이드로 돌아가기', 'Back to the photo guide')}</button> : null}
         {retryAvailable ? <button type="button" onClick={submit} disabled={busy} className="btn-primary !min-h-12 !px-4 !text-xs">{t('보관된 사진으로 다시 시도', 'Retry with the saved photo')}</button> : null}
       </div>
     </div>

@@ -16,7 +16,8 @@ export async function UploadPageContent({ step }: { step: 'photo' | 'settings' }
       {aiEnabled ? null : (
         <div role="status" className="mx-auto mb-6 max-w-3xl rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary-dark">
           <p>{tr(locale, AI_ADMIN_ONLY_MESSAGE, 'AI creation is temporarily limited to administrators during beta maintenance.')}</p>
-          <p className="mt-1 text-[11px] font-bold text-sub">{tr(locale, '유료 등급 정비가 끝나면 다시 열립니다. 사진과 크레딧은 차감되지 않습니다.', 'This reopens once the paid tier is ready. Your photos and credits are not used.')}</p>
+          <p className="mt-1 text-[11px] font-bold text-sub">{tr(locale, '지금은 대사 스튜디오에서 바로 만들 수 있어요. 사진과 크레딧은 차감되지 않습니다.', 'You can create stickers right now in the quote studio. Your photos and credits are not used.')}</p>
+          <Link href={localizedPath(locale, '/quotes')} className="btn-primary !mt-3 !px-4 !py-2 text-xs">{tr(locale, '대사 스튜디오로 가기', 'Open the quote studio')}</Link>
         </div>
       )}
       <UploadFlow step={step} allowedTones={tones} credits={user.credits} planName={planLabel(user)} unlimited={isAdmin(user)} locale={locale} />

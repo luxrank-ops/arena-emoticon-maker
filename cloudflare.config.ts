@@ -30,6 +30,10 @@ export default defineConfig({
       PAYMENT_CHECKOUT_DISABLED: bindings.text("0"),
       STORE_BACKEND: bindings.text("auto"),
       RATE_LIMIT_DISABLED: bindings.text("0"),
+      // 구글 플레이 인앱결제 — 상품 등록·서비스 계정 준비 전에는 결제 UI 를 노출하지 않는다.
+      // (구매 검증에 쓰는 GOOGLE_PLAY_SERVICE_ACCOUNT_JSON 은 Secret 으로만 둔다.)
+      PLAY_PACKAGE_NAME: bindings.text("com.emotihak.app"),
+      PLAY_BILLING_ENABLED: bindings.text("0"),
       ASSETS: bindings.assets(),
       IMAGES: bindings.images(),
       STORE_KV: bindings.kv({ id: "cf10a2fa249a4c80b1163ea04948162e" }),

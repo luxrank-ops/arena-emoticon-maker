@@ -66,6 +66,8 @@ export async function deleteAccountPermanently(userId: string): Promise<AccountD
     db.briefs = db.briefs.filter((item) => item.userId !== userId);
     db.contentReports = db.contentReports.filter((item) => item.userId !== userId);
     db.playUsage = db.playUsage.filter((item) => item.userId !== userId);
+    // 플레이 구매는 구글 결제 원장이 원본이므로 토큰·자격 사본은 계정과 함께 지운다.
+    db.playPurchases = (db.playPurchases ?? []).filter((item) => item.userId !== userId);
     db.events = db.events.filter((item) => item.userId !== userId);
     logEvent(db, 'system', 'account_deleted', {
       auditId: createHash('sha256').update(userId).digest('hex').slice(0, 16),

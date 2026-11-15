@@ -31,11 +31,18 @@ function check(name: string, cond: boolean, extra = '') {
   else { failCount++; console.log(`  ✘ ${name} ${extra}`); }
 }
 
-const playViewer = { role: 'user' as const, plan: 'FREE' as const, credits: 12, play: true };
+// UA 신호만 있는 뷰어(위조 가능) — 유료 자격이 아니다.
+const uaOnlyViewer = { role: 'user' as const, plan: 'FREE' as const, credits: 12, play: true };
+// 서버에서 구매가 검증된 플레이 구매자.
+const playViewer = { role: 'user' as const, plan: 'FREE' as const, credits: 12, play: true, playVerified: true };
 const freeViewer = { role: 'user' as const, plan: 'FREE' as const, credits: 12 };
 const adminViewer = { role: 'admin' as const, plan: 'FREE' as const, credits: 12 };
 
-console.log('\n[1] admin-access 헬퍼 (play 뷰어)');
+console.log('\n[1] admin-access 헬퍼 (검증된 play 뷰어)');
+check('UA 신호만으로는 풀액세스 아님', isFullAccess(uaOnlyViewer) === false);
+check('UA 신호만으로는 워터마크 제거 없음', watermarkFor(uaOnlyViewer) === true);
+check('UA 신호만으로는 크레딧 차감 없음 아님', isUnlimited(uaOnlyViewer) === false);
+check('UA 신호만으로는 planLabel PLAY 아님', planLabel(uaOnlyViewer) === 'Free');
 check('effectivePlan(play) = STUDIO', effectivePlan(playViewer) === 'STUDIO');
 check('isUnlimited(play)', isUnlimited(playViewer) === true);
 check('bypassesRateLimit(play) = false', bypassesRateLimit(playViewer) === false);
@@ -84,7 +91,7 @@ async function mkSheetWithImage(userId: string, faceId: string, tone: string) {
   return chosen!;
 }
 
-console.log('\n[3] TWA(플레이) 사용자: 24컷 팩 크레딧 무차감');
+console.log('\n[3] 검증된 플레이 구매자: 24컷 팩 크레딧 무차감');
 const twaSheet = await mkSheetWithImage(twaUser.id, twaFace.id, 'watercolor');
 const twaPack = await createPack(twaUser.id, twaSheet.id, 24, '플레이 팩', true);
 check('24컷 팩 생성됨', twaPack.size === 24 && twaPack.frames.length === 24);
@@ -111,7 +118,7 @@ check('12컷 팩 creditsSpent = 12', webPack.creditsSpent === 12, `got ${webPack
 const webAfter = await withDB((db) => db.users.find((u) => u.id === webUser.id)!);
 check('크레딧 0으로 차감', webAfter.credits === 0, `got ${webAfter.credits}`);
 
-console.log('\n[5] Play KST 일일 AI 공정 이용');
+console.log('\n[5] Play KST 일일 AI 공정 이용 (검증된 구매자)');
 process.env.PLAY_DAILY_GENERATION_LIMIT = '2';
 const quotaViewer = { ...playViewer, id: twaUser.id };
 await consumePlayGeneration(quotaViewer);
@@ -121,6 +128,7 @@ let playLimitErr: { code?: string } | null = null;
 try { await consumePlayGeneration(quotaViewer); } catch (e) { playLimitErr = e as { code?: string }; }
 check('일일 한도 초과 PLAY_FAIR_USE_LIMIT', playLimitErr?.code === 'PLAY_FAIR_USE_LIMIT', `got ${JSON.stringify(playLimitErr)}`);
 check('관리자는 공정 이용 카운터에서 제외', await consumePlayGeneration({ ...adminViewer, id: 'account_admin' }) === null);
+check('UA 신호만으로는 공정 이용 카운터 대상도 아님', await consumePlayGeneration({ ...uaOnlyViewer, id: twaUser.id }) === null);
 
 console.log('\n[6] AI 콘텐츠 신고·숨김·이미지 삭제');
 const reportedFrameId = twaPack.frames[0].id;

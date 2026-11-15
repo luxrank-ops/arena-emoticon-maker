@@ -53,7 +53,8 @@ export function clientErrorGuide(code: string, locale: Locale) {
     case 'OFFLINE':
       return { message: tr(locale, '오프라인 상태입니다. 사진은 이 탭에 보관되어 있으니 네트워크 연결 후 다시 시도해 주세요.', 'You are offline. Your photo is kept in this tab; reconnect and try again.'), action: 'retry' as const };
     case 'AI_ADMIN_ONLY':
-      return { message: tr(locale, '현재 베타 정비 중으로 관리자만 AI 생성이 가능합니다.', 'AI creation is temporarily limited to administrators during beta maintenance.'), action: 'retry' as const };
+      // 영구 조건(게이트 닫힘)에는 '다시 시도'가 아니라 지금 되는 길로 안내한다.
+      return { message: tr(locale, 'AI 생성은 지금 준비 중이에요. 대사 스튜디오에서는 바로 이모티콘을 만들 수 있어요.', 'AI creation is being prepared. You can make stickers right now in the quote studio.'), action: 'quotes' as const };
     case 'AI_QUOTA':
       return { message: tr(locale, 'AI 생성 할당량이 소진되어 지금은 이미지를 만들 수 없습니다. 관리자 확인 후 다시 이용할 수 있어요.', 'The AI generation quota is exhausted, so images cannot be created right now. It will be available again after the operator checks it.'), action: 'retry' as const };
     default:

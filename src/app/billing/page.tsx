@@ -4,7 +4,7 @@ import { getPlayUsage, playDailyLimit } from '@/lib/play-usage';
 import { creditHistory } from '@/lib/credits';
 import { withDB } from '@/lib/store';
 import { PLANS, won } from '@/lib/pricing';
-import { creditsLabel, effectivePlan, isAdmin, isFullAccess, isPlayUser, planLabel } from '@/lib/admin-access';
+import { creditsLabel, effectivePlan, hasPlayEntitlement, isAdmin, isFullAccess, planLabel } from '@/lib/admin-access';
 import { formatKstDate, formatKstDateTime } from '@/lib/time';
 import { PaymentOrderAction } from '@/components/payments/PaymentOrderAction';
 
@@ -46,8 +46,8 @@ export default async function BillingPage() {
             <span className="ml-1 text-sm font-bold text-sub">크레딧</span>
           </p>
           <p className="mt-1 text-xs text-sub">
-            {isPlayUser(user)
-              ? `구글 플레이 유료 앱 · 크레딧 차감 없음 · 오늘 AI ${playUsage?.count ?? 0}/${playDailyLimit()}회`
+            {hasPlayEntitlement(user)
+              ? `구글 플레이 구매 확인 · 크레딧 차감 없음 · 오늘 AI ${playUsage?.count ?? 0}/${playDailyLimit()}회`
               : isAdmin(user)
                 ? '관리자 계정 · 크레딧 차감 없음 · 모든 스타일 사용 가능'
                 : PLANS[effectivePlan(user)].price === 0

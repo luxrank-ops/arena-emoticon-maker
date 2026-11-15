@@ -1,6 +1,9 @@
-// 유료 앱(TWA) 풀액세스 E2E — 로컬 dev 서버 대상
-//  · TWA 세션: watercolor/24컷/워터마크 제거/카카오 패키징/브리핑 해제/크레딧 무차감/409
-//  · 웹 세션:  watercolor 402 / 24컷 402 / 12컷 차감 (기존 동작 유지)
+// 플레이 앱(TWA) 자격 E2E — 로컬 dev 서버 대상
+//  · 2026-11-15 부터 유료 자격은 서버 검증 구매(play_purchases)만 인정한다.
+//    따라서 TWA UA 세션은 웹 FREE 세션과 동일하게 동작해야 한다(UA 위조로 열리지 않음).
+//  · 검증된 구매자의 자격 판정은 npm run test:play:billing (구글 API 스텁)에서 확인한다.
+//  · TWA 세션: watercolor 402 / 24컷 402 / 12컷 차감 / 앱 내 크레딧 주문 409(정책)
+//  · 웹 세션:  FREE 동작 동일
 import { readFileSync } from 'node:fs';
 
 const BASE = 'http://localhost:3000';
@@ -71,41 +74,42 @@ async function makeSheet(jar, faceId, tone) {
   return { status: r.status, json: r.json, choose: c };
 }
 
-console.log('\n[1] TWA 세션 (유료 앱)');
+console.log('\n[1] TWA UA 세션 — 구매 증명이 아니므로 유료 기능이 열리지 않는다');
 const twa = new Jar(TWA_UA);
 const faceId = await makeFace(twa);
 check('face/analyze 200', true);
 
 const sWater = await makeSheet(twa, faceId, 'watercolor');
-check('watercolor 시트 200 (풀액세스)', sWater.status === 200, `got ${sWater.status} ${JSON.stringify(sWater.json?.error || '')}`);
+check('watercolor 시트 402 (유료 스타일 차단)', sWater.status === 402, `got ${sWater.status} ${JSON.stringify(sWater.json?.error || '')}`);
 
 const sLine = await makeSheet(twa, faceId, '2d-cute');
 check('2d-cute 시트 200', sLine.status === 200, `got ${sLine.status}`);
 
-const pack24 = await twa.req('/api/packs', { method: 'POST', body: JSON.stringify({ sheetId: sWater.json.sheet.id, size: 24 }) });
-check('24컷 팩 200 (크레딧 무차감)', pack24.status === 200, `got ${pack24.status} ${pack24.text.slice(0, 150)}`);
-check('크레딧 차감 0', pack24.json?.cost === 0, `got ${pack24.json?.cost}`);
-const packId = pack24.json?.packId;
+const pack24 = await twa.req('/api/packs', { method: 'POST', body: JSON.stringify({ sheetId: sLine.json.sheet.id, size: 24 }) });
+check('24컷 팩 402 (플랜 제한)', pack24.status === 402, `got ${pack24.status} ${pack24.text.slice(0, 150)}`);
+
+const pack12 = await twa.req('/api/packs', { method: 'POST', body: JSON.stringify({ sheetId: sLine.json.sheet.id, size: 12 }) });
+check('12컷 팩 200 + 크레딧 차감', pack12.status === 200 && pack12.json?.cost === 12, `got ${pack12.status} cost=${pack12.json?.cost}`);
+const packId = pack12.json?.packId;
 
 const view = await twa.req(`/api/packs/${packId}`);
 check('팩 뷰 200', view.status === 200, `got ${view.status}`);
-check('워터마크 없음', view.json?.watermark === false, `got ${view.json?.watermark}`);
+check('워터마크 표시', view.json?.watermark === true, `got ${view.json?.watermark}`);
 
 const kakao = await twa.req(`/api/packs/${packId}/kakao`);
-check('카카오 패키징 가능', kakao.json?.packaging === true, `got ${JSON.stringify(kakao.json?.packaging)} plan=${kakao.json?.plan}`);
+check('카카오 패키징 불가 (FREE)', kakao.json?.packaging === false, `got ${JSON.stringify(kakao.json?.packaging)} plan=${kakao.json?.plan}`);
 
 const brief = await twa.req('/api/brief');
-check('Daily Brief 잠금 해제', brief.status === 200 && brief.json?.locked === false, `status ${brief.status} locked=${brief.json?.locked}`);
+check('Daily Brief FREE 잠금', brief.status === 200 && brief.json?.locked === true, `status ${brief.status} locked=${brief.json?.locked}`);
 
 const billing = await twa.req('/billing');
-check('billing에 크레딧 차감 없음·공정 이용 표시', billing.text.includes('차감 없음') && billing.text.includes('공정 이용'), `status ${billing.status}`);
-check('billing에 "구글 플레이 유료 앱" 표시', billing.text.includes('구글 플레이 유료 앱'));
+check('billing에 일반 크레딧 표시', billing.text.includes('크레딧') && !billing.text.includes('차감 없음'), `status ${billing.status}`);
 
 const pricing = await twa.req('/pricing');
-check('pricing에 "모든 기능을 이용 중이에요" 표시', pricing.text.includes('모든 기능을 이용 중이에요'), `status ${pricing.status}`);
+check('pricing에 "모든 기능을 이용 중" 없음', !pricing.text.includes('모든 기능을 이용 중이에요'), `status ${pricing.status}`);
 
 const checkout = await twa.req('/api/checkout', { method: 'POST', body: JSON.stringify({ sku: 'credits-20' }) });
-check('TWA 크레딧 주문 409 (불필요)', checkout.status === 409, `got ${checkout.status} ${checkout.text.slice(0, 150)}`);
+check('앱 안 크레딧 주문은 정책상 409', checkout.status === 409, `got ${checkout.status} ${checkout.text.slice(0, 150)}`);
 
 console.log('\n[2] 웹 세션 (FREE 게스트) — 기존 동작 유지');
 const web = new Jar(WEB_UA);

@@ -79,6 +79,7 @@ export const RATE_LIMITS = {
   packs: 10,
   checkout: 10,
   quotePacks: 10,
+  playVerify: 10,
   confirm: 10,
   goods: 10,
   brief: 40,
