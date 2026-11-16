@@ -13,7 +13,7 @@ import { apiResponseError } from '@/lib/client-errors';
 
 const PREFIX = 'emotime:photo:v2:';
 const MAX_SIDE = 1024;
-export type PhotoScope = 'draft' | `sheet:${string}` | `pack:${string}`;
+export type PhotoScope = 'draft' | `duo:${string}` | `sheet:${string}` | `pack:${string}`;
 
 /** 사진 파일 → 최대 1024px JPEG data URL (용량·전송량 절약, EXIF 방향 반영) */
 export async function compressPhotoFile(file: File): Promise<string> {
@@ -144,13 +144,30 @@ export function photoConsistencyMethod(scope: PhotoScope, subjectKind: SubjectKi
   } catch { return null; }
 }
 
-/** 이미지 생성 전에 사진 준비가 끝나야 요청한다. */
-export async function renderImage(target: RenderTarget, photo: string, scope: PhotoScope, subjectKind: SubjectKind = 'person'): Promise<string> {
+/** 이미지 생성 전에 사진 준비가 끝나야 요청한다. duoScope 가 있으면 두 번째 인물 사진도 함께 보낸다. */
+export async function renderImage(
+  target: RenderTarget,
+  photo: string,
+  scope: PhotoScope,
+  subjectKind: SubjectKind = 'person',
+  duoScope?: PhotoScope,
+): Promise<string> {
   let consistency = await ensurePhotoConsistency(photo, scope, subjectKind);
+  let second: { photo: string; consistency: PreparedIdentity } | null = null;
+  if (duoScope) {
+    const secondPhoto = loadPhoto(duoScope);
+    if (!secondPhoto) throw Object.assign(new Error('두 번째 사진이 없어요. 사진을 다시 올려 주세요.'), { code: 'SECOND_PHOTO_REQUIRED' });
+    second = { photo: secondPhoto, consistency: await ensurePhotoConsistency(secondPhoto, duoScope, subjectKind) };
+  }
   for (let attempt = 0; attempt < 2; attempt++) {
     const res = await fetch('/api/render', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ photo, target, consistency }),
+      body: JSON.stringify({
+        photo,
+        target,
+        consistency,
+        ...(second ? { secondPhoto: second.photo, secondConsistency: second.consistency } : {}),
+      }),
     });
     const json = (await res.json().catch(() => null)) as
       | { ok: true; imageUrl: string }
@@ -162,6 +179,7 @@ export async function renderImage(target: RenderTarget, photo: string, scope: Ph
       const id = sessionStorage.getItem(scopeKey(scope));
       if (id) sessionStorage.removeItem(`${PREFIX}guidance:${id}${subjectKind === 'pet' ? ':pet' : ''}`);
       consistency = await ensurePhotoConsistency(photo, scope, subjectKind);
+      if (second) second = { photo: second.photo, consistency: await ensurePhotoConsistency(second.photo, duoScope!, subjectKind) };
       continue;
     }
     throw apiResponseError(res, json, 'AI 생성에 실패했어요. 다시 시도해 주세요');

@@ -8,6 +8,8 @@ import type {
   Emotion,
 } from '@/lib/types';
 import { TONE_GENERATION_PARAMS } from '@/lib/ai/tone-params';
+import type { CharacterDesignSheet } from '@/lib/ai/character-sheet';
+import { designSheetPrompt } from '@/lib/ai/character-sheet';
 
 // ─────────────────────────────────────────────────────────────
 // AI 이미지 생성 엔진 (같은 사람, 여러 표정 - Expression Matrix)
@@ -31,6 +33,12 @@ export interface GenerateRequest {
   line?: string;
   intensity?: number;
   faceCondition?: FaceCondition; // 얼굴 임베딩 조건 (필수 권장)
+  /** 전 컷 공통 고정 캐릭터 디자인 시트 */
+  designSheet?: CharacterDesignSheet;
+  /** 표현 형태 지시 */
+  formatDirectives?: { scene?: string; layout?: string };
+  /** 'layer' 면 이미지에 글자를 넣지 않는다 */
+  textMode?: 'baked' | 'layer';
 }
 
 export interface GenerateResult {
@@ -52,6 +60,9 @@ export interface BatchGenerateRequest {
   line?: string;
   intensity?: number;
   faceCondition?: FaceCondition;
+  designSheet?: CharacterDesignSheet;
+  formatDirectives?: { scene?: string; layout?: string };
+  textMode?: 'baked' | 'layer';
 }
 
 export interface BatchGenerateResult {
@@ -110,9 +121,16 @@ function buildPrompt(
   // 핵심: "same person"을 프롬프트 최상위에 명시해 신원 보존 강화
   const basePrompt = `same person, ${emotionPrompt}, Korean face, single person, headshot, centered face, ${stylePrompt}, high quality, 8k`;
 
-  const linePart = req.line ? `, text "${req.line}" in speech bubble` : '';
+  const linePart = req.line && req.textMode !== 'layer' ? `, text "${req.line}" in speech bubble` : '';
 
-  return `${basePrompt}${linePart}, ${params.promptPrefix}`.trim();
+  const parts = [basePrompt];
+  if (req.designSheet) parts.push(designSheetPrompt(req.designSheet));
+  if (req.formatDirectives?.scene) parts.push(`Format direction: ${req.formatDirectives.scene}.`);
+  if (req.formatDirectives?.layout) parts.push(`Format layout: ${req.formatDirectives.layout}.`);
+  if (req.textMode === 'layer') parts.push('No lettering at all: do not draw any text, letters, speech bubble, sign or watermark.');
+  if (linePart) parts.push(linePart);
+  parts.push(params.promptPrefix);
+  return parts.filter(Boolean).join(' ').replace(/\s+,/g, ',').replace(/,\s*,/g, ',').trim();
 }
 
 // ─────────────────────────────────────────────────────────────

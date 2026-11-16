@@ -10,6 +10,9 @@ import { getCurrentUser } from '@/lib/session';
 import { logEvent, uid, withDB } from '@/lib/store';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 import { RenderError, renderWithGemini } from '@/lib/ai/gemini-render';
+import { isCharacterDesignSheet } from '@/lib/ai/character-sheet';
+import type { CharacterDesignSheet } from '@/lib/ai/character-sheet';
+import { formatCutByTemplate, packFormatById } from '@/lib/pack-formats';
 import { deleteImage, loadImage, newImageId, saveImage } from '@/lib/images';
 import { applyCredits, CreditError } from '@/lib/credits';
 import type { Emotion, Tone } from '@/lib/types';
@@ -34,6 +37,13 @@ const schema = z.object({
     .string()
     .max(4_000_000)
     .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, '사진 형식을 확인해 주세요'),
+  /** 2인·반려 케미 팩의 두 번째 인물 사진 (사진 2장 입력) */
+  secondPhoto: z
+    .string()
+    .max(4_000_000)
+    .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/, '두 번째 사진 형식을 확인해 주세요')
+    .optional(),
+  secondConsistency: preparedSchema.optional(),
   consistency: preparedSchema,
   target: z.discriminatedUnion('kind', [
     z.object({
@@ -112,6 +122,11 @@ export async function POST(req: Request) {
           variantNote: undefined as string | undefined,
           charged: !!target.force && !isUnlimited(user),
           previousImageId: frame.imageId as string | undefined,
+          format: pack.format,
+          textMode: pack.textMode ?? 'baked',
+          designSheet: isCharacterDesignSheet(pack.designSheet) ? pack.designSheet : undefined,
+          templateId: frame.templateId,
+          comboRole: frame.comboRole,
         };
       }
       const sheet = db.sheets.find((s) => s.id === target.sheetId && s.userId === user.id);
@@ -135,6 +150,11 @@ export async function POST(req: Request) {
         variantNote: SHEET_NOTES[variantIndex] ?? SHEET_NOTES[0],
         charged: false,
         previousImageId: undefined as string | undefined,
+        format: undefined as string | undefined,
+        textMode: 'baked' as 'baked' | 'layer',
+        designSheet: undefined as CharacterDesignSheet | undefined,
+        templateId: undefined as string | undefined,
+        comboRole: undefined as 'top' | 'bottom' | undefined,
       };
     });
 
@@ -150,6 +170,28 @@ export async function POST(req: Request) {
       return fail('REFERENCE_REQUIRED', '선택한 시안을 불러올 수 없어 컷을 만들 수 없어요. 시안을 다시 선택해 새 팩을 만들어 주세요.', 409);
     }
     const characterReference = reference ? { mimeType: 'image/webp', base64: Buffer.from(reference.data).toString('base64') } : undefined;
+
+    // 2인·반려 케미 팩: 두 번째 인물 사진도 같은 방식으로 사전 확인 토큰을 요구한다.
+    const packFormat = plan.format ? packFormatById(plan.format) : undefined;
+    const cutInfo = plan.templateId ? formatCutByTemplate(plan.templateId) : null;
+    let secondPhoto: { mimeType: string; base64: string } | undefined;
+    if (packFormat?.needsSecondPhoto && (!body.secondPhoto || !body.secondConsistency)) {
+      return fail('SECOND_PHOTO_REQUIRED', '2인 케미 팩은 사진 2장이 필요합니다. 두 번째 사진을 올려 주세요.', 422);
+    }
+    if (body.secondPhoto) {
+      if (!body.secondConsistency) return fail('CONSISTENCY_REQUIRED', '두 번째 사진을 먼저 확인해 주세요.', 409);
+      const secondMatch = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(body.secondPhoto);
+      if (!secondMatch) return fail('INVALID_INPUT', '두 번째 사진 형식을 확인해 주세요', 422);
+      const secondEntry = await withDB((db) => {
+        const now = Date.now();
+        db.consistencyPreparations = db.consistencyPreparations.filter((entry) => entry.expiresAt > now);
+        return db.consistencyPreparations.find(
+          (item) => item.tokenHash === hash(body.secondConsistency!.token) && item.userId === user.id && item.photoHash === hash(body.secondPhoto!),
+        ) ?? null;
+      });
+      if (!secondEntry) return fail('CONSISTENCY_REQUIRED', '두 번째 사진이 바뀌었거나 준비가 만료됐어요. 다시 확인해 주세요.', 409);
+      secondPhoto = { mimeType: secondMatch[1], base64: secondMatch[2] };
+    }
 
     // 2) 다시 그리기면 먼저 차감 (잔액 부족이면 생성하지 않는다)
     const chargeRef = uid('rd');
@@ -180,19 +222,25 @@ export async function POST(req: Request) {
         .filter(Boolean) as string[];
 
       // 원본 사진을 우선하고, 팩에 고정된 시안을 모든 컷의 스타일 기준으로 사용한다.
+      const textMode: 'baked' | 'layer' = plan.textMode === 'layer' ? 'layer' : 'baked';
       const png = await renderWithGemini({
         photoBase64,
         mimeType,
         identityGuidance: identityGuidance.features,
         subjectKind: plan.subjectKind,
         characterReference,
+        secondPhoto,
+        designSheet: plan.designSheet,
+        formatDirectives: packFormat ? { scene: packFormat.prompt.scene, layout: packFormat.prompt.layout } : undefined,
+        comboRole: plan.comboRole,
+        textMode,
         tone: plan.tone,
         mode: plan.mode,
         emotion: plan.emotion,
-        line: plan.line || undefined,
+        line: textMode === 'layer' ? undefined : plan.line || undefined,
         variantNote: plan.variantNote,
         accessoryPrompts,
-        sceneAction: plan.sceneAction,
+        sceneAction: cutInfo?.cut.action ?? plan.sceneAction,
       });
 
       // 4) 컷은 360px로 선명하게 저장하고 시안은 참조용 512px를 유지한다.

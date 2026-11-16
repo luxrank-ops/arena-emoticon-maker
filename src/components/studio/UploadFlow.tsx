@@ -10,6 +10,8 @@ import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
 import { GenerationProgress } from '@/components/studio/GenerationProgress';
 import { CameraPermissionDialog, PhotoRetakeGuide } from '@/components/studio/PhotoSafety';
+import { PackFormatPicker } from '@/components/studio/PackFormatPicker';
+import { packFormatById, type PackFormatId } from '@/lib/pack-formats';
 import { compressPhotoFile, ensurePhotoConsistency, linkPhoto, loadPhoto, photoScopeId, savePhoto } from '@/lib/studio/photo';
 import { apiResponseError, clientErrorCode, clientErrorGuide, isRetryableError } from '@/lib/client-errors';
 import { clearStudioRetry, loadStudioRetry, saveStudioRetry } from '@/lib/studio/retry';
@@ -91,8 +93,12 @@ export function UploadFlow({
   const [cameraDisclosure, setCameraDisclosure] = useState(false);
   const [subjectKind, setSubjectKind] = useState<SubjectKind>('person');
   const [mode, setMode] = useState<'face' | 'full' | null>(null);
-  const [photoPhase, setPhotoPhase] = useState<'mode' | 'upload'>('mode');
+  const [photoPhase, setPhotoPhase] = useState<'format' | 'mode' | 'upload'>('format');
   const [photoPreview, setPhotoPreview] = useState<string | null>(null);
+  const [format, setFormat] = useState<PackFormatId | null>(null);
+  const [secondPreview, setSecondPreview] = useState<string | null>(null);
+  const [secondFileName, setSecondFileName] = useState('');
+  const secondInputRef = useRef<HTMLInputElement>(null);
   const [motion, setMotion] = useState<'forward' | 'back' | null>(null);
   const [progress, setProgress] = useState<number | undefined>(undefined);
   const [tone, setTone] = useState<Tone>(allowedTones[0] ?? '2d-cute');
@@ -148,11 +154,14 @@ export function UploadFlow({
         setFileName(saved.fileName || '');
         setSubjectKind(saved.subjectKind === 'pet' ? 'pet' : 'person');
         setMode(saved.mode === 'full' ? 'full' : saved.mode === 'face' ? 'face' : null);
+        setFormat(packFormatById(saved.format) ? (saved.format as PackFormatId) : null);
         setPhotoPhase('upload');
         if (allowedTones.includes(saved.tone)) setTone(saved.tone);
         if (saved.consent) setConsent(saved.consent);
       }
       const retry = loadStudioRetry(photoScopeId('draft'));
+      const draftDuo = loadPhoto('duo:draft');
+      if (draftDuo) setSecondPreview(draftDuo);
       if (retry && draftPhoto) {
         setFailureCode(retry.code);
         setRetryAvailable(true);
@@ -172,9 +181,9 @@ export function UploadFlow({
     if (!hydrated || !analysis) return;
     try {
       const photoId = photoScopeId('draft');
-      if (photoId) sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind }));
+      if (photoId) sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind, format }));
     } catch { /* 다음 단계로 이동할 때 저장 실패를 알린다 */ }
-  }, [hydrated, analysis, fileName, mode, tone, consent, subjectKind]);
+  }, [hydrated, analysis, fileName, mode, tone, consent, subjectKind, format]);
 
   useEffect(() => {
     if (!busy) return;
@@ -188,10 +197,14 @@ export function UploadFlow({
 
   function goToSettings() {
     if (!analysis?.ok || !mode || busy) return;
+    if (needsSecondPhoto && !secondPreview) {
+      setError(t('2인·반려 케미 팩은 두 번째 사진이 필요해요. 사진을 한 장 더 올려 주세요.', 'This duo pack needs a second photo. Please add one more photo.'));
+      return;
+    }
     try {
       const photoId = photoScopeId('draft');
       if (!photoId || !loadPhoto('draft')) throw new Error();
-      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind }));
+      sessionStorage.setItem(DRAFT_KEY, JSON.stringify({ analysis, fileName, mode, tone, consent, photoId, subjectKind, format }));
       if (!retryAvailable) setError(null);
       setMotion('forward');
       setCurrentStep('settings');
@@ -248,6 +261,20 @@ export function UploadFlow({
   }, [subjectKind, locale]);
 
   const ready = analysis?.ok && !!mode && consent.terms && consent.privacy && consent.overseas && !busy;
+  const formatInfo = format ? packFormatById(format) : undefined;
+  const needsSecondPhoto = !!formatInfo?.needsSecondPhoto;
+
+  const onSecondFile = useCallback(async (file: File) => {
+    setError(null);
+    try {
+      const compressed = await compressPhotoFile(file);
+      savePhoto(compressed, 'duo:draft');
+      setSecondPreview(compressed);
+      setSecondFileName(file.name);
+    } catch {
+      setError(t('두 번째 사진을 읽지 못했어요. 다른 사진으로 시도해 주세요.', 'We could not read the second photo. Please try another image.'));
+    }
+  }, [locale]);
 
 
   async function submit() {
@@ -296,7 +323,7 @@ export function UploadFlow({
       const sheetRes = await fetch('/api/sheets', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ faceId: faceJson.faceId, tone, mode, subjectKind }),
+        body: JSON.stringify({ faceId: faceJson.faceId, tone, mode, subjectKind, ...(format ? { format } : {}) }),
       });
       if (run !== generationRunRef.current) return;
       const sheetJson = await sheetRes.json();
@@ -306,7 +333,10 @@ export function UploadFlow({
 
       if (run !== generationRunRef.current) return;
       linkPhoto('draft', `sheet:${sheetJson.sheet.id}`);
-      track('sheet_created', { tone, credits });
+      if (format && packFormatById(format)?.needsSecondPhoto) {
+        try { linkPhoto('duo:draft', `duo:${sheetJson.sheet.id}`); } catch { /* 두 번째 사진은 팩 화면에서 다시 올릴 수 있다 */ }
+      }
+      track('sheet_created', { tone, credits, format: format ?? 'classic' });
       const targetUrl = lp(`/studio/sheet/${sheetJson.sheet.id}`);
       router.push(targetUrl);
       setTimeout(() => {
@@ -335,13 +365,14 @@ export function UploadFlow({
 
   const isPhoto = currentStep === 'photo';
   const isMode = isPhoto && photoPhase === 'mode';
+  const isFormat = isPhoto && photoPhase === 'format';
   const motionClass = motion === 'forward' ? 'motion-safe:animate-step-left' : motion === 'back' ? 'motion-safe:animate-step-right' : '';
   const stepHeader = (
     <>
       <nav className="mb-6 flex items-center gap-2 text-xs font-bold text-sub" aria-label={t('현재 위치', 'Breadcrumb')}>
         <Link href={lp('/')} className="hover:text-ink">{t('홈', 'Home')}</Link><span>/</span>
         {isPhoto ? (
-          <span className="text-ink">{isMode ? t('구도 선택', 'Choose a composition') : t('사진 선택', 'Choose a photo')}</span>
+          <span className="text-ink">{isFormat ? t('표현 형태', 'Pack format') : isMode ? t('구도 선택', 'Choose a composition') : t('사진 선택', 'Choose a photo')}</span>
         ) : (
           <>
             <button type="button" onClick={goToPhoto} className="min-h-11 hover:text-ink">{t('구도·사진', 'Composition & photo')}</button>
@@ -352,9 +383,9 @@ export function UploadFlow({
         <span className="ml-auto chip">STEP {isPhoto ? '1' : '2'} / 4</span>
       </nav>
       <div className="mx-auto mb-6 max-w-3xl sm:mb-8">
-        <h1 className="h2 break-keep">{isMode ? t('어떤 스타일로 만들까요?', 'What would you like to create?') : isPhoto ? t('사진을 업로드해 주세요', 'Upload your photo') : t('이모티콘 스타일을 골라주세요', 'Choose your sticker style')}</h1>
+        <h1 className="h2 break-keep">{isFormat ? t('어떤 표현 형태로 만들까요?', 'Which pack format?') : isMode ? t('어떤 스타일로 만들까요?', 'What would you like to create?') : isPhoto ? t('사진을 업로드해 주세요', 'Upload your photo') : t('이모티콘 스타일을 골라주세요', 'Choose your sticker style')}</h1>
         <p className="mt-2 text-base leading-relaxed text-sub">
-          {isMode ? t('표정을 강조할지, 귀여운 포즈를 살릴지 선택해 주세요.', 'Choose expressive close-ups or cute full-body poses.') : isPhoto ? t('정면과 얼굴이 잘 보이는 사진 한 장이면 충분해요.', 'One clear, front-facing photo is all you need.') : t('구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.', 'Choose a composition and style, accept the required terms, and create your character drafts.')}
+          {isFormat ? t('상황·행동, 뉴스 자막, 2인 케미, 글자 주인공, 이펙트 콤보 중에서 고르면 그 형태에 맞는 컷과 프롬프트로 만들어 드려요. 기본 감정 팩도 그대로 쓸 수 있어요.', 'Pick a format: situations, captions, duo chemistry, typography or effects. Classic expression packs still work as before.') : isMode ? t('표정을 강조할지, 귀여운 포즈를 살릴지 선택해 주세요.', 'Choose expressive close-ups or cute full-body poses.') : isPhoto ? t('정면과 얼굴이 잘 보이는 사진 한 장이면 충분해요.', 'One clear, front-facing photo is all you need.') : t('구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.', 'Choose a composition and style, accept the required terms, and create your character drafts.')}
         </p>
         <ol aria-label={t('제작 진행 단계', 'Creation progress')} className="mt-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold sm:gap-2 sm:text-sm">
           {(locale === 'en' ? ['Mode & photo', 'Style', 'Character', 'Pack'] : ['구도·사진', '스타일·동의', '시안 선택', '팩 완성']).map((label, index) => (
@@ -397,10 +428,28 @@ export function UploadFlow({
       </div>
     </>
   );
+  if (currentStep === 'photo' && photoPhase === 'format') return (
+    <>
+      {stepHeader}
+      <div key="format" className={clsx('mx-auto max-w-3xl space-y-4', motionClass)}>
+        <PackFormatPicker value={format} onChange={setFormat} locale={locale} subjectKind={subjectKind} />
+        <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-soft backdrop-blur">
+          <button type="button" className="btn-primary min-h-14 w-full !py-4 text-base" onClick={() => { setMotion('forward'); setPhotoPhase('mode'); }}>
+            {format ? t(`${formatInfo?.label ?? '표현 형태'} 팩으로 시작`, `Start a ${formatInfo?.labelEn ?? 'format'} pack`) : t('기본 감정 팩으로 시작', 'Start a classic pack')}<span aria-hidden="true"> →</span>
+          </button>
+          <p className="py-2 text-center text-[11px] text-sub">{t('형태는 다음 단계에서도 다시 바꿀 수 있어요.', 'You can change the format again in the next step.')}</p>
+        </div>
+      </div>
+    </>
+  );
   if (currentStep === 'photo' && photoPhase === 'mode') return (
     <>
       {stepHeader}
       <div key="mode" className={clsx('mx-auto max-w-2xl space-y-4', motionClass)}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <button type="button" onClick={() => { setMotion('back'); setPhotoPhase('format'); }} className="min-h-11 rounded-xl px-2 text-sm font-semibold text-sub hover:bg-paper hover:text-primary-dark">← {t('표현 형태 다시 선택', 'Change pack format')}</button>
+          <span className="chip">{formatInfo ? `${formatInfo.emoji} ${locale === 'en' ? formatInfo.labelEn : formatInfo.label}` : t('기본 감정 팩', 'Classic emotions')}</span>
+        </div>
         <div role="radiogroup" aria-label={t('이모티콘 구도 선택', 'Sticker composition')} className="grid grid-cols-2 gap-3">
           {(['face', 'full'] as const).map((value) => {
             const selected = mode === value;
@@ -575,6 +624,49 @@ export function UploadFlow({
             </div>
           )}
         </div>
+        {needsSecondPhoto ? (
+          <section className="card p-4 text-left">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-black">{subjectKind === 'pet' ? t('함께 나올 반려동물 사진', 'The second subject’s photo') : t('두 번째 인물 사진', 'Second photo')}</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-sub">
+                  {t(
+                    '커플·친구·나+반려견처럼 함께 나올 한 장을 골라 주세요. 두 사진의 얼굴을 각각 참조해 하이파이브·삐짐 같은 2인 상호작용 컷을 만듭니다.',
+                    'Add the other person or pet. Each face is referenced from its own photo to build two-person interactions.',
+                  )}
+                </p>
+              </div>
+              <button type="button" className="chip min-h-11 shrink-0 whitespace-nowrap" onClick={() => secondInputRef.current?.click()} disabled={busy}>
+                {secondPreview ? t('변경', 'Change') : t('사진 선택', 'Choose photo')}
+              </button>
+            </div>
+            <input
+              ref={secondInputRef}
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f) void onSecondFile(f);
+                e.target.value = '';
+              }}
+            />
+            {secondPreview ? (
+              <div className="mt-3 flex items-center gap-3">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={secondPreview} alt={t('두 번째 사진 미리보기', 'Second photo preview')} className="h-20 w-20 rounded-xl border border-line object-cover" />
+                <div className="min-w-0 text-xs">
+                  <p className="font-bold">{t('두 번째 사진 준비 완료', 'Second photo ready')}</p>
+                  <p className="truncate text-sub">{secondFileName || t('선택한 사진', 'Selected photo')}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-3 rounded-xl border border-dashed border-line px-3 py-4 text-center text-[11px] font-bold text-sub">
+                {t('이 팩은 사진 2장이 필요해요', 'This pack needs two photos')}
+              </p>
+            )}
+          </section>
+        ) : null}
         <div className="grid grid-cols-2 gap-3">
           <section className="card-flat p-4" title={t('얼굴이 선명하고 배경이 간단할수록 일관성 있는 결과를 기대할 수 있어요.', 'A clear face and simple background help consistency.')}>
             <h2 className="text-xs font-black text-mint">💡 {t('좋은 사진', 'Good photos')}</h2>

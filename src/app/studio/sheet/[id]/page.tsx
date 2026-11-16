@@ -81,6 +81,7 @@ export default async function SheetPage({ params }: { params: Promise<{ id: stri
         unlimited={isUnlimited(user)}
         alreadyChosen={sheet.chosenKey}
         locale={locale}
+        format={sheet.format ?? null}
       />
 
       <p className="mt-8 text-center text-[11px] text-sub">

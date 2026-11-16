@@ -2,17 +2,28 @@ import type { Frame } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
 // 카카오 이모티콘 스튜디오 제안 규격 패키저
-//  · 규격: 24종 · 360×360px · PNG · 개당 2MB 이하 · 투명 배경 권장
+//  · 규격(2026년 기준): 32종 · 360×360px · PNG · 개당 150KB(78×78 아이콘 16KB) · 투명 배경 권장
+//  · 움직이는 이모티콘: 360×360px · APNG/GIF · 개당 2MB
 //  · 서버(이 파일)는 "팩 데이터"로 검증 가능한 항목을, 클라이언트는 실제 렌더 결과의
 //    바이트 크기/픽셀 크기를 확인한다 (같은 규칙을 양쪽에서 사용).
 // ─────────────────────────────────────────────────────────────
 
 export const KAKAO_RULES = {
-  count: 24,
+  count: 32,
   size: 360,
-  maxBytes: 2 * 1024 * 1024,
+  maxBytes: 150 * 1024,
+  iconBytes: 16 * 1024,
   format: 'png',
   recommendTransparent: true,
+} as const;
+
+export const KAKAO_ANIMATED_RULES = {
+  count: 32,
+  size: 360,
+  maxBytes: 2 * 1024 * 1024,
+  format: 'apng',
+  recommendTransparent: true,
+  maxFrames: 40,
 } as const;
 
 export interface PackCheck {
@@ -32,8 +43,9 @@ export interface PackValidation {
 
 interface ValidationInput {
   size: number;
-  frames: Pick<Frame, 'line' | 'background' | 'readyAt' | 'label'>[];
+  frames: Pick<Frame, 'line' | 'background' | 'readyAt' | 'label' | 'textLayers'>[];
   now?: number;
+  animated?: boolean;
 }
 
 /** 팩 데이터만으로 검증 가능한 규격 항목 */
@@ -43,19 +55,20 @@ export function validatePackForKakao(input: ValidationInput): PackValidation {
   const ready = frames.filter((f) => f.readyAt <= now).length;
   const transparent = frames.filter((f) => f.background === 'transparent').length;
   const longLines = frames.filter((f) => [...f.line].length > 16);
-  const emptyLines = frames.filter((f) => f.line.trim().length === 0);
+  const emptyLines = frames.filter((f) => f.line.trim().length === 0 && !(f.textLayers?.length));
   const duplicateLines = frames.length - new Set(frames.map((f) => f.line.trim())).size;
+  const rules = input.animated ? KAKAO_ANIMATED_RULES : KAKAO_RULES;
+  const countMatch = input.size === rules.count && frames.length === rules.count;
 
   const checks: PackCheck[] = [
     {
       id: 'count',
-      label: `24종 구성 (현재 ${frames.length}종)`,
-      pass: input.size === KAKAO_RULES.count && frames.length === KAKAO_RULES.count,
-      blocking: true,
-      detail:
-        input.size === KAKAO_RULES.count
-          ? '카카오 제안 규격과 동일한 24컷입니다.'
-          : `${input.size}컷 팩입니다. 제안 규격은 24종이므로 24컷 팩으로 다시 만들어 주세요.`,
+      label: `${rules.count}종 구성 (현재 ${frames.length}종)`,
+      pass: countMatch,
+      blocking: false,
+      detail: countMatch
+        ? '카카오 제안 규격과 동일한 32컷입니다.'
+        : `${frames.length}컷 팩입니다. 카카오 스튜디오 제안은 32종이므로, 32컷 팩으로 만들면 그대로 제출할 수 있습니다.`,
     },
     {
       id: 'ready',
@@ -66,17 +79,17 @@ export function validatePackForKakao(input: ValidationInput): PackValidation {
     },
     {
       id: 'pixel',
-      label: `${KAKAO_RULES.size}×${KAKAO_RULES.size}px PNG`,
+      label: `${rules.size}×${rules.size}px ${input.animated ? 'APNG/GIF' : 'PNG'}`,
       pass: true,
       blocking: true,
-      detail: `내보낼 때 ${KAKAO_RULES.size}×${KAKAO_RULES.size}px PNG 로 렌더합니다.`,
+      detail: `내보낼 때 ${rules.size}×${rules.size}px 로 렌더합니다.`,
     },
     {
       id: 'bytes',
-      label: '개당 2MB 이하',
+      label: `개당 ${formatBytes(rules.maxBytes)} 이하 (자동 압축)`,
       pass: true,
       blocking: false,
-      detail: '내보내기 직후 파일 크기를 검사해 결과에 표시합니다(초과 시 자동 재시도 안내).',
+      detail: '내보내기 직후 파일 크기를 검사하고, 넘으면 색 단계를 낮춰 150KB 이하로 자동 압축합니다.',
     },
     {
       id: 'transparent',
@@ -112,7 +125,7 @@ export function validatePackForKakao(input: ValidationInput): PackValidation {
     checks,
     summary: blockingFail.length
       ? `규격 미충족: ${blockingFail.map((c) => c.label).join(', ')}`
-      : `${KAKAO_RULES.count}종 · ${KAKAO_RULES.size}×${KAKAO_RULES.size}px · PNG · 개당 2MB 이하 규격으로 내보낼 수 있습니다.`,
+      : `${frames.length}종 · ${rules.size}×${rules.size}px · ${input.animated ? 'APNG/GIF' : 'PNG'} · 개당 ${formatBytes(rules.maxBytes)} 이하로 내보낼 수 있습니다.`,
   };
 }
 
@@ -124,19 +137,26 @@ export interface FileCheckInput {
   height: number;
 }
 
-export function validateKakaoFiles(files: FileCheckInput[]): PackValidation {
+export function validateKakaoFiles(
+  files: FileCheckInput[],
+  options: { maxBytes?: number; animated?: boolean } = {},
+): PackValidation {
+  const maxBytes = options.maxBytes ?? (options.animated ? KAKAO_ANIMATED_RULES.maxBytes : KAKAO_RULES.maxBytes);
   const countOk = files.length === KAKAO_RULES.count;
   const pixelOk = files.every((f) => f.width === KAKAO_RULES.size && f.height === KAKAO_RULES.size);
-  const byteOk = files.every((f) => f.bytes <= KAKAO_RULES.maxBytes);
+  const byteOk = files.every((f) => f.bytes <= maxBytes);
   const heaviest = files.reduce((m, f) => Math.max(m, f.bytes), 0);
+  const compressed = files.filter((f) => f.bytes <= maxBytes).length;
 
   const checks: PackCheck[] = [
     {
       id: 'count',
       label: `파일 ${KAKAO_RULES.count}개 (실제 ${files.length}개)`,
       pass: countOk,
-      blocking: true,
-      detail: countOk ? '24개 파일이 준비되었습니다.' : '24개 파일이 아닙니다.',
+      blocking: false,
+      detail: countOk
+        ? '32개 파일이 준비되었습니다.'
+        : `${files.length}개 파일입니다. 32종이 아니면 카카오 제안 규격에는 그대로 못 맞지만, 내 대화방용으로는 사용할 수 있습니다.`,
     },
     {
       id: 'pixel',
@@ -147,18 +167,22 @@ export function validateKakaoFiles(files: FileCheckInput[]): PackValidation {
     },
     {
       id: 'bytes',
-      label: '개당 2MB 이하',
+      label: `개당 ${formatBytes(maxBytes)} 이하`,
       pass: byteOk,
       blocking: true,
-      detail: `가장 큰 파일 ${formatBytes(heaviest)} / 한도 ${formatBytes(KAKAO_RULES.maxBytes)}`,
+      detail: `가장 큰 파일 ${formatBytes(heaviest)} / 한도 ${formatBytes(maxBytes)} · ${compressed}/${files.length}개 충족`,
     },
   ];
 
-  const failed = checks.filter((c) => !c.pass);
+  const failed = checks.filter((c) => c.blocking && !c.pass);
   return {
     ok: failed.length === 0,
     checks,
-    summary: failed.length ? failed.map((c) => c.label).join(' · ') : '모든 파일이 카카오 제안 규격을 통과했습니다.',
+    summary: failed.length
+      ? failed.map((c) => c.label).join(' · ')
+      : countOk
+        ? `모든 파일이 카카오 제안 규격(${formatBytes(maxBytes)})을 통과했습니다.`
+        : `${files.length}개 파일이 ${formatBytes(maxBytes)} · ${KAKAO_RULES.size}px 기준을 통과했습니다(32종 구성 시 카카오 제안 규격).`,
   };
 }
 

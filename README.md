@@ -18,7 +18,10 @@
 | 톡 답장 | `/reply` | 대화 붙여넣기 → 감정/의도 판독 → 내 얼굴 답장 3장 (평균 응답 < 2s, 생성 호출 0) |
 | 오늘의 브리핑 | `/brief` | 요일·시간대 기반 8컷 자동 큐레이션 (원가 0) |
 | 굿즈 | `/goods` | 아크릴·포토카드·머그 주문 (POD 시뮬레이션) |
-| 카카오 패키저 | `/studio/pack/[id]` | 24종 · 360×360 · PNG · 개당 2MB 검증 후 ZIP (Studio) |
+| 표현 형태 5종 | `/studio/upload` | 상황·행동 · 짤/뉴스 자막 · 2인 케미(사진 2장) · 글자 주인공 · 이펙트/2단 콤보 팩 |
+| 움직이는 이모티콘 | `/studio/pack/[id]` | 8가지 모션(바운스·깜빡임·흔들림·반짝이·두근거림·둥실·끄덕·스윙) 미리보기 + GIF/APNG(360×360, 투명) |
+| 한글 레이어 | 팩 컷 관리 · `/editor` | 손글씨·고딕·굵은체·도장 + 말풍선 5종 + 이펙트 7종을 캔버스로 합성(위치·문구·회전 편집) |
+| 카카오 패키저 | `/studio/pack/[id]` | 32종 · 360×360 · 개당 150KB 자동 압축 · 흰색 외곽선 · ZIP (Studio) |
 | 요금제/결제 | `/pricing` → `/checkout/[orderId]` | Plus/Studio/크레딧, 청약철회 동의 · 서버 금액 검증 · 원장 지급 |
 | 마이페이지 | `/billing` | 크레딧 원장 · 결제 내역 · 승인 결과 복구 · 내 팩 |
 | 운영 콘솔 | `/admin` | 매출 · 결제 대사/미지급 복구 · 플랜 분포 · 최다 사용 컷 · 얼굴 파기 현황/실행 |
@@ -51,7 +54,7 @@ node scripts/ops-report.mjs    # KPI 리포트 → reports/ops-YYYY-MM-DD.md
 ## 기술 스택
 
 Next.js 14 (App Router) · React 18 · TypeScript strict · Tailwind CSS · Zod · Zustand
-이미지: **절차적 SVG 렌더러**(서버/클라이언트 공용, 0.1초) · 내보내기: Canvas + gifenc + JSZip
+이미지: **절차적 SVG 렌더러**(서버/클라이언트 공용, 0.1초) · 내보내기: Canvas + gifenc + 자체 APNG 조립기 + JSZip
 데이터: 파일 저장소(`.data/store.json`) 또는 **원격 저장소** — **Firebase Firestore**(`FIREBASE_*`) 또는 **KV**(`KV_REST_API_URL`·`KV_REST_API_TOKEN`).
 우선순위는 Firestore → KV → 파일이며 `STORE_BACKEND` 로 고정할 수 있습니다. 둘 다 CAS(동시 쓰기 보호)를 지원하고, 장애 시 15초 폴백 후 자동 복구합니다.
 서버리스에서는 파일이 `/tmp`(휘발)로 내려가므로 운영에는 원격 저장소 설정을 권장합니다. `/api/health` 의 `store.mode`·`store.backend` 로 확인하세요.

@@ -8,9 +8,13 @@ import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
 import { FrameBottomSheet } from '@/components/studio/FrameBottomSheet';
 import { compressPhotoFile, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
-import { downloadBlob, exportKakaoPackZip, exportPackZip, renderPngBlob } from '@/lib/export';
+import { downloadBlob, exportKakaoPackZip, exportPackZip, renderComboPreview, renderPngBlob } from '@/lib/export';
 import { formatKstDateTime } from '@/lib/time';
 import { formatBytes, KAKAO_RULES, type PackValidation } from '@/lib/packager';
+import { packFormatById } from '@/lib/pack-formats';
+import { MOTION_TEMPLATES, type MotionId } from '@/lib/studio/motion';
+import { designSheetChecklist, isCharacterDesignSheet } from '@/lib/ai/character-sheet';
+import type { TextLayer } from '@/lib/studio/layers';
 import type { FrameView, Pack, Plan } from '@/lib/types';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { shareKakaoFeed } from '@/lib/kakao-share';
@@ -51,6 +55,14 @@ export function PackViewer({
   const [actionBusy, setActionBusy] = useState<'download' | 'share' | null>(null);
   const [sheetNotice, setSheetNotice] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
+  const [outline, setOutline] = useState(4);
+  const [kakaoMotion, setKakaoMotion] = useState<MotionId | 'none'>('none');
+  const [kakaoAnim, setKakaoAnim] = useState<'apng' | 'gif'>('apng');
+  const [secondPreview, setSecondPreview] = useState<string | null>(null);
+  const [comboBusy, setComboBusy] = useState<string | null>(null);
+  const [comboNotice, setComboNotice] = useState<string | null>(null);
+  const formatInfo = initialPack.format ? packFormatById(initialPack.format) : undefined;
+  const duoScope = `duo:${initialPack.id}` as const;
   const closeSheet = useCallback(() => { setSelectedId(null); setShareLink(null); }, []);
 
   // AI 컷 생성: 아직 이미지가 없는 컷만 3개씩 병렬로 만든다 (사진은 이 탭의 임시 보관본)
@@ -63,10 +75,16 @@ export function PackViewer({
       setPhotoMissing(true);
       return;
     }
+    if (formatInfo?.needsSecondPhoto) {
+      const duo = loadPhoto(duoScope);
+      setSecondPreview(duo);
+      // 두 번째 사진이 없으면 생성 요청을 보내지 않는다 (서버도 SECOND_PHOTO_REQUIRED 로 막는다)
+      if (!duo) return;
+    }
     setGenerating(true);
     void runLimited(missing, 3, async (id) => {
       try {
-        const url = await renderImage({ kind: 'frame', frameId: id }, photo, `pack:${initialPack.id}`, initialPack.subjectKind ?? 'person');
+        const url = await renderImage({ kind: 'frame', frameId: id }, photo, `pack:${initialPack.id}`, initialPack.subjectKind ?? 'person', formatInfo?.needsSecondPhoto ? duoScope : undefined);
         setFrames((prev) => prev.map((f) => (f.id === id ? { ...f, spec: { ...f.spec, imageUrl: url } } : f)));
       } catch (e) {
         setGenErrors((prev) => ({ ...prev, [id]: locale === 'en' ? 'Generation failed. Try again.' : (e as Error).message }));
@@ -119,7 +137,7 @@ export function PackViewer({
     setActionBusy('download');
     setSheetNotice(null);
     try {
-      const blob = await renderPngBlob(f.spec, { watermark });
+      const blob = await renderPngBlob(f.spec, { watermark, outline });
       downloadBlob(blob, `${initialPack.id}-${f.index + 1}-${f.label}.png`);
       setSheetNotice(t('PNG를 기기에 저장했어요.', 'Saved the PNG to your device.'));
     } catch {
@@ -244,12 +262,50 @@ export function PackViewer({
       const items = visible
         .filter((f) => f.ready)
         .map((f) => ({ spec: f.spec, filename: `${String(f.index + 1).padStart(2, '0')}-${f.label}` }));
-      const blob = await exportPackZip(items, { watermark });
+      const blob = await exportPackZip(items, { watermark, outline });
       downloadBlob(blob, `emotihak-${initialPack.id}.zip`);
       setNotice(t(`${items.length}컷을 ZIP으로 내려받았어요.`, `Downloaded ${items.length} cuts as a ZIP file.`));
     } finally {
       setZipBusy(false);
     }
+  }
+
+  async function onSecondPhoto(file: File) {
+    try {
+      const compressed = await compressPhotoFile(file);
+      savePhoto(compressed, duoScope);
+      setSecondPreview(compressed);
+      setGenErrors({});
+      setGenRound((round) => round + 1);
+    } catch (e) {
+      setNotice(locale === 'en' ? 'Something went wrong. Please try again.' : (e as Error).message);
+    }
+  }
+
+  async function previewCombo(top: FrameView) {
+    if (!top.comboPairId) return;
+    const bottom = visible.find((frame) => frame.id === top.comboPairId);
+    if (!bottom?.ready) {
+      setComboNotice(t('짝이 되는 아래 컷이 아직 준비되지 않았어요.', 'The paired lower panel is not ready yet.'));
+      return;
+    }
+    setComboBusy(top.id);
+    setComboNotice(null);
+    try {
+      const blob = await renderComboPreview(top.spec, bottom.spec, { watermark, outline });
+      downloadBlob(blob, `emotihak-combo-${initialPack.id}-${top.index + 1}.png`);
+      setComboNotice(t('위아래로 이어지는 2단 합체 미리보기를 저장했어요. 두 장을 연달아 보내면 그림이 이어집니다.', 'Saved the stacked combo preview. Send the two panels one after another and they connect.'));
+    } catch {
+      setComboNotice(t('합체 미리보기를 만들지 못했어요. 잠시 후 다시 시도해 주세요.', 'Could not build the combo preview. Please try again.'));
+    } finally {
+      setComboBusy(null);
+    }
+  }
+
+  function applyLayers(frameId: string, layers: TextLayer[]) {
+    setFrames((previous) => previous.map((frame) => frame.id === frameId
+      ? { ...frame, textLayers: layers, spec: { ...frame.spec, textLayers: layers } }
+      : frame));
   }
 
   async function downloadKakao() {
@@ -259,12 +315,17 @@ export function PackViewer({
       const items = visible
         .filter((f) => f.ready)
         .map((f) => ({ spec: f.spec, filename: `${f.index + 1}-${f.label}` }));
-      const result = await exportKakaoPackZip(items, { watermark });
+      const result = await exportKakaoPackZip(items, {
+        watermark,
+        outline,
+        motion: kakaoMotion,
+        animationFormat: kakaoAnim,
+      });
       downloadBlob(result.blob, `emotihak-kakao-${initialPack.id}.zip`);
       setKakaoFiles(result.files);
       setKakaoNotice(
         result.validation.ok
-          ? `${result.files.length}종 · ${KAKAO_RULES.size}×${KAKAO_RULES.size}px 패키징 완료 (${result.validation.summary})`
+          ? `${result.files.length}종 · ${KAKAO_RULES.size}×${KAKAO_RULES.size}px 패키징 완료 · 자동 압축 ${result.compressed}개 (${result.validation.summary})`
           : `패키징은 완료했지만 규격 미충족: ${result.validation.summary}`,
       );
     } catch {
@@ -328,6 +389,32 @@ export function PackViewer({
         {notice ? <p className="mt-2 text-xs font-bold text-mint">{notice}</p> : null}
       </div>
 
+      {formatInfo ? (
+        <div className="card p-5">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="chip !border-primary/40 !bg-primary/10 !text-primary-dark">{formatInfo.emoji} {locale === 'en' ? formatInfo.labelEn : formatInfo.label}</span>
+            {initialPack.textMode === 'layer' ? (
+              <span className="chip">{t('AI 글자 없음 · 한글 레이어 합성', 'No AI lettering · Korean layers')}</span>
+            ) : null}
+            {formatInfo.needsSecondPhoto ? <span className="chip">{t('사진 2장', 'Two photos')}</span> : null}
+          </div>
+          <p className="mt-2 text-[12px] leading-relaxed text-sub">{locale === 'en' ? formatInfo.descriptionEn : formatInfo.description}</p>
+          {isCharacterDesignSheet(initialPack.designSheet) ? (
+            <details className="mt-3">
+              <summary className="cursor-pointer text-xs font-black text-ink">{t('고정 캐릭터 디자인 시트 (전 컷 공통)', 'Locked character design sheet (all cuts)')}</summary>
+              <ul className="mt-2 grid gap-1 text-[11px] text-sub sm:grid-cols-2">
+                {designSheetChecklist(initialPack.designSheet).map((row) => (
+                  <li key={row.id} className="flex gap-1">
+                    <span className="shrink-0 font-bold text-ink">{row.label}:</span>
+                    <span className="min-w-0 break-words">{row.value}</span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ) : null}
+        </div>
+      ) : null}
+
       {aiPack && (photoMissing || Object.keys(genErrors).length > 0 || generating) ? (
         <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
           {photoMissing ? (
@@ -361,6 +448,32 @@ export function PackViewer({
               </button>
             </>
           )}
+        </div>
+      ) : null}
+
+      {formatInfo?.needsSecondPhoto ? (
+        <div className="card flex flex-wrap items-center justify-between gap-3 p-4">
+          <div className="min-w-0">
+            <p className="text-sm font-bold">{t('두 번째 인물 사진', 'Second photo')}</p>
+            <p className="mt-0.5 text-xs text-sub">
+              {secondPreview
+                ? t('두 번째 사진이 연결되었어요. 2인 구도 컷을 만들 수 있어요.', 'Second photo linked. Two-person cuts can be generated.')
+                : t('이 팩은 사진 2장이 필요해요. 같은 사진을 다시 올리면 2인 컷을 그려 드립니다.', 'This pack needs two photos. Add the second photo to draw two-person cuts.')}
+            </p>
+          </div>
+          <label className="btn-primary cursor-pointer !py-2 text-xs">
+            {secondPreview ? t('사진 변경', 'Change photo') : t('사진 올리기', 'Add photo')}
+            <input
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) => {
+                const f = e.target.files?.[0];
+                if (f && window.confirm(t('두 번째 사진도 이미지 생성 시 Google Gemini로 전송되며 서버에 저장되지 않습니다. 계속할까요?', 'The second photo is sent to Google Gemini for generation and is not stored. Continue?'))) void onSecondPhoto(f);
+                e.target.value = '';
+              }}
+            />
+          </label>
         </div>
       ) : null}
 
@@ -461,7 +574,7 @@ export function PackViewer({
       <div className="rounded-2xl border-2 border-dashed border-line p-4 text-center text-xs leading-relaxed text-sub">
         {locale === 'en' ? <>Share the exported PNG or GIF in chats just like a photo.<br />Every caption remains editable before you download and share.</> : <>
         카톡에서는 내보낸 PNG/GIF를 사진처럼 보내면 됩니다. <br />
-        <strong className="text-ink">Studio 플랜</strong>은 카카오 제안 규격(360×360, 개당 2MB 이하) 검증·패키징까지
+        <strong className="text-ink">Studio 플랜</strong>은 카카오 제안 규격(32종·360×360, 개당 150KB) 자동 압축·검증·패키징까지
         자동으로 해드려요.
         </>}
       </div>
@@ -474,6 +587,7 @@ export function PackViewer({
           busy={actionBusy}
           notice={sheetNotice}
           requiresRedraw={aiPack}
+          watermark={watermark}
           onClose={closeSheet}
           onDownload={() => void downloadOne(selectedFrame)}
           onShare={() => void shareOne(selectedFrame)}
@@ -481,6 +595,7 @@ export function PackViewer({
           onCopyShareLink={() => void copyShareLink()}
           onRevokeShareLink={() => void revokeShareLink(selectedFrame.id)}
           onSaveCaption={(line) => saveCaption(selectedFrame.id, line)}
+          onLayersSaved={(layers) => applyLayers(selectedFrame.id, layers)}
         />
       ) : null}
     </div>

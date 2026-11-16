@@ -3,6 +3,9 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { Locale } from '@/lib/i18n/locale';
+import type { TextLayer } from '@/lib/studio/layers';
+import type { CharacterDesignSheet } from '@/lib/ai/character-sheet';
+import type { PackFormatId } from '@/lib/pack-formats';
 
 export type Plan = 'FREE' | 'PLUS' | 'STUDIO';
 
@@ -107,6 +110,8 @@ export interface StickerSpec {
   background: BackgroundKey;
   line: string;
   linePosition: 'top' | 'bottom';
+  /** 앱이 합성하는 한글 대사·이펙트 레이어 (AI 이미지 위에 얹는다) */
+  textLayers?: TextLayer[];
 }
 
 // ── 데이터 모델 ───────────────────────────────────────────────
@@ -168,6 +173,10 @@ export type SubjectKind = 'person' | 'pet';
 export interface CharacterSheet {
   subjectKind?: SubjectKind;
   mode?: CompositionMode;
+  /** 선택한 표현 형태(팩 테마). 없으면 기존 감정 위주 구성 */
+  format?: PackFormatId;
+  /** 'layer' 면 AI 는 글자 없이 그리고 앱이 한글을 합성한다 */
+  textMode?: 'baked' | 'layer';
   id: string;
   userId: string;
   faceId: string;
@@ -197,6 +206,12 @@ export interface Frame {
   accessoryIds?: string[];
   /** AI 생성 이미지 ID (`/api/images/<id>`) */
   imageId?: string;
+  /** 앱이 합성하는 글자·이펙트 레이어 (PNG/GIF/APNG/ZIP 에 모두 반영) */
+  textLayers?: TextLayer[];
+  /** 2단 합체 콤보에서 위/아래 조각 */
+  comboRole?: 'top' | 'bottom';
+  /** 짝이 되는 컷의 id (콤보) */
+  comboPairId?: string;
   /** 운영 검토 후 숨긴 콘텐츠 — 다시 생성하거나 이미지를 제공하지 않는다 */
   hiddenAt?: string;
 }
@@ -216,6 +231,12 @@ export interface Pack {
   sheetId: string;
   /** 팩 생성 시 확정한 시안 이미지 (같은 시트에서 다른 팩을 만들어도 변경되지 않음) */
   characterReferenceImageId?: string;
+  /** 표현 형태(팩 테마) — 없으면 기존 감정 위주 구성 */
+  format?: PackFormatId;
+  /** 'layer' 면 AI 는 글자 없이 그리고 앱이 한글 레이어를 합성한다 */
+  textMode?: 'baked' | 'layer';
+  /** 전 컷에 강제하는 고정 캐릭터 디자인 시트 */
+  designSheet?: CharacterDesignSheet;
   tone: Tone;
   title: string;
   size: number;
