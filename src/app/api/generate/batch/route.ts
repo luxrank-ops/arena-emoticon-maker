@@ -11,6 +11,8 @@ import {
 } from '@/lib/ai/generate';
 import { buildFaceCondition } from '@/lib/ai/face-embedding';
 import { consumePlayGeneration } from '@/lib/play-usage';
+import { buildCharacterSheet } from '@/lib/ai/character-sheet';
+import { packFormatById } from '@/lib/pack-formats';
 
 const batchSchema = z.object({
   faceId: z.string().min(1),
@@ -26,6 +28,10 @@ const batchSchema = z.object({
   ).min(1).max(12),
   line: z.string().max(34).optional(),
   intensity: z.number().min(0).max(100).optional(),
+  /** 표현 형태(팩 테마) — 있으면 장면·구도 지시를 함께 넣는다 */
+  format: z.enum(['situation', 'parody', 'duo', 'typo', 'combo']).optional(),
+  /** 'layer' 면 글자 없이 생성하고 앱이 한글을 합성한다 */
+  textMode: z.enum(['baked', 'layer']).optional(),
 });
 
 /**
@@ -69,6 +75,15 @@ export async function POST(req: Request) {
     }
 
     // 배치 AI 생성 호출 (Identity Lock: 얼굴 임베딩 주입, 같은 사람 다른 표정)
+    //  · 고정 캐릭터 디자인 시트를 서버에서 확정해 전 컷 프롬프트에 같은 잠금 블록을 넣는다.
+    const designSheet = buildCharacterSheet({
+      tone: body.tone,
+      subjectKind: 'person',
+      mode: 'face',
+      palette: profile.palette,
+      signature: profile.signature,
+    });
+    const packFormat = body.format ? packFormatById(body.format) : undefined;
     const playUsage = await consumePlayGeneration(user, body.emotions.length);
     const batchResult = await generateEmoticonBatch({
       faceId: body.faceId,
@@ -79,6 +94,9 @@ export async function POST(req: Request) {
       line: body.line,
       intensity: body.intensity ?? 80,
       faceCondition: condition,
+      designSheet,
+      formatDirectives: packFormat ? { scene: packFormat.prompt.scene, layout: packFormat.prompt.layout } : undefined,
+      textMode: body.textMode ?? packFormat?.textMode,
     });
 
     // 생성 이벤트 로깅 (각 표정별)

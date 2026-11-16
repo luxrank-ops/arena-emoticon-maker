@@ -21,6 +21,9 @@ import { comicExpressionById } from '@/lib/comic-expressions';
 import { loadImage } from '@/lib/images';
 import { localizedComicExpressions, localizedPhotoStickerScenes } from '@/lib/i18n/presets';
 import type { Locale } from '@/lib/i18n/locale';
+import { buildCharacterSheet } from '@/lib/ai/character-sheet';
+import { defaultLayerOf, formatCuts, packFormatById, type PackFormatId } from '@/lib/pack-formats';
+import { layerFromLine, normalizeLayer, normalizeLayers } from '@/lib/studio/layers';
 
 const FRAME_INTERVAL_MS = 850;
 
@@ -52,10 +55,19 @@ export function tonesForPlan(plan: 'FREE' | 'PLUS' | 'STUDIO'): Tone[] {
       ];
 }
 
-export async function createSheet(userId: string, faceId: string, tone: Tone, mode: CompositionMode = 'face', subjectKind: SubjectKind = 'person') {
+export async function createSheet(
+  userId: string,
+  faceId: string,
+  tone: Tone,
+  mode: CompositionMode = 'face',
+  subjectKind: SubjectKind = 'person',
+  formatId?: PackFormatId,
+) {
   return withDB((db) => {
     const face = db.faces.find((f) => f.id === faceId && f.userId === userId);
     if (!face) throw new PackError('FACE_NOT_FOUND', '얼굴 정보를 찾을 수 없습니다');
+    const format = formatId ? packFormatById(formatId) : undefined;
+    if (formatId && !format) throw new PackError('INVALID_FORMAT', '알 수 없는 표현 형태입니다');
 
     const base = Date.now();
     const variants = [
@@ -87,6 +99,7 @@ export async function createSheet(userId: string, faceId: string, tone: Tone, mo
       tone,
       mode,
       subjectKind,
+      ...(format ? { format: format.id, textMode: format.textMode } : {}),
       variants,
       chosenKey: null,
       createdAt: new Date().toISOString(),
@@ -108,7 +121,16 @@ export async function chooseSheet(userId: string, sheetId: string, variantKey: s
   });
 }
 
-export async function createPack(userId: string, sheetId: string, size: number, title?: string, unlimited = false, comicExpressionIds?: string[], locale: Locale = 'ko') {
+export async function createPack(
+  userId: string,
+  sheetId: string,
+  size: number,
+  title?: string,
+  unlimited = false,
+  comicExpressionIds?: string[],
+  locale: Locale = 'ko',
+  formatId?: PackFormatId,
+) {
   const { sheet, face } = await withDB((db) => {
     const s = db.sheets.find((x) => x.id === sheetId && x.userId === userId);
     if (!s) throw new PackError('SHEET_NOT_FOUND', '캐릭터 시트를 찾을 수 없습니다');
@@ -132,10 +154,21 @@ export async function createPack(userId: string, sheetId: string, size: number, 
       .flatMap((p) => p.frames.map((f) => f.templateId)),
   );
 
-  if (sheet.tone === 'photo-sticker' && size !== 12 && size !== 16) throw new PackError('INVALID_SIZE', '실사 카톡 스티커는 12컷 또는 16컷을 선택해 주세요');
-  if (size === 16 && sheet.tone !== 'photo-sticker') throw new PackError('INVALID_SIZE', '16컷은 실사 카톡 스티커에서만 선택할 수 있습니다');
+  const packFormat = sheet.format ? packFormatById(sheet.format) : formatId ? packFormatById(formatId) : undefined;
+  if (sheet.tone === 'photo-sticker' && !packFormat && size !== 12 && size !== 16) throw new PackError('INVALID_SIZE', '실사 카톡 스티커는 12컷 또는 16컷을 선택해 주세요');
+  if (size === 16 && sheet.tone !== 'photo-sticker' && !packFormat) throw new PackError('INVALID_SIZE', '16컷은 실사 카톡 스티커에서만 선택할 수 있습니다');
   if (comicExpressionIds && (comicExpressionIds.length !== size || new Set(comicExpressionIds).size !== size || comicExpressionIds.some((id) => !comicExpressionById(id)))) throw new PackError('INVALID_COMIC_SELECTION', '선택한 코믹 표정을 컷 수에 맞게 확인해 주세요.');
-  const templates = comicExpressionIds
+  if (packFormat && comicExpressionIds) throw new PackError('INVALID_COMIC_SELECTION', '표현 형태 팩에는 코믹 표정을 함께 고를 수 없습니다.');
+  const formatCutList = packFormat ? formatCuts(packFormat.id, size, locale) : null;
+  if (packFormat && (!formatCutList || formatCutList.length < size)) throw new PackError('INVALID_SIZE', `${packFormat.label} 팩은 최대 ${packFormat.cuts.length}컷까지 만들 수 있습니다.`);
+  const templates = formatCutList
+    ? formatCutList.map((cut) => ({
+        id: `fmt-${packFormat!.id}-${cut.id}`,
+        label: cut.label,
+        line: cut.line,
+        emotion: cut.emotion,
+      }))
+    : comicExpressionIds
     ? localizedComicExpressions(locale)
         .filter((item) => comicExpressionIds.includes(item.id) && comicExpressionById(item.id))
         .sort((a, b) => comicExpressionIds.indexOf(a.id) - comicExpressionIds.indexOf(b.id))
@@ -147,24 +180,49 @@ export async function createPack(userId: string, sheetId: string, size: number, 
         : composePackTemplates(size, new Date(), recent);
   const packId = uid('pack');
   const now = Date.now();
+  const textMode: 'baked' | 'layer' = packFormat?.textMode ?? sheet.textMode ?? 'baked';
 
-  const frames: Frame[] = templates.map((t, i) => ({
-    id: uid('frm'),
-    packId,
-    index: i,
-    emotion: t.emotion,
-    intensity: t.emotion === 'king' || t.emotion === 'angry' ? 88 : t.emotion === 'laugh' ? 82 : 62,
-    templateId: t.id,
-    ...(comicExpressionIds ? { comicExpressionId: comicExpressionIds[i] } : {}),
-    label: t.label,
-    line: t.line,
-    prop: 'none',
-    // 실사 스티커는 흰색 불투명 배경으로 생성되므로 투명 배경으로 표시하지 않는다.
-    background: sheet.tone === 'photo-sticker' ? 'cream' : 'transparent',
-    seed: (now % 100000) + i * 17,
-    readyAt: now + i * FRAME_INTERVAL_MS,
-    usageCount: 0,
-  }));
+  const frames: Frame[] = templates.map((t, i) => {
+    const cut = packFormat ? packFormat.cuts.find((item) => `fmt-${packFormat.id}-${item.id}` === t.id) : undefined;
+    const presetLayer = cut ? defaultLayerOf(cut) : null;
+    const textLayers = textMode === 'layer'
+      ? presetLayer
+        ? [normalizeLayer({ ...presetLayer, id: `cut-${cut!.id}` }, 0)]
+        : (() => { const layer = layerFromLine(t.line); return layer ? [layer] : []; })()
+      : undefined;
+    return {
+      id: uid('frm'),
+      packId,
+      index: i,
+      emotion: t.emotion,
+      intensity: t.emotion === 'king' || t.emotion === 'angry' ? 88 : t.emotion === 'laugh' ? 82 : 62,
+      templateId: t.id,
+      ...(comicExpressionIds ? { comicExpressionId: comicExpressionIds[i] } : {}),
+      label: t.label,
+      line: t.line,
+      prop: 'none',
+      // 실사 스티커는 흰색 불투명 배경으로 생성되므로 투명 배경으로 표시하지 않는다.
+      background: sheet.tone === 'photo-sticker' && !packFormat ? 'cream' : 'transparent',
+      seed: (now % 100000) + i * 17,
+      readyAt: now + i * FRAME_INTERVAL_MS,
+      usageCount: 0,
+      ...(cut?.comboRole ? { comboRole: cut.comboRole } : {}),
+      ...(textLayers && textLayers.length ? { textLayers } : {}),
+    };
+  });
+
+  // 콤보 짝(위/아래)을 프레임 id 로 연결한다.
+  if (packFormat?.id === 'combo') {
+    for (const cut of packFormat.cuts) {
+      if (cut.comboRole !== 'top' || !cut.comboPair) continue;
+      const top = frames.find((f) => f.templateId === `fmt-combo-${cut.id}`);
+      const bottom = frames.find((f) => f.templateId === `fmt-combo-${cut.comboPair}`);
+      if (top && bottom) {
+        top.comboPairId = bottom.id;
+        bottom.comboPairId = top.id;
+      }
+    }
+  }
 
   try {
     if (!unlimited) await applyCredits({
@@ -188,6 +246,15 @@ export async function createPack(userId: string, sheetId: string, size: number, 
     sheetId,
     subjectKind: sheet.subjectKind ?? 'person',
     characterReferenceImageId: chosen?.imageId,
+    ...(packFormat ? { format: packFormat.id } : {}),
+    textMode,
+    designSheet: buildCharacterSheet({
+      tone: sheet.tone,
+      subjectKind: sheet.subjectKind ?? 'person',
+      mode: sheet.mode ?? 'face',
+      palette: face.palette,
+      signature: chosen?.signature ?? face.signature,
+    }),
     tone: sheet.tone,
     mode: sheet.mode ?? 'face',
     title: title?.trim() || (locale === 'en' ? 'My reaction stickers' : `${sheet.tone === 'caricature' ? '개그' : '나의'} 이모티콘 팩`),
@@ -228,6 +295,7 @@ export function specFromIdentity(identity: IdentitySnapshot, frame: Frame): Stic
     line: frame.line,
     linePosition: 'bottom',
     imageUrl: frame.imageId ? `/api/images/${frame.imageId}` : undefined,
+    ...(frame.textLayers && frame.textLayers.length ? { textLayers: frame.textLayers } : {}),
   };
 }
 
@@ -318,6 +386,7 @@ export async function composeFrame(
     intensity?: number;
     emotion?: Frame['emotion'];
     comicExpressionId?: string | null;
+    textLayers?: Frame['textLayers'];
   },
 ): Promise<FrameView> {
   return withDB((db) => {
@@ -332,6 +401,11 @@ export async function composeFrame(
     if (patch.emotion) frame.emotion = patch.emotion;
     if (patch.comicExpressionId === null) delete frame.comicExpressionId;
     else if (patch.comicExpressionId !== undefined) frame.comicExpressionId = patch.comicExpressionId;
+    if (patch.textLayers !== undefined) {
+      const layers = normalizeLayers(patch.textLayers);
+      if (layers.length) frame.textLayers = layers;
+      else delete frame.textLayers;
+    }
 
     const identity = identityOf(db, pack) ?? fallbackIdentity(pack.tone);
     logEvent(db, userId, 'frame_composed', { frameId, packId: pack.id });

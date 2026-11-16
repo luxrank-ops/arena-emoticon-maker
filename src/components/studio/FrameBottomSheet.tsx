@@ -4,8 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { Sticker } from '@/components/Sticker';
 import { ContentReportButton } from '@/components/moderation/ContentReportButton';
+import { FrameEffectsPanel } from '@/components/studio/FrameEffectsPanel';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import type { FrameView } from '@/lib/types';
+import type { TextLayer } from '@/lib/studio/layers';
 
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
@@ -23,6 +25,8 @@ export function FrameBottomSheet({
   onCopyShareLink,
   onRevokeShareLink,
   onSaveCaption,
+  onLayersSaved,
+  watermark = false,
 }: {
   frame: FrameView;
   packId: string;
@@ -37,6 +41,8 @@ export function FrameBottomSheet({
   onCopyShareLink: () => void;
   onRevokeShareLink: () => void;
   onSaveCaption: (line: string) => Promise<void>;
+  onLayersSaved?: (layers: TextLayer[]) => void;
+  watermark?: boolean;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLInputElement>(null);
@@ -184,6 +190,25 @@ export function FrameBottomSheet({
           <div className="mt-3 flex justify-center">
             <ContentReportButton packId={packId} frameId={frame.id} className="min-h-12 rounded-full border border-line px-4 py-3 text-xs font-bold text-sub hover:border-coral hover:text-coralink" />
           </div>
+
+          <details className="mt-4 rounded-xl border border-line bg-cream/50 p-3">
+            <summary className="cursor-pointer text-sm font-black text-ink">
+              {t('움직이는 이모티콘 · 한글 레이어', 'Motion & Korean layers')}
+            </summary>
+            <p className="mt-1 text-[11px] leading-relaxed text-sub">
+              {t(
+                '모션을 고르면 바로 움직이는 미리보기가 나오고, GIF·APNG(360×360, 투명)로 저장할 수 있어요. 한글 대사·도장·이펙트는 AI 이미지 위에 레이어로 얹힙니다.',
+                'Pick a motion for a live preview and save an animated GIF or APNG (360×360, transparent). Korean text, stamps and effects are layered on top.',
+              )}
+            </p>
+            <FrameEffectsPanel
+              spec={frame.spec}
+              frameId={frame.id}
+              locale={locale}
+              watermark={watermark}
+              onLayersSaved={onLayersSaved}
+            />
+          </details>
         </div>
       </div>
     </div>

@@ -9,6 +9,7 @@ import { localizedComicExpressions, toneCopy } from '@/lib/i18n/presets';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import type { Palette, SheetVariant, StickerSpec, Tone, SubjectKind } from '@/lib/types';
+import { packFormatById, type PackFormatId } from '@/lib/pack-formats';
 
 // ─────────────────────────────────────────────────────────────
 // 캐릭터 시안 선택 (AI 생성본)
@@ -26,6 +27,7 @@ export function SheetPicker({
   unlimited = false,
   alreadyChosen,
   locale = 'ko',
+  format = null,
 }: {
   sheetId: string;
   subjectKind?: SubjectKind;
@@ -36,13 +38,17 @@ export function SheetPicker({
   unlimited?: boolean;
   alreadyChosen: string | null;
   locale?: Locale;
+  format?: PackFormatId | null;
 }) {
   const router = useRouter();
   const t = (ko: string, en: string) => tr(locale, ko, en);
   const lp = (href: string) => localizedPath(locale, href);
   const expressions = localizedComicExpressions(locale);
+  const formatInfo = format ? packFormatById(format) : undefined;
+  const maxCuts = formatInfo?.cuts.length ?? 24;
+  const sizeOptions = (formatInfo ? (maxCuts >= 32 ? [12, 24, 32] : maxCuts >= 24 ? [12, 24] : [12]) : tone === 'photo-sticker' ? [12, 16] : [12, 24]) as readonly number[];
   const [chosen, setChosen] = useState<string | null>(alreadyChosen);
-  const [size, setSize] = useState<12 | 16 | 24>(12);
+  const [size, setSize] = useState<12 | 16 | 24 | 32>(12);
   const [comicMode, setComicMode] = useState(false);
   const [comicIds, setComicIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
@@ -130,13 +136,14 @@ export function SheetPicker({
       const packRes = await fetch('/api/packs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId, size, locale, ...(comicMode ? { comicExpressionIds: comicIds } : {}) }),
+        body: JSON.stringify({ sheetId, size, locale, ...(format ? { format } : {}), ...(comicMode ? { comicExpressionIds: comicIds } : {}) }),
       });
       const packJson = await packRes.json();
       if (!packRes.ok) throw new Error(locale === 'en' ? 'We could not create this pack. Check your credits and try again.' : (packJson?.error?.message ?? '팩을 만들지 못했어요'));
       // 시안 생성 시 사용한 사진만 새 팩에 연결한다.
       try {
         if (loadPhoto(`sheet:${sheetId}`)) linkPhoto(`sheet:${sheetId}`, `pack:${packJson.packId}`);
+        if (formatInfo?.needsSecondPhoto && loadPhoto(`duo:${sheetId}`)) linkPhoto(`duo:${sheetId}`, `duo:${packJson.packId}`);
       } catch {
         // 팩은 이미 생성되었으므로 중복 결제를 유발하지 않도록 이동한다. 팩에서 사진을 다시 올릴 수 있다.
       }
@@ -250,16 +257,23 @@ export function SheetPicker({
       </div>
 
       <div className="card p-5">
+        {formatInfo ? (
+          <div className="mb-4 rounded-xl border border-primary/25 bg-primary/5 px-4 py-3">
+            <p className="text-sm font-black">{formatInfo.emoji} {locale === 'en' ? formatInfo.labelEn : formatInfo.label}</p>
+            <p className="mt-1 text-[11px] leading-relaxed text-sub">{locale === 'en' ? formatInfo.descriptionEn : formatInfo.description}</p>
+            <p className="mt-1 text-[11px] font-bold text-primary-dark">{t('AI는 글자 없이 그리고, 한글 대사는 앱이 레이어로 합성합니다.', 'AI draws without lettering; the app composes Korean text layers.')}</p>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <p className="text-sm font-black">{t('팩 사이즈', 'Pack size')}</p>
             <p className="text-xs text-sub">{unlimited ? t('크레딧 차감 없음', 'No credit deduction') : t(`1컷 = 1크레딧 · 보유 ${credits}크레딧`, `1 cut = 1 credit · ${credits} credits available`)}</p>
           </div>
           <div className="flex gap-2">
-            {(tone === 'photo-sticker' ? [12, 16] as const : [12, 24] as const).map((s) => (
+            {sizeOptions.map((s) => (
               <button
                 key={s}
-                onClick={() => { setSize(s); if (comicMode) setComicIds(expressions.slice(0, s).map((item) => item.id)); }}
+                onClick={() => { setSize(s as 12 | 16 | 24 | 32); if (comicMode) setComicIds(expressions.slice(0, s).map((item) => item.id)); }}
                 className={clsx(
                   'rounded-xl border-2 px-4 py-2 text-sm font-black transition',
                   size === s ? 'border-ink bg-ink text-cream' : 'border-line bg-paper hover:border-ink',

@@ -14,6 +14,8 @@ const schema = z.object({
     '2d-cute', '3d-cartoon', 'sketch', 'mono', 'watercolor', 'caricature',
     'doodle', 'office-meme', 'clay-3d', 'pixel-art', 'photo-sticker',
   ]),
+  /** 표현 형태(팩 테마) 5종 — 없으면 기존 감정 위주 구성 */
+  format: z.enum(['situation', 'parody', 'duo', 'typo', 'combo']).optional(),
 });
 
 export async function POST(req: Request) {
@@ -26,7 +28,7 @@ export async function POST(req: Request) {
     if (!tonesForPlan(plan).includes(body.tone)) {
       return fail('PLAN_LIMIT', `${PLANS[plan].name} 플랜은 스타일 ${PLANS[plan].styles}종까지 사용할 수 있습니다`, 402);
     }
-    const sheet = await createSheet(user.id, body.faceId, body.tone, body.mode, body.subjectKind);
+    const sheet = await createSheet(user.id, body.faceId, body.tone, body.mode, body.subjectKind, body.format);
     return ok({ sheet });
   } catch (e) {
     return handleError(e);
