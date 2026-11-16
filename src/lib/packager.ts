@@ -36,9 +36,17 @@ export interface PackCheck {
 }
 
 export interface PackValidation {
+  /** 카카오 제안 규격(32종 포함)을 모두 충족하는가 — 제출 판정 */
   ok: boolean;
+  /** 32종 구성이 아니어도 내 대화방용 ZIP 을 만들 수 있는가 */
+  exportable: boolean;
   checks: PackCheck[];
   summary: string;
+}
+
+/** 개수(32종)만 빼고 내보내기를 막는 항목이 없는지 */
+export function canExport(checks: PackCheck[]): boolean {
+  return checks.filter((check) => check.blocking && check.id !== 'count').every((check) => check.pass);
 }
 
 interface ValidationInput {
@@ -65,7 +73,7 @@ export function validatePackForKakao(input: ValidationInput): PackValidation {
       id: 'count',
       label: `${rules.count}종 구성 (현재 ${frames.length}종)`,
       pass: countMatch,
-      blocking: false,
+      blocking: true,
       detail: countMatch
         ? '카카오 제안 규격과 동일한 32컷입니다.'
         : `${frames.length}컷 팩입니다. 카카오 스튜디오 제안은 32종이므로, 32컷 팩으로 만들면 그대로 제출할 수 있습니다.`,
@@ -122,6 +130,7 @@ export function validatePackForKakao(input: ValidationInput): PackValidation {
   const blockingFail = checks.filter((c) => c.blocking && !c.pass);
   return {
     ok: blockingFail.length === 0,
+    exportable: canExport(checks),
     checks,
     summary: blockingFail.length
       ? `규격 미충족: ${blockingFail.map((c) => c.label).join(', ')}`
@@ -153,7 +162,7 @@ export function validateKakaoFiles(
       id: 'count',
       label: `파일 ${KAKAO_RULES.count}개 (실제 ${files.length}개)`,
       pass: countOk,
-      blocking: false,
+      blocking: true,
       detail: countOk
         ? '32개 파일이 준비되었습니다.'
         : `${files.length}개 파일입니다. 32종이 아니면 카카오 제안 규격에는 그대로 못 맞지만, 내 대화방용으로는 사용할 수 있습니다.`,
@@ -177,6 +186,7 @@ export function validateKakaoFiles(
   const failed = checks.filter((c) => c.blocking && !c.pass);
   return {
     ok: failed.length === 0,
+    exportable: canExport(checks),
     checks,
     summary: failed.length
       ? failed.map((c) => c.label).join(' · ')

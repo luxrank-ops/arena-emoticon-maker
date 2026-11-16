@@ -187,7 +187,10 @@ check('규격이 360px · 150KB · 32종', KAKAO_RULES.size === 360 && KAKAO_RUL
 check('움직이는 규격은 APNG/GIF · 2MB', KAKAO_ANIMATED_RULES.format === 'apng' && KAKAO_ANIMATED_RULES.maxBytes === 2 * 1024 * 1024);
 const files = (count: number, bytes: number) => Array.from({ length: count }, (_, i) => ({ name: `${i}.png`, bytes, width: 360, height: 360 }));
 check('32개 · 150KB 이하 통과', validateKakaoFiles(files(32, 120 * 1024)).ok);
-check('12컷도 내보내기는 가능(개수는 비차단)', validateKakaoFiles(files(12, 100 * 1024)).ok);
+const twelve = validateKakaoFiles(files(12, 100 * 1024));
+check('12컷은 제안 규격 미충족(32종 아님)', twelve.ok === false && twelve.checks.find((c) => c.id === 'count')?.blocking === true);
+check('12컷도 내 대화방용 ZIP 은 만들 수 있다', twelve.exportable === true);
+check('용량 위반은 내보내기도 막는다', validateKakaoFiles(files(12, 200 * 1024)).exportable === false);
 check('150KB 초과는 차단', validateKakaoFiles(files(32, 160 * 1024)).ok === false);
 check('픽셀 위반은 차단', validateKakaoFiles([{ name: 'a.png', bytes: 1000, width: 320, height: 320 }]).ok === false);
 check('바이트 표기', formatBytes(150 * 1024) === '150.0KB');

@@ -543,7 +543,7 @@ export function PackViewer({
         <div className="mt-3 flex flex-wrap items-center gap-2">
           <button
             className="btn-primary !py-2 text-xs"
-            disabled={!done || kakaoBusy || !kakao.validation.ok || !kakao.packaging}
+            disabled={!done || kakaoBusy || !kakao.validation.exportable || !kakao.packaging}
             onClick={downloadKakao}
           >
             {kakaoBusy ? '패키징 중…' : '카카오 규격 ZIP 내려받기'}
@@ -554,7 +554,9 @@ export function PackViewer({
             </Link>
           ) : null}
           {kakao.packaging && !kakao.validation.ok ? (
-            <span className="text-[11px] text-sub">규격을 충족하면 내려받을 수 있어요</span>
+            <span className="text-[11px] leading-relaxed text-sub">
+              32종 구성이 아니어도 360px·150KB 기준을 지키면 내 대화방용 ZIP은 받을 수 있어요. 규격 미충족 항목은 validation.json에 남습니다.
+            </span>
           ) : null}
         </div>
 
