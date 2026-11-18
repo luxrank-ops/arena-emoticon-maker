@@ -77,5 +77,11 @@ check('ADMIN_LOGIN_ANY_IDENTIFIER 기본값 fail-closed', adminAccess.includes("
 check('원가 보호 플래그 기본값 유지(관리자 전용)', adminAccess.includes("process.env.GENERATION_ADMIN_ONLY ?? '1'"));
 check('env 예시도 fail-closed 기본값', read('.env.example').includes('ADMIN_LOGIN_ANY_IDENTIFIER=0'));
 
+// ── 8. 결제 미연동 시 충전 버튼 · 잘못된 JSON 400 ────────────
+check('요금제 화면이 결제 가능 여부로 크레딧 충전 버튼을 막음', pricingPage.includes('paymentsUnavailable()') && pricingPage.includes('충전 준비 중'));
+const apiLib = read('src/lib/api.ts');
+check('깨진 JSON 본문은 400 INVALID_JSON 으로 응답', apiLib.includes('e instanceof SyntaxError') && apiLib.includes("fail('INVALID_JSON'") && /INVALID_JSON'[\s\S]{0,80}?400\)/.test(apiLib));
+check('검증 오류(ZodError) 응답은 그대로 유지', apiLib.includes("fail('INVALID_INPUT'") && apiLib.includes('422'));
+
 console.log(`\n출시 준비 정적 점검: ${passed}개 통과`);
 console.log('Note: 브라우저·실기기·스토어 콘솔 동작은 이 점검 범위가 아닙니다.');

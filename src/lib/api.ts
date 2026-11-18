@@ -19,7 +19,19 @@ export function photoInputError(e: unknown) {
   return fail('ERR_IMG_INVALID_FORMAT', 'JPG, PNG, WebP 이미지만 업로드할 수 있습니다.', 400);
 }
 
+/**
+ * req.json() 은 깨진 본문·빈 본문에서 SyntaxError 를 던진다.
+ * 이는 서버 오류(500)가 아니라 보낸 쪽 요청 오류(400)이므로 INVALID_JSON 으로 내린다.
+ * (JSON.parse 를 쓰는 다른 내부 코드의 SyntaxError 와 섞이지 않도록 메시지를 함께 본다.)
+ */
+function isBadJsonBody(e: unknown): boolean {
+  return e instanceof SyntaxError && /json/i.test(e.message);
+}
+
 export function handleError(e: unknown) {
+  if (isBadJsonBody(e)) {
+    return fail('INVALID_JSON', '요청 본문이 올바른 JSON 형식이 아닙니다.', 400);
+  }
   if (e instanceof ZodError) {
     return fail('INVALID_INPUT', e.issues[0]?.message ?? '입력값을 확인해 주세요', 422);
   }
