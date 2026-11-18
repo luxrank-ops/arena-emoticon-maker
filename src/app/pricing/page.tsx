@@ -5,6 +5,7 @@ import { PLANS, PLAN_DISCLOSURES, SKUS, won } from '@/lib/pricing';
 import { getCurrentUser } from '@/lib/session';
 import { creditsLabel, effectivePlan, hasPlayEntitlement, isAdmin, isFullAccess, planLabel } from '@/lib/admin-access';
 import { playBillingEnabled } from '@/lib/play-purchases';
+import { checkoutSuspended, paymentsUnavailable } from '@/lib/payments';
 import { PLAY_CREDITS_PRODUCT_ID, PLAY_SUBSCRIPTION_PRODUCT_ID } from '@/lib/play-products';
 import { PlayBillingButton } from '@/components/payments/PlayBillingButton';
 
@@ -32,6 +33,9 @@ const FAQ = [
 export default async function PricingPage() {
   const user = await getCurrentUser();
   const fullAccess = isFullAccess(user);
+  // 결제(토스)가 아직 붙지 않았거나 새 주문이 멈춘 상태에서는 충전 버튼을 누를 수 없게 한다.
+  // (활성 상태에서는 기존 CheckoutButton 흐름이 그대로 동작한다.)
+  const checkoutReady = !paymentsUnavailable() && !checkoutSuspended();
 
   return (
     <div className="wrap py-12">
@@ -116,7 +120,11 @@ export default async function PricingPage() {
                 <div className="text-right">
                   <p className="text-lg font-black">{won(s.price)}원</p>
                   <div className="mt-1">
-                    <CheckoutButton sku={s.sku} label="충전" className="btn-dark !px-4 !py-1.5 text-[11px]" />
+                    {checkoutReady ? (
+                      <CheckoutButton sku={s.sku} label="충전" className="btn-dark !px-4 !py-1.5 text-[11px]" />
+                    ) : (
+                      <CheckoutButton sku={s.sku} label="충전 준비 중" disabled className="btn-dark !px-4 !py-1.5 text-[11px]" />
+                    )}
                   </div>
                 </div>
               </div>
