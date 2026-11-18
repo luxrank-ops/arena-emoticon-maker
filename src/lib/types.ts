@@ -359,6 +359,20 @@ export interface PlayUsage {
 }
 
 /**
+ * 무료 체험(일반 방문자) 이미지 생성 사용량.
+ *  · 일반 방문자에게 1~2컷 맛보기를 열면 컷 1장마다 실제 원가가 나간다.
+ *  · 그래서 사용자·IP·전체·월 상한을 저장소(Cloudflare KV 스냅샷)에 남겨 강제한다.
+ *  · bucket 문자열이 창(일/월)까지 포함한다 — 예: `img:user:guest_ab12:2026-11-18`.
+ */
+export interface TrialUsage {
+  id: string;
+  /** `img:<scope>:<subject>:<period>` 또는 `cut:user:<id>:<period>` */
+  bucket: string;
+  count: number;
+  updatedAt: string;
+}
+
+/**
  * 구글 플레이 인앱결제 구매 기록 (서버 검증 결과만 저장).
  *  · 자격은 계정(userId)에 귀속한다 — 기기·UA 신호가 아니다.
  *  · status 가 ACTIVE 이고 만료되지 않은 기록만 유료 자격으로 인정한다.

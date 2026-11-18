@@ -39,13 +39,21 @@ const admin = { role: 'admin' as const, plan: 'FREE' as const, credits: 12 };
 
 console.log('\n[1] UA 신호만으로는 유료 자격·AI 생성이 열리지 않는다 (P0-2)');
 process.env.GENERATION_ADMIN_ONLY = '1';
+// 무료 체험(2026-11-18)이 기본 켜짐이라, '닫혀 있을 때'의 차단을 먼저 확인한다.
+process.env.TRIAL_FREE_ENABLED = '0';
 check('isFullAccess(UA만) = false', adminAccess.isFullAccess(uaOnly) === false);
 check('isFullAccess(검증된 구매) = true', adminAccess.isFullAccess(verified) === true);
 check('isFullAccess(웹 FREE) = false', adminAccess.isFullAccess(web) === false);
 check('canUseAiGeneration(UA만) = false', adminAccess.canUseAiGeneration(uaOnly) === false);
-check('canUseAiGeneration(웹 FREE) = false', adminAccess.canUseAiGeneration(web) === false);
+check('canUseAiGeneration(웹 FREE) = false (체험 닫힘)', adminAccess.canUseAiGeneration(web) === false);
 check('canUseAiGeneration(검증된 구매) = true', adminAccess.canUseAiGeneration(verified) === true);
 check('canUseAiGeneration(관리자) = true', adminAccess.canUseAiGeneration(admin) === true);
+// 체험이 열려 있어도 '무제한(full)'이 아니라 '맛보기(trial)'다 — 팩·배치는 여전히 막힌다.
+process.env.TRIAL_FREE_ENABLED = '1';
+check('aiAccess(UA만) = trial', adminAccess.aiAccess(uaOnly) === 'trial');
+check('aiAccess(웹 FREE) = trial', adminAccess.aiAccess(web) === 'trial');
+check('isUnlimited(UA만) = false', adminAccess.isUnlimited(uaOnly) === false);
+delete process.env.TRIAL_FREE_ENABLED;
 check('effectivePlan(UA만) = FREE', adminAccess.effectivePlan(uaOnly) === 'FREE');
 check('watermarkFor(UA만) = true', adminAccess.watermarkFor(uaOnly) === true);
 check('watermarkFor(검증된 구매) = false', adminAccess.watermarkFor(verified) === false);

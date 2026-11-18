@@ -1,5 +1,7 @@
 import Link from 'next/link';
-import { isUnlimited } from '@/lib/admin-access';
+import { headers } from 'next/headers';
+import { aiAccess, isUnlimited } from '@/lib/admin-access';
+import { trialIpHashFrom, trialStatusFor } from '@/lib/free-trial';
 import { notFound } from 'next/navigation';
 import { SheetPicker } from '@/components/studio/SheetPicker';
 import { getCurrentUser } from '@/lib/session';
@@ -17,6 +19,8 @@ export default async function SheetPage({ params }: { params: Promise<{ id: stri
   const locale = await getLocale();
   const t = (ko: string, en: string) => tr(locale, ko, en);
   const lp = (href: string) => localizedPath(locale, href);
+  let requestHeaders: Headers | null = null;
+  try { requestHeaders = await headers(); } catch { requestHeaders = null; }
   let data: Awaited<ReturnType<typeof getSheetView>> | null = null;
   let purged = false;
   try {
@@ -53,6 +57,13 @@ export default async function SheetPage({ params }: { params: Promise<{ id: stri
 
   const { sheet, face } = data;
 
+  // 무료 체험 사용자에게는 '시안 1장 + 컷 2장' 체험 패널을 보여주고, 남은 수를 서버 기준으로 내려준다.
+  const access = aiAccess(user);
+  const trial = access === 'trial';
+  const trialStatus = trial
+    ? await trialStatusFor({ userId: user.id, ipHash: trialIpHashFrom((name) => requestHeaders?.get(name) ?? null) })
+    : null;
+
   return (
     <div className="wrap py-10">
       <nav className="mb-6 flex items-center gap-2 text-xs font-bold text-sub">
@@ -82,6 +93,8 @@ export default async function SheetPage({ params }: { params: Promise<{ id: stri
         alreadyChosen={sheet.chosenKey}
         locale={locale}
         format={sheet.format ?? null}
+        trial={trial}
+        trialStatus={trialStatus}
       />
 
       <p className="mt-8 text-center text-[11px] text-sub">

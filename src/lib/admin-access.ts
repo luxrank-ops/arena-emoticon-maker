@@ -102,19 +102,44 @@ export function generationAdminOnly(): boolean {
 }
 
 /**
+ * 무료 체험 개방 스위치 (2026-11-18).
+ *  · 기본값 1(켬) — 배포만으로 일반 방문자가 '시안 1장 + 컷 2장' 맛보기를 할 수 있다.
+ *  · 닫으려면 Worker 변수 TRIAL_FREE_ENABLED=0 (상한·원가 방어 코드는 그대로 남는다).
+ *  · 맛보기의 원가는 free-trial.ts 의 사용자·IP·하루·월 카운터가 막는다.
+ */
+export function trialFreeEnabled(): boolean {
+  const raw = String((globalThis as any).CLOUDFLARE_ENV?.TRIAL_FREE_ENABLED ?? process.env.TRIAL_FREE_ENABLED ?? '1').trim().toLowerCase();
+  return !(raw === '0' || raw === 'false' || raw === 'off');
+}
+
+/**
+ * AI 생성 접근 등급
+ *  · full    : 관리자·서버 검증된 플레이 구매자·DEMO 모드 — 제한 없이 생성
+ *  · trial   : 일반 방문자 — 무료 체험 상한(사용자·IP·전체) 안에서만 생성
+ *  · blocked : 관리자 전용 기간 + 체험 닫힘
+ */
+export type AiAccess = 'full' | 'trial' | 'blocked';
+
+/**
  * 이 사용자가 지금 AI 생성을 요청할 수 있는지 (서버 측 단일 판단 지점)
  *  · 관리자: 항상 허용.
  *  · 플레이 구매자: **서버에서 구매가 검증된 경우에만** 허용한다(원가 방어는 play-usage 일일 한도).
  *    UA/헤더만으로는 절대 열지 않는다 — 그 신호는 위조할 수 있다.
- *  · 그 밖의 사용자: GENERATION_ADMIN_ONLY 가 꺼져 있을 때만 허용(기본값은 켜짐).
+ *  · 그 밖의 사용자: GENERATION_ADMIN_ONLY 가 꺼져 있으면 허용, 켜져 있어도 무료 체험이 열려 있으면
+ *    'trial'(맛보기 전용 — 렌더 라우트가 free-trial 카운터로 원가를 막는다).
  */
-export function canUseAiGeneration(viewer: Viewer | null | undefined): boolean {
-  if (isAdmin(viewer)) return true;
+export function aiAccess(viewer: Viewer | null | undefined): AiAccess {
+  if (isAdmin(viewer)) return 'full';
   // DEMO_MODE 는 AI 를 호출하지 않고 절차적 SVG 로만 그리므로 비용이 0 → CI·시연 경로는 막지 않는다.
   const demo = String((globalThis as any).CLOUDFLARE_ENV?.DEMO_MODE ?? process.env.DEMO_MODE ?? '').trim();
-  if (demo === '1') return true;
-  if (hasPlayEntitlement(viewer)) return true;
-  return !generationAdminOnly();
+  if (demo === '1') return 'full';
+  if (hasPlayEntitlement(viewer)) return 'full';
+  if (!generationAdminOnly()) return 'full';
+  return trialFreeEnabled() ? 'trial' : 'blocked';
+}
+
+export function canUseAiGeneration(viewer: Viewer | null | undefined): boolean {
+  return aiAccess(viewer) !== 'blocked';
 }
 
 /** 운영자 코드가 서버에 설정돼 있는지. 미설정이면 관리자 로그인은 fail-closed. */

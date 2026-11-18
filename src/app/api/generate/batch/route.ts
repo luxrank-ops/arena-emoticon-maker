@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { AI_ADMIN_ONLY_MESSAGE, bypassesRateLimit, canUseAiGeneration } from '@/lib/admin-access';
+import { AI_ADMIN_ONLY_MESSAGE, aiAccess, bypassesRateLimit } from '@/lib/admin-access';
+import { TRIAL_MESSAGES } from '@/lib/free-trial';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { logEvent, withDB } from '@/lib/store';
@@ -51,7 +52,10 @@ export async function POST(req: Request) {
     const limited = enforceRateLimit(user.id, 'generateBatch', RATE_LIMITS.generateBatch);
     if (limited && !bypassesRateLimit(user)) return limited;
     // 베타 정비 기간에는 관리자만 AI 생성을 허용한다 (공정 이용·크레딧 소비 전에 막는다).
-    if (!canUseAiGeneration(user)) return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
+    const access = aiAccess(user);
+    if (access === 'blocked') return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
+    // 배치는 최대 12장을 한 번에 그린다 — 무료 체험에는 열지 않는다.
+    if (access === 'trial') return fail('TRIAL_ONLY', TRIAL_MESSAGES.packBlocked, 403);
 
     const body = batchSchema.parse(await req.json());
 

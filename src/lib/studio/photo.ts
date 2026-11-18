@@ -1,7 +1,7 @@
 'use client';
 
 import type { PreparedIdentity } from '@/lib/ai/consistency';
-import type { SubjectKind } from '@/lib/types';
+import type { Emotion, SubjectKind } from '@/lib/types';
 import { apiResponseError } from '@/lib/client-errors';
 
 // ─────────────────────────────────────────────────────────────
@@ -96,7 +96,9 @@ export function linkPhoto(from: PhotoScope, to: PhotoScope) {
 
 export type RenderTarget =
   | { kind: 'frame'; frameId: string; force?: boolean; accessoryIds?: string[] }
-  | { kind: 'sheet'; sheetId: string; variantKey: string };
+  | { kind: 'sheet'; sheetId: string; variantKey: string }
+  /** 무료 체험 컷 1장 — 팩에 붙이지 않고 결과 이미지만 받는다 */
+  | { kind: 'preview'; sheetId: string; variantKey: string; emotion: Emotion };
 
 // 같은 사진의 병렬 시안/컷 요청은 준비 작업을 공유한다.
 const preparing = new Map<string, Promise<PreparedIdentity>>();

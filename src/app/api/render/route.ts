@@ -1,6 +1,8 @@
 import { ACCESSORIES } from '@/lib/accessories';
 import { createHash } from 'node:crypto';
-import { AI_ADMIN_ONLY_MESSAGE, bypassesRateLimit, canUseAiGeneration, isUnlimited } from '@/lib/admin-access';
+import { AI_ADMIN_ONLY_MESSAGE, aiAccess, bypassesRateLimit, isUnlimited } from '@/lib/admin-access';
+import { consumeTrialImage, TRIAL_MESSAGES, TRIAL_VARIANT_KEYS, trialIpHash, trialToneAllowed } from '@/lib/free-trial';
+import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { preparedSchema } from '@/lib/ai/consistency';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
@@ -59,6 +61,16 @@ const schema = z.object({
       sheetId: z.string().min(3).max(80),
       variantKey: z.string().min(1).max(2),
     }),
+    /** 무료 체험 컷 1장 — 팩에 붙이지 않고 결과만 돌려준다 (시안 1장 + 컷 2장 맛보기) */
+    z.object({
+      kind: z.literal('preview'),
+      sheetId: z.string().min(3).max(80),
+      variantKey: z.string().min(1).max(2),
+      emotion: z.enum([
+        'joy', 'laugh', 'love', 'sad', 'angry', 'sulk', 'tired',
+        'surprised', 'smug', 'cry', 'king', 'blank',
+      ]),
+    }),
   ]),
 });
 
@@ -74,8 +86,10 @@ export async function POST(req: Request) {
     const user = await getCurrentUser();
     const limited = enforceRateLimit(user.id, 'generate', RATE_LIMITS.generate);
     if (limited && !bypassesRateLimit(user)) return limited;
-    // 베타 정비 기간에는 관리자만 AI 생성을 허용한다 (크레딧·사진 처리 전에 막는다).
-    if (!canUseAiGeneration(user)) return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
+    // 관리자 전용 기간에는 일반 방문자를 막되, 무료 체험(1~2컷)이 열려 있으면 'trial' 로 통과시킨다.
+    //  · trial 은 아래에서 사용자·IP·전체 상한을 소비하고, 팩 컷(frame)은 만들 수 없다.
+    const access = aiAccess(user);
+    if (access === 'blocked') return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
 
     const body = schema.parse(await req.json());
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(body.photo);
@@ -92,6 +106,11 @@ export async function POST(req: Request) {
     });
     if (!identityGuidance) return fail('CONSISTENCY_REQUIRED', '사진이 바뀌었거나 준비가 만료됐어요. 사진을 다시 확인해 주세요.', 409);
     const target = body.target;
+
+    // 무료 체험은 '맛보기'만 — 팩 컷(12컷 등 다량 생성)은 막는다.
+    if (access === 'trial' && target.kind === 'frame') {
+      return fail('TRIAL_ONLY', TRIAL_MESSAGES.packBlocked, 403);
+    }
 
     if (target.kind === 'frame' && target.accessoryIds && !target.force) {
       return fail('INVALID_INPUT', '악세사리를 적용하려면 다시 그려야 합니다', 422);
@@ -134,6 +153,39 @@ export async function POST(req: Request) {
       const variantIndex = sheet.variants.findIndex((v) => v.key === target.variantKey);
       if (variantIndex < 0) throw Object.assign(new Error('없는 시트 옵션입니다'), { code: 'VARIANT_NOT_FOUND' });
       const variant = sheet.variants[variantIndex];
+      if (target.kind === 'preview') {
+        // 무료 체험 컷: 시안 이미지를 스타일 기준으로만 쓰고 결과는 팩에 붙이지 않는다.
+        if (!variant.imageId) throw Object.assign(new Error('시안 이미지가 준비된 후 체험할 수 있습니다'), { code: 'REFERENCE_REQUIRED' });
+        const face = db.faces.find((f) => f.id === sheet.faceId);
+        if (!face) throw Object.assign(new Error('얼굴 정보를 찾을 수 없습니다'), { code: 'FACE_NOT_FOUND' });
+        return {
+          kind: 'preview' as const,
+          subjectKind: sheet.subjectKind ?? 'person',
+          sheetId: sheet.id,
+          variantKey: variant.key,
+          tone: sheet.tone as Tone,
+          mode: sheet.mode ?? 'face',
+          emotion: target.emotion as Emotion,
+          sceneAction: undefined as string | undefined,
+          line: '',
+          accessoryIds: [] as string[],
+          chosenImageId: variant.imageId as string,
+          variantNote: 'one expressive reaction sticker on a plain cream background, same person and same outfit as the reference',
+          charged: false,
+          previousImageId: undefined as string | undefined,
+          format: undefined as string | undefined,
+          textMode: 'baked' as 'baked' | 'layer',
+          designSheet: buildCharacterSheet({
+            tone: sheet.tone,
+            subjectKind: sheet.subjectKind ?? 'person',
+            mode: sheet.mode ?? 'face',
+            palette: face.palette,
+            signature: variant.signature,
+          }),
+          templateId: undefined as string | undefined,
+          comboRole: undefined as 'top' | 'bottom' | undefined,
+        };
+      }
       if (variant.imageId) return { existing: variant.imageId as string };
       return {
         kind: 'sheet' as const,
@@ -162,11 +214,20 @@ export async function POST(req: Request) {
       return ok({ imageId: plan.existing, imageUrl: `/api/images/${plan.existing}` });
     }
 
+    // 무료 체험 제한 — 스타일(실사 스티커 제외)과 시안 1장.
+    if (access === 'trial') {
+      if (!trialToneAllowed(plan.tone)) return fail('TRIAL_TONE_LIMITED', TRIAL_MESSAGES.toneBlocked, 403);
+      if (plan.kind === 'sheet' && !(TRIAL_VARIANT_KEYS as readonly string[]).includes(plan.variantKey)) {
+        return fail('TRIAL_ONLY', '무료 체험에서는 시안 1장만 만들 수 있어요.', 403);
+      }
+    }
+
     if ((identityGuidance.subjectKind ?? 'person') !== plan.subjectKind) return fail('CONSISTENCY_REQUIRED', '사진을 대상에 맞게 다시 확인해 주세요.', 409);
 
     // 시안이 누락되면 원본 사진만으로 조용히 진행하지 않는다. 차감 전 확인한다.
-    const reference = plan.kind === 'frame' && plan.chosenImageId ? await loadImage(plan.chosenImageId) : null;
-    if (plan.kind === 'frame' && (!reference || reference.userId !== user.id)) {
+    const needsReference = plan.kind === 'frame' || plan.kind === 'preview';
+    const reference = needsReference && plan.chosenImageId ? await loadImage(plan.chosenImageId) : null;
+    if (needsReference && (!reference || reference.userId !== user.id)) {
       return fail('REFERENCE_REQUIRED', '선택한 시안을 불러올 수 없어 컷을 만들 수 없어요. 시안을 다시 선택해 새 팩을 만들어 주세요.', 409);
     }
     const characterReference = reference ? { mimeType: 'image/webp', base64: Buffer.from(reference.data).toString('base64') } : undefined;
@@ -213,6 +274,10 @@ export async function POST(req: Request) {
     }
 
     try {
+      // 무료 체험은 실제 생성 직전에 상한을 1회 소비한다 (실패한 호출도 원가 방어를 위해 시도로 센다).
+      const trial = access === 'trial'
+        ? await consumeTrialImage({ userId: user.id, ipHash: trialIpHash(req) }, plan.kind === 'preview' ? 'cut' : 'image')
+        : null;
       // 실제 AI 생성이 필요하고 참조·요금 검증이 끝난 뒤에만 공정 이용 1회를 소비한다.
       const playUsage = await consumePlayGeneration(user);
 
@@ -258,12 +323,13 @@ export async function POST(req: Request) {
             frame.imageId = imageId;
             frame.accessoryIds = plan.accessoryIds;
           }
-        } else {
+        } else if (plan.kind === 'sheet') {
           const sheet = db.sheets.find((s) => s.id === plan.sheetId && s.userId === user.id);
           const variant = sheet?.variants.find((v) => v.key === plan.variantKey);
           if (!sheet || !variant) hiddenAfterGeneration = true;
           else variant.imageId = imageId;
         }
+        // 체험 컷(preview)은 팩·시안에 붙이지 않는다 — 결과 이미지만 돌려준다.
         logEvent(db, user.id, 'generate', {
           kind: plan.kind,
           tone: plan.tone,
@@ -283,7 +349,7 @@ export async function POST(req: Request) {
         await deleteImage(plan.previousImageId).catch(() => undefined);
       }
 
-      return ok({ imageId, imageUrl: `/api/images/${imageId}`, playUsage });
+      return ok({ imageId, imageUrl: `/api/images/${imageId}`, playUsage, ...(trial ? { trial } : {}) });
     } catch (e) {
       // 생성 실패 → 차감했던 크레딧 환불
       if (plan.charged) {
@@ -305,9 +371,10 @@ export async function POST(req: Request) {
       return fail(e.code, e.message, status);
     }
     const code = (e as { code?: string })?.code;
-    if (code === 'FRAME_NOT_FOUND' || code === 'SHEET_NOT_FOUND' || code === 'VARIANT_NOT_FOUND') {
+    if (code === 'FRAME_NOT_FOUND' || code === 'SHEET_NOT_FOUND' || code === 'VARIANT_NOT_FOUND' || code === 'FACE_NOT_FOUND') {
       return fail(code, (e as Error).message, 404);
     }
+    if (code === 'REFERENCE_REQUIRED') return fail(code, (e as Error).message, 409);
     return handleError(e);
   }
 }
