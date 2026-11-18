@@ -20,6 +20,15 @@ export default defineConfig({
       DEMO_MODE: bindings.text("0"),
       // 유료 등급 정비 기간에는 관리자만 AI 생성(이미지·특정 재확인). 전체 공개로 전환하려면 "0".
       GENERATION_ADMIN_ONLY: bindings.text("1"),
+      // 무료 체험(일반 방문자 1~2컷 맛보기) — 배포만으로 열린다. 닫으려면 "0".
+      //  · 상한은 free-trial.ts 가 이 값으로 강제한다(사용자·IP·전체 하루/월).
+      //  · 원가: 체험 이미지 1장 ≈ $0.04 → 하루 15장 ≈ $0.6 (월 최대 300장 ≈ $12).
+      TRIAL_FREE_ENABLED: bindings.text("1"),
+      TRIAL_IMAGES_PER_USER_DAY: bindings.text("5"),
+      TRIAL_IMAGES_PER_IP_DAY: bindings.text("6"),
+      TRIAL_IMAGES_PER_DAY: bindings.text("15"),
+      TRIAL_IMAGES_PER_MONTH: bindings.text("300"),
+      TRIAL_CUTS_PER_USER_DAY: bindings.text("2"),
       GEMINI_PHOTO_MODEL: bindings.text("gemini-3-pro-image-preview"),
       GEMINI_STYLE_MODEL: bindings.text("gemini-3.1-flash-image-preview"),
       GEMINI_TEXT_MODEL: bindings.text("gemini-flash-latest"),

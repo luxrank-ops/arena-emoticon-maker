@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from 'node:crypto';
-import { bypassesRateLimit, AI_ADMIN_ONLY_MESSAGE, canUseAiGeneration } from '@/lib/admin-access';
+import { aiAccess, bypassesRateLimit, AI_ADMIN_ONLY_MESSAGE } from '@/lib/admin-access';
+import { consumeTrialPrep, trialIpHash } from '@/lib/free-trial';
 import { withDB } from '@/lib/store';
 import { z } from 'zod';
 import { fail, handleError, ok, photoInputError } from '@/lib/api';
@@ -22,7 +23,10 @@ export async function POST(req: Request) {
     if (limited && !bypassesRateLimit(user)) return limited;
     const { photo, subjectKind } = schema.parse(await req.json());
     // 사진 특징 재확인도 AI 호출이다. 관리자 전용 기간에는 AI·공정 이용을 소비하기 전에 막는다.
-    if (!canUseAiGeneration(user)) return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
+    const access = aiAccess(user);
+    if (access === 'blocked') return fail('AI_ADMIN_ONLY', AI_ADMIN_ONLY_MESSAGE, 403);
+    // 무료 체험은 사진 재확인도 하루 상한을 둔다 (반복 호출로 원가를 만들지 못하게).
+    if (access === 'trial') await consumeTrialPrep({ userId: user.id, ipHash: trialIpHash(req) });
     const match = /^data:(image\/(?:jpeg|png|webp));base64,(.+)$/.exec(photo)!;
     const playUsage = await consumePlayGeneration(user);
     const { guidance, method } = await prepareWithFallback({ mimeType: match[1], base64: match[2] }, subjectKind);

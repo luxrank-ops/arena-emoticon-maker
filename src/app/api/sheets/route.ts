@@ -2,7 +2,8 @@ import { z } from 'zod';
 import { fail, handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { createSheet, tonesForPlan } from '@/lib/packs';
-import { bypassesRateLimit, effectivePlan } from '@/lib/admin-access';
+import { aiAccess, bypassesRateLimit, effectivePlan } from '@/lib/admin-access';
+import { TRIAL_MESSAGES, trialToneAllowed } from '@/lib/free-trial';
 import { PLANS } from '@/lib/pricing';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 
@@ -28,7 +29,15 @@ export async function POST(req: Request) {
     if (!tonesForPlan(plan).includes(body.tone)) {
       return fail('PLAN_LIMIT', `${PLANS[plan].name} 플랜은 스타일 ${PLANS[plan].styles}종까지 사용할 수 있습니다`, 402);
     }
-    const sheet = await createSheet(user.id, body.faceId, body.tone, body.mode, body.subjectKind, body.format);
+    // 무료 체험: 시안 1장만, 실사 스티커(상위 모델)는 제외 — 원가 방어.
+    const access = aiAccess(user);
+    if (access === 'trial' && !trialToneAllowed(body.tone)) {
+      return fail('TRIAL_TONE_LIMITED', TRIAL_MESSAGES.toneBlocked, 403);
+    }
+    const sheet = await createSheet(
+      user.id, body.faceId, body.tone, body.mode, body.subjectKind, body.format,
+      access === 'trial' ? 1 : 3,
+    );
     return ok({ sheet });
   } catch (e) {
     return handleError(e);

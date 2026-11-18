@@ -62,6 +62,8 @@ export async function createSheet(
   mode: CompositionMode = 'face',
   subjectKind: SubjectKind = 'person',
   formatId?: PackFormatId,
+  /** 무료 체험은 시안 1장만 만든다 (원가 방어). 기본 3종 */
+  variantLimit = 3,
 ) {
   return withDB((db) => {
     const face = db.faces.find((f) => f.id === faceId && f.userId === userId);
@@ -70,7 +72,7 @@ export async function createSheet(
     if (formatId && !format) throw new PackError('INVALID_FORMAT', '알 수 없는 표현 형태입니다');
 
     const base = Date.now();
-    const variants = [
+    const variants = ([
       { key: 'A', label: '기본형', seed: (base % 100000) + 11 },
       { key: 'B', label: '동글형', seed: (base % 100000) + 27 },
       { key: 'C', label: '시크형', seed: (base % 100000) + 43 },
@@ -90,7 +92,7 @@ export async function createSheet(
           browWeight: face.signature.browWeight * (i === 2 ? 1.18 : 1),
         },
       };
-    });
+    })).slice(0, Math.min(3, Math.max(1, variantLimit)));
 
     const sheet: CharacterSheet = {
       id: uid('sheet'),

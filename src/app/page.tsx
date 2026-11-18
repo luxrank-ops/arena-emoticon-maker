@@ -3,7 +3,8 @@ import { ACCESSORIES } from '@/lib/accessories';
 import { getLocale } from '@/lib/i18n/server';
 import { EnglishLanding } from '@/components/home/EnglishLanding';
 import { getCurrentUser } from '@/lib/session';
-import { canUseAiGeneration } from '@/lib/admin-access';
+import { aiAccess, canUseAiGeneration } from '@/lib/admin-access';
+import { TRIAL_MESSAGES } from '@/lib/trial-policy';
 
 const samples = [
   { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
@@ -32,6 +33,8 @@ export default async function LandingPage() {
   // AI 스튜디오가 관리자 전용으로 잠겨 있는 동안에는 첫 화면이 막다른 길이 되지 않게
   // 지금 100% 동작하는 대사 스튜디오를 주 CTA 로 안내한다.
   const aiEnabled = canUseAiGeneration(user);
+  // 일반 방문자에게는 '1~2컷 무료 체험'이 열려 있다 — 첫 화면에서 그 사실을 분명히 알린다.
+  const trial = aiAccess(user) === 'trial';
   if (locale === 'en') return <EnglishLanding aiEnabled={aiEnabled} />;
   return (
     <div className="overflow-hidden">
@@ -39,17 +42,19 @@ export default async function LandingPage() {
         <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" />
         <div className="wrap relative grid items-center gap-9 py-10 md:grid-cols-[1fr_0.85fr] md:gap-16 md:py-16">
           <div>
-            <span className="chip !border-primary/20 !bg-primary/10 !text-primary-dark">사람과 반려동물 사진 한 장으로 시작해요</span>
+            <span className="chip !border-primary/20 !bg-primary/10 !text-primary-dark">{trial ? '지금은 시안 1장 + 컷 2장 무료 체험' : '사람과 반려동물 사진 한 장으로 시작해요'}</span>
             <h1 className="h1 mt-4">내 사진으로 만드는<br /><span className="text-primary">나만의 이모티콘</span></h1>
             <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-sub sm:text-base">
-              {aiEnabled
-                ? '사진을 올리고 마음에 드는 스타일과 표정을 골라 보세요. AI가 컷을 하나씩 만들고, 완성된 팩은 언제든 편집하고 저장할 수 있어요.'
-                : '지금은 대사 스튜디오가 바로 열려 있어요. 마음에 드는 한 줄을 고르고 표정을 바꿔 내 대화방용 이모티콘을 만들어 보세요.'}
+              {trial
+                ? TRIAL_MESSAGES.banner
+                : aiEnabled
+                  ? '사진을 올리고 마음에 드는 스타일과 표정을 골라 보세요. AI가 컷을 하나씩 만들고, 완성된 팩은 언제든 편집하고 저장할 수 있어요.'
+                  : '지금은 대사 스튜디오가 바로 열려 있어요. 마음에 드는 한 줄을 고르고 표정을 바꿔 내 대화방용 이모티콘을 만들어 보세요.'}
             </p>
             <div className="mt-6 grid gap-2 sm:flex sm:flex-wrap">
               {aiEnabled ? (
                 <>
-                  <Link href="/studio/upload" className="btn-primary !py-4 text-base">이모티콘 만들기 <span aria-hidden="true">→</span></Link>
+                  <Link href="/studio/upload" className="btn-primary !py-4 text-base">{trial ? '무료로 2컷 체험하기' : '이모티콘 만들기'} <span aria-hidden="true">→</span></Link>
                   <Link href="/quotes" className="btn-ghost !py-4">대사 스튜디오</Link>
                 </>
               ) : (
@@ -60,9 +65,11 @@ export default async function LandingPage() {
               )}
             </div>
             <p className="mt-4 text-xs leading-relaxed text-sub">
-              {aiEnabled
-                ? '원본 사진은 서버에 저장하지 않아요 · 생성 결과는 사진과 다를 수 있어요'
-                : '내 사진으로 만드는 AI 스튜디오는 정비 중이에요 · 대사 스튜디오는 지금 바로 쓸 수 있어요'}
+              {trial
+                ? '원본 사진은 서버에 저장하지 않아요 · 체험 컷은 미리보기용 · 정식 출시 후 팩 저장이 열려요'
+                : aiEnabled
+                  ? '원본 사진은 서버에 저장하지 않아요 · 생성 결과는 사진과 다를 수 있어요'
+                  : '내 사진으로 만드는 AI 스튜디오는 정비 중이에요 · 대사 스튜디오는 지금 바로 쓸 수 있어요'}
             </p>
           </div>
           <div aria-label="이모티콘 스타일 예시" className="rounded-2xl border border-line bg-paper p-4 shadow-pop sm:p-5">
