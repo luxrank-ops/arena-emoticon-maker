@@ -344,6 +344,26 @@ export function FrameEffectsPanel({
                   </div>
                 </div>
 
+                <div>
+                  <p className="text-[10px] font-bold text-sub">{t('상황별 데코', 'Context decor')}</p>
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {(['auto', 'off'] as const).map((mode) => {
+                      const on = mode === 'off' ? active.decor === 'off' : active.decor !== 'off';
+                      return (
+                        <button
+                          key={mode}
+                          type="button"
+                          aria-pressed={on}
+                          onClick={() => patchLayer({ decor: mode })}
+                          className={clsx('min-h-8 rounded-full border px-2 text-[10px] font-bold', on ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-sub')}
+                        >
+                          {mode === 'auto' ? t('✨ 자동 (별·하트·물음표)', '✨ Auto (stars, hearts, ?)') : t('끄기', 'Off')}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
                 <div className="grid grid-cols-2 gap-2 text-[10px] font-bold text-sub">
                   <label>
                     {t('가로', 'Horizontal')}

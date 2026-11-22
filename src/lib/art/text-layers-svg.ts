@@ -9,6 +9,7 @@
 import type { Emotion } from '@/lib/types';
 import { CAPTION_FONT_FAMILIES } from '@/lib/studio/caption';
 import { planCaption } from '@/lib/studio/caption-plan';
+import { planDecor, renderDecorSvg } from '@/lib/studio/decor';
 import type { TextLayer } from '@/lib/studio/layers';
 
 const SIZE = 1024;
@@ -118,7 +119,27 @@ export function renderTextLayersWithDefs(layers: TextLayer[], emotion?: Emotion,
           })()
         : '';
 
+      // 상황별 복합 데코 — 글자와 같은 transform 으로, 글자 박스 바로 옆에 바짝 붙는다.
+      //  · 데코는 자체 그림자(반투명 실루엣)를 쓰므로 글자 그룹의 drop-shadow 필터와 분리한다.
+      const decor = planDecor({
+        text: layer.text,
+        emotion,
+        effect: layer.effect,
+        width: plan.width,
+        height: plan.height,
+        fontSize: plan.size,
+        x: plan.x,
+        y: plan.y,
+        rotate: plan.rotate,
+        canvas: SIZE,
+        enabled: layer.decor !== 'off',
+      });
+      const decorGroup = decor.length
+        ? `<g transform="translate(${plan.x.toFixed(1)} ${plan.y.toFixed(1)}) rotate(${plan.rotate.toFixed(2)})" data-decor-layer="${id}">${renderDecorSvg(decor)}</g>`
+        : '';
+
       return (
+        decorGroup +
         `<g data-caption-effect="calligraphy" transform="translate(${plan.x.toFixed(1)} ${plan.y.toFixed(1)}) rotate(${plan.rotate.toFixed(2)})" ` +
         `filter="url(#captionShadow)">${rows}${underline}</g>`
       );
@@ -138,7 +159,7 @@ export function renderTextLayersOverlay(layers: TextLayer[], emotion?: Emotion):
   if (!body) return '';
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}" width="${SIZE}" height="${SIZE}" aria-hidden="true">` +
-    `<defs><filter id="captionShadow" x="-25%" y="-25%" width="150%" height="150%">` +
+    `<defs><filter id="captionShadow" x="-35%" y="-35%" width="170%" height="170%">` +
     `<feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#191512" flood-opacity="0.32"/></filter>${defs}</defs>` +
     body +
     `</svg>`

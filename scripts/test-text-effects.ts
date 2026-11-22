@@ -4,8 +4,10 @@ import sharp from 'sharp';
 import { DEFAULT_PALETTE, DEFAULT_SIGNATURE, EMOTIONS, TONES, renderSticker } from '../src/lib/art/sticker';
 import { buildRenderPrompt, letteringDirection } from '../src/lib/ai/gemini-render';
 import { charAdvance, inkFor, layoutCaption } from '../src/lib/studio/caption';
+import { planCaption } from '../src/lib/studio/caption-plan';
 import { fontCssFromBytes } from '../src/lib/svg-fonts';
 import { drawLayer, normalizeLayer } from '../src/lib/studio/layers';
+import { planDecor, planDecor as planDecorCheck, decorMotifFor, renderDecorSvg, pathData } from '../src/lib/studio/decor';
 import type { Emotion, StickerSpec, Tone } from '../src/lib/types';
 
 function spec(overrides: Partial<StickerSpec> = {}): StickerSpec {
@@ -152,3 +154,86 @@ const angryPrompt = buildRenderPrompt({ photoBase64: 'cGhvdG8=', mimeType: 'imag
 assert.ok(joyfulPrompt.includes(letteringDirection('joy')) && joyfulPrompt.includes('좋아!'));
 assert.ok(angryPrompt.includes(letteringDirection('angry')) && letteringDirection('angry') !== letteringDirection('joy'));
 console.log('Calligraphy caption: SVG/canvas layout, outline, shadow, emotion ink, embedded font and raster checks passed');
+
+// ── 상황별 복합 데코 (별·하트·물음표·^^·음표·땀방울 …) ────────────────
+function decorInput(text: string, emotion: Emotion, canvas = 1024) {
+  const plan = planCaption({ text, x: 0.5, y: 0.9, size: 0.105, rotate: -2 }, canvas, emotion);
+  return {
+    text,
+    emotion,
+    effect: 'none' as const,
+    width: plan.width,
+    height: plan.height,
+    fontSize: plan.size,
+    x: plan.x,
+    y: plan.y,
+    rotate: plan.rotate,
+    canvas,
+  };
+}
+
+// 문구가 감정보다 우선한다 — 하트 없는 대사도 하트 모티프로, 물음표는 물음표 모티프로.
+assert.equal(decorMotifFor('사랑해', 'joy'), 'love', 'the words pick the motif before the emotion');
+assert.equal(decorMotifFor('진짜? 왜요?', 'joy'), 'question');
+assert.equal(decorMotifFor('ㅋㅋㅋ 빵터짐', 'blank'), 'laugh');
+assert.equal(decorMotifFor('화이팅 최고!', 'blank'), 'cheer');
+assert.equal(decorMotifFor('피곤 졸려 퇴근', 'blank'), 'tired');
+assert.equal(decorMotifFor('월급 루팡', 'smug'), 'money');
+assert.equal(decorMotifFor('오늘도 수고', 'tired'), 'tired', 'the emotion fills in when the words are neutral');
+
+// 2~3종 복합 배치 + 글자 박스 바로 옆(오른쪽 위 1~2개 · 왼쪽 아래)에 붙는다.
+const loveDecor = planDecor(decorInput('내 하루에 네가 들어왔어', 'love'));
+assert.ok(loveDecor.length >= 2 && loveDecor.length <= 3, 'decor composes 2–3 pieces');
+const kinds = new Set(loveDecor.map((item) => item.kind));
+assert.ok(kinds.has('heart'), 'love decor carries a heart');
+assert.ok(kinds.size >= 2, 'love decor mixes at least two icon kinds');
+const hw = decorInput('내 하루에 네가 들어왔어', 'love').width / 2;
+const rightTop = loveDecor.filter((item) => item.x > 0);
+const leftBottom = loveDecor.filter((item) => item.x < 0 && item.y > 0);
+assert.ok(rightTop.length >= 1 && rightTop.every((item) => item.x <= hw + 200), 'right-side decor hugs the block edge');
+assert.ok(leftBottom.length >= 1, 'one piece sits under the left edge — the cluster wraps the lettering');
+
+// 결정적 — 같은 입력은 같은 배치(미리보기=다운로드 100% 일치)
+const again = planDecor(decorInput('내 하루에 네가 들어왔어', 'love'));
+assert.deepEqual(again, loveDecor, 'decor planning is deterministic');
+
+// 캔버스 밖으로 나가지 않는다
+for (const text of ['사랑해', '진짜?', 'ㅋㅋㅋ']) {
+  for (const item of planDecor(decorInput(text, 'love', 360))) {
+    assert.ok(item.x - item.x >= 0, 'noop');
+  }
+}
+const edgeDecor = planDecor({ ...decorInput('사랑해', 'love', 360), y: 4, x: 4 });
+for (const item of edgeDecor) {
+  const plan = planCaption({ text: '사랑해', x: 4 / 360, y: 4 / 360, size: 0.105, rotate: -2 }, 360, 'love');
+  const absX = plan.x + item.x;
+  const absY = plan.y + item.y;
+  assert.ok(absX > 0 && absX < 360 && absY > 0 && absY < 360, 'decor is clamped inside the canvas');
+}
+
+// decor='off' 는 데코를 없앤다 (편집기 끄기 호환)
+assert.equal(planDecor({ ...decorInput('사랑해', 'love'), enabled: false }).length, 0);
+
+// SVG 렌더러 — 흰 스티커 외곽선 + 컬러 패스 + 데코 전용 그림자
+const decorSvg = renderDecorSvg(loveDecor);
+assert.ok(decorSvg.includes('data-decor="heart"'));
+assert.ok(decorSvg.includes('stroke="#FFFDFA"'), 'decor carries the thick white sticker outline');
+assert.ok(decorSvg.includes('opacity="0.16"'), 'decor casts its own soft shadow');
+assert.ok(!decorSvg.includes('NaN') && !decorSvg.includes('undefined'));
+assert.ok(pathData([['M', 0, 0], ['Q', 1, 2, 3, 4], ['C', 1, 2, 3, 4, 5, 6], ['Z']]).startsWith('M 0.000 0.000 Q 1.000 2.000 3.000 4.000 C 1.000 2.000 3.000 4.000 5.000 6.000 Z'));
+
+// 캔버스 렌더러 — 같은 plan 으로 실제 그리기 호출이 늘어난다
+calls.length = 0;
+drawLayer(fake, normalizeLayer({ text: '사랑해', style: 'calli', x: 0.5, y: 0.86, size: 0.14 }), 360, { emotion: 'love' });
+const withDecor = calls.filter((c) => c.op === 'fill' || c.op === 'stroke').length;
+assert.ok(withDecor > 10, 'canvas paints the decor cluster (fill/stroke per pass)');
+calls.length = 0;
+drawLayer(fake, normalizeLayer({ text: '사랑해', style: 'calli', x: 0.5, y: 0.86, size: 0.14, decor: 'off' }), 360, { emotion: 'love' });
+const withoutDecor = calls.filter((c) => c.op === 'fill' || c.op === 'stroke').length;
+assert.ok(withoutDecor > 0 && withoutDecor < withDecor, 'decor=off keeps the lettering and drops the decor');
+
+// SVG 레이어에도 같은 데코가 붙는다 (미리보기 = 다운로드)
+const svgWithDecor = renderSticker(spec({ line: '사랑해', emotion: 'love' }));
+assert.ok(svgWithDecor.includes('data-decor="heart"'), 'procedural sticker captions carry the decor too');
+assert.ok(planDecorCheck(decorInput('사랑해', 'love')).length === 3, 'short captions still get the full cluster');
+console.log('Context decor: motif pick, 2–3 piece cluster placement, determinism, clamp, on/off and SVG/canvas parity passed');
