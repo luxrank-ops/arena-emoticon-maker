@@ -125,7 +125,7 @@ const packPage = read('src/app/studio/pack/[id]/page.tsx');
 check('팩 화면이 잠금 상태와 심사 시트를 내려준다', packPage.includes('view.exportState') && packPage.includes('buildReviewSheet'));
 const viewer = read('src/components/studio/PackViewer.tsx');
 check('잠긴 팩은 내보내기 대신 잠금 해제 CTA', viewer.includes("t('잠금 해제하고 내려받기'") && viewer.includes('CheckoutButton'));
-check('미리보기 컷에 반복 워터마크 오버레이', viewer.includes('lockWatermark') && viewer.includes('rotate-[-24deg]'));
+check('미리보기 컷에 반복 워터마크 오버레이', viewer.includes('lockWatermark') && viewer.includes('-rotate-[20deg]') && viewer.includes('opacity-45'));
 check('잠금 해제 후 고화질 재생성(finalize)', viewer.includes('finalize: true'));
 check('굿즈 업셀 배너(3컷 · 20% 번들)', viewer.includes('아크릴 키링') && viewer.includes('bundle=1'));
 const checkoutRoute = read('src/app/api/checkout/route.ts');

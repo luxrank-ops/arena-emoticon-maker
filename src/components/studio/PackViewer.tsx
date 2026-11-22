@@ -476,7 +476,11 @@ export function PackViewer({
           <div className="p-5">
             <div className="flex items-end justify-between gap-3">
               <div>
-                <p className="text-sm font-black">{exportState?.unlockTitle ?? '단건 팩 완성권'}</p>
+                <p className="text-sm font-black">
+                  {locale === 'en'
+                    ? (exportState?.unlockSku === 'pack-unlock-duo' ? 'Duo chemistry pack pass' : exportState?.unlockSku === 'pack-unlock-pet' ? 'Pet butler pack pass' : 'Single pack pass')
+                    : (exportState?.unlockTitle ?? '단건 팩 완성권')}
+                </p>
                 <p className="mt-0.5 text-[11px] text-sub">{t('구독 없음 · 이 팩만 1회 결제', 'No subscription · one-time for this pack')}</p>
               </div>
               <p className="text-2xl font-black">{(exportState?.unlockPrice ?? 5900).toLocaleString('en-US')}<span className="text-sm font-bold text-sub">원</span></p>
