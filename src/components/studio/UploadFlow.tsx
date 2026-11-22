@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { analyzeSelfie, analyzePetPhoto, type FaceAnalysis } from '@/lib/face/analyze';
 import { tonesForLocale } from '@/lib/i18n/presets';
+import { presetById, presetKeyword } from '@/data/emoticon-presets-150';
+import { presetPickFromSearch, rememberedPresetPick } from '@/lib/studio/preset-selection';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
 import { GenerationProgress } from '@/components/studio/GenerationProgress';
@@ -105,6 +107,7 @@ export function UploadFlow({
   const [consent, setConsent] = useState({ terms: false, privacy: false, overseas: false });
   const [dragging, setDragging] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [pickedPresetId, setPickedPresetId] = useState<number | null>(null);
   const [currentStep, setCurrentStep] = useState<'photo' | 'settings'>(step);
 
   useEffect(() => {
@@ -168,6 +171,7 @@ export function UploadFlow({
         setError(clientErrorGuide(retry.code, locale).message);
       }
     } catch { /* 잘못된 임시 정보는 무시하고 사진부터 다시 시작한다 */ }
+    setPickedPresetId(presetPickFromSearch(window.location.search) ?? rememberedPresetPick());
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -364,6 +368,7 @@ export function UploadFlow({
   }
 
   const isPhoto = currentStep === 'photo';
+  const pickedPreset = pickedPresetId ? presetById(pickedPresetId) : undefined;
   const isMode = isPhoto && photoPhase === 'mode';
   const isFormat = isPhoto && photoPhase === 'format';
   const motionClass = motion === 'forward' ? 'motion-safe:animate-step-left' : motion === 'back' ? 'motion-safe:animate-step-right' : '';
@@ -394,6 +399,13 @@ export function UploadFlow({
             </li>
           ))}
         </ol>
+        {pickedPreset ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-[11px] font-bold text-primary-dark">
+            <span>{t(`선택한 프리셋: ${presetKeyword(pickedPreset, locale)}`, `Selected preset: ${presetKeyword(pickedPreset, locale)}`)}</span>
+            <Link href={lp('/presets')} className="underline">{t('바꾸기', 'Change')}</Link>
+            <span className="font-normal text-sub">{t('시안을 고른 뒤 컷 구성에서 그대로 반영됩니다.', 'It is applied at the cut-selection step after you pick a draft.')}</span>
+          </div>
+        ) : null}
       </div>
     </>
   );
