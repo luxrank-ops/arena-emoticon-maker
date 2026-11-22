@@ -18,6 +18,8 @@ import type { Plan, User } from '@/lib/types';
 export const ADMIN_PLAN: Plan = 'STUDIO';
 
 export type Viewer = Pick<User, 'role' | 'plan' | 'credits' | 'play'> & {
+  /** 월 이용권 만료 시각 — 지났으면 무료 등급으로 본다 */
+  planExpiresAt?: string;
   /** 서버가 구글 플레이 구매 토큰을 검증해 확인한 자격 (play_purchases ACTIVE) */
   playVerified?: boolean;
 };
@@ -46,7 +48,11 @@ export function isFullAccess(viewer: Viewer | null | undefined): boolean {
 
 /** 표시용 플랜: 풀액세스 사용자는 최고 플랜으로 취급 (워터마크 제거·상업 라이선스·굿즈 할인 포함) */
 export function effectivePlan(viewer: Viewer | null | undefined): Plan {
-  return isFullAccess(viewer) ? ADMIN_PLAN : (viewer?.plan ?? 'FREE');
+  if (isFullAccess(viewer)) return ADMIN_PLAN;
+  const plan = viewer?.plan ?? 'FREE';
+  // Creator Pro 1개월 이용권 — 만료되면 무료로 돌아간다 (이미 잠금 해제한 팩은 그대로 열린다).
+  if (plan !== 'FREE' && viewer?.planExpiresAt && Date.parse(viewer.planExpiresAt) <= Date.now()) return 'FREE';
+  return plan;
 }
 
 /** 플랜 게이트 통과 (스타일 수·Daily Brief·카카오 패키징 등) */

@@ -132,11 +132,14 @@ const fromLine = layerFromLine('확인했습니다');
 check('대사 → 기본 레이어 생성(캘리그라피, 말풍선 없음)', !!fromLine && fromLine.text === '확인했습니다' && fromLine.bubble === 'none' && fromLine.style === 'calli');
 check('빈 대사는 레이어 없음', layerFromLine('   ') === null);
 
-// ── 5. 표현 형태 5종 ───────────────────────────────────────
-check('표현 형태 5종', PACK_FORMATS.length === 5);
-check('형태 id 가 5개 모두 다르다', new Set(PACK_FORMATS.map((f) => f.id)).size === 5);
+// ── 5. 표현 형태 5종 + 킬러 테마 2종 ────────────────────────
+const baseFormats = PACK_FORMATS.filter((format) => !format.killer);
+const killerFormats = PACK_FORMATS.filter((format) => format.killer);
+check('기본 표현 형태 5종 + 킬러 테마 2종', baseFormats.length === 5 && PACK_FORMATS.length === 7);
+check('형태 id 가 7개 모두 다르다', new Set(PACK_FORMATS.map((f) => f.id)).size === 7);
+check('킬러 테마는 12컷 · 잠금 해제 가격 표기', killerFormats.every((format) => format.cuts.length === 12 && (format.unlockPrice ?? 0) >= 5900));
 const allTemplateIds: string[] = [];
-for (const format of PACK_FORMATS) {
+for (const format of baseFormats) {
   check(`${format.id} 컷이 24개 이상`, format.cuts.length >= 24);
   check(`${format.id} 컷에 대사·장면 지시가 있다`, format.cuts.every((cut) => cut.line.length > 0 && cut.action.length > 20));
   check(`${format.id} 프롬프트 장면·구도 존재`, format.prompt.scene.length > 10 && format.prompt.layout.length > 10);
@@ -149,7 +152,7 @@ for (const format of PACK_FORMATS) {
 check('템플릿 id 가 전부 고유', new Set(allTemplateIds).size === allTemplateIds.length);
 check('컷 → 형태 역참조', formatCutByTemplate('fmt-situation-si-01')?.format.id === 'situation');
 check('알 수 없는 템플릿은 null', formatCutByTemplate('comic-laugh') === null);
-check('2인 형식만 사진 2장 필요', PACK_FORMATS.filter((f) => f.needsSecondPhoto).map((f) => f.id).join(',') === 'duo');
+check('2인 형식(duo · duo-chemi)만 사진 2장 필요', PACK_FORMATS.filter((f) => f.needsSecondPhoto).map((f) => f.id).sort().join(',') === 'duo,duo-chemi');
 check('타이포는 글자 없는 생성 + 기본 도장 레이어', packFormatById('typo')?.textMode === 'layer' && defaultLayerOf(packFormatById('typo')!.cuts[0])?.style === 'stamp' && defaultLayerOf(packFormatById('typo')!.cuts[0])?.text === packFormatById('typo')!.cuts[0].line);
 const combo = packFormatById('combo')!;
 check('콤보는 위/아래 짝이 서로를 가리킨다', combo.cuts.filter((c) => c.comboRole === 'top').every((c) => !!combo.cuts.find((o) => o.id === c.comboPair && o.comboRole === 'bottom')));

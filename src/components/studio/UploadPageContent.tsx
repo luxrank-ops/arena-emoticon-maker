@@ -19,7 +19,7 @@ export async function UploadPageContent({ step }: { step: 'photo' | 'settings' }
         <div role="status" className="mx-auto mb-6 max-w-3xl rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary-dark">
           <p>{tr(locale, TRIAL_MESSAGES.banner, 'Free trial: one draft and up to two stickers. Full packs open at launch.')}</p>
           <p className="mt-1 text-[11px] font-bold text-sub">
-            {tr(locale, '체험 컷은 미리보기용이에요. 팩 저장·정식 내려받기는 정식 출시 후 열려요.', 'Trial stickers are previews. Pack saving and official downloads open at launch.')}
+            {tr(locale, '12컷 미리보기는 워터마크·저해상도이며, 결제 전에는 내보내기가 잠깁니다. 마음에 들면 ₩5,900에 잠금 해제하세요.', 'The 12-cut preview is watermarked and low-resolution; exports stay locked until you unlock the pack from ₩5,900.')}
           </p>
         </div>
       ) : access === 'blocked' ? (

@@ -28,6 +28,8 @@ const SIZE: number = KAKAO_RULES.size;
 export interface ExportOptions {
   size?: number;
   watermark?: boolean;
+  /** 워터마크 문구 (기본 '이모티학') — 무료 미리보기는 '이모티학으로 내 얼굴 짤 만들기' */
+  watermarkText?: string;
   /** 흰색 스티커 외곽선 두께 (px, 기본 0 = 끔) */
   outline?: number;
   /** 경계 페더링 정밀 누끼 (기본 true) */
@@ -64,13 +66,21 @@ function canvasOf(size = SIZE) {
   return c;
 }
 
-function drawWatermark(ctx: CanvasRenderingContext2D, size: number) {
+function drawWatermark(ctx: CanvasRenderingContext2D, size: number, text?: string) {
   const pad = size * 0.035;
-  const label = '이모티학';
+  const label = text?.trim() || '이모티학';
+  const long = label.length > 8;
+  const fontSize = Math.round(size * (long ? 0.024 : 0.032));
   ctx.save();
-  ctx.font = `800 ${Math.round(size * 0.032)}px Pretendard, system-ui, sans-serif`;
-  const w = ctx.measureText(label).width + size * 0.05;
-  const h = size * 0.055;
+  ctx.font = `800 ${fontSize}px Pretendard, system-ui, sans-serif`;
+  // 긴 문구는 두 줄로 나눠 스티커를 가리지 않게 한다.
+  const words = label.split(' ');
+  const lines = long && words.length > 2
+    ? [words.slice(0, Math.ceil(words.length / 2)).join(' '), words.slice(Math.ceil(words.length / 2)).join(' ')]
+    : [label];
+  const textWidth = Math.max(...lines.map((line) => ctx.measureText(line).width));
+  const w = textWidth + size * 0.05;
+  const h = size * (long ? 0.075 : 0.055);
   ctx.fillStyle = 'rgba(25,21,18,0.72)';
   ctx.beginPath();
   const x = size - w - pad;
@@ -91,7 +101,12 @@ function drawWatermark(ctx: CanvasRenderingContext2D, size: number) {
   ctx.fillStyle = '#FFFDFA';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(label, size - pad - w / 2, size - pad - h / 2 + 1);
+  const cx = size - pad - w / 2;
+  const cy = size - pad - h / 2 + 1;
+  lines.forEach((line, index) => {
+    const offset = (index - (lines.length - 1) / 2) * fontSize * 1.1;
+    ctx.fillText(line, cx, cy + offset);
+  });
   ctx.restore();
 }
 
@@ -165,7 +180,7 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
 
   // 3) 글자·이펙트 레이어
   if (layers.length) drawLayers(ctx, layers, size, { emotion: spec.emotion });
-  if (opts.watermark) drawWatermark(ctx, size);
+  if (opts.watermark) drawWatermark(ctx, size, opts.watermarkText);
   return canvas;
 }
 
@@ -439,6 +454,10 @@ export interface KakaoPackResult {
 }
 
 export interface KakaoPackOptions extends ExportOptions {
+  /** 심사 시트(컨셉·제목·해시태그) — Creator Pro 내보내기에 함께 넣는다 */
+  reviewSheet?: { concept: string; titles: string[]; hashtags: string[]; checklist: string[]; cutCount: number };
+  /** 공유 링크(초대 코드 포함)를 README 에 적는다 */
+  inviteLink?: string;
   /** 움직이는 이모티콘으로 패키징 */
   motion?: MotionId | 'none';
   /** 애니메이션 형식 (기본 APNG) */
@@ -503,6 +522,33 @@ export async function exportKakaoPackZip(
       2,
     ),
   );
+  if (opts.reviewSheet) {
+    const sheet = opts.reviewSheet;
+    folder.file(
+      'review-sheet.txt',
+      [
+        '이모티학 · 카카오/라인 심사 시트 (초안)',
+        '',
+        '[캐릭터 컨셉]',
+        sheet.concept,
+        '',
+        '[이모티콘 제목 후보]',
+        ...sheet.titles.map((title, index) => `${index + 1}. ${title}`),
+        '',
+        '[해시태그 10개]',
+        sheet.hashtags.map((tag) => `#${tag}`).join(' '),
+        '',
+        `[구성] ${sheet.cutCount}컷`,
+        '',
+        '[제출 전 체크리스트]',
+        ...sheet.checklist.map((line) => `· ${line}`),
+        '',
+        '※ 초안입니다. 카카오 이모티콘 스튜디오 제안·심사는 직접 진행해야 하며 통과를 보장하지 않습니다.',
+      ].join('\n'),
+    );
+    folder.file('review-sheet.json', JSON.stringify(sheet, null, 2));
+  }
+
   folder.file(
     'README.txt',
     [

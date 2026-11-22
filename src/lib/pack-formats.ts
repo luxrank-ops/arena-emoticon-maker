@@ -8,7 +8,10 @@ import type { Emotion } from '@/lib/types';
 import type { EffectKind, TextLayer } from '@/lib/studio/layers';
 import type { Locale } from '@/lib/i18n/locale';
 
-export type PackFormatId = 'situation' | 'parody' | 'duo' | 'typo' | 'combo';
+export type PackFormatId = 'situation' | 'parody' | 'duo' | 'typo' | 'combo' | 'duo-chemi' | 'pet-meme';
+
+/** API 스키마(zod)와 공유하는 런타임 목록 */
+export const PACK_FORMAT_IDS = ['situation', 'parody', 'duo', 'typo', 'combo', 'duo-chemi', 'pet-meme'] as const;
 
 export interface FormatCut {
   id: string;
@@ -41,6 +44,10 @@ export interface PackFormat {
   needsSecondPhoto: boolean;
   /** 'layer' = AI는 글자 없이 그리고 앱이 한글을 합성, 'baked' = AI가 말풍선까지 그림 */
   textMode: 'layer' | 'baked';
+  /** 킬러 테마 카드 (홈·만들기·프리셋 상단에 전면 배치) */
+  killer?: boolean;
+  /** 이 테마의 단건 잠금 해제 가격 (원) */
+  unlockPrice?: number;
   cuts: FormatCut[];
   prompt: {
     /** 장면 지시 */
@@ -203,7 +210,80 @@ const COMBO: FormatCut[] = COMBO_PAIRS.flatMap(([id, label, labelEn, line, emoti
   return [top, bottom];
 });
 
+
+// ── KILLER 1. 커플·단톡방 '2인 케미 팩' (12컷) ─────────────────
+//  · 커플·친구 사진 2장으로 만드는 2인 상호작용 전용 컷. 단톡방에서 바로 쓰는 대사로 맞췄다.
+const DUO_CHEMI: FormatCut[] = [
+  C('dc-01', '퇴근 치맥 콜', '퇴근 후 치맥 콜?', 'laugh', 'two friends grinning and raising imaginary beer glasses toward each other, one holding a phone', 'Chi-maek after work?', 'Chi-maek call', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-02', '야근 살려줘', '야근 중 살려줘', 'cry', 'one slumped at a desk with a laptop while the other reaches out a hand to rescue them', 'Save me, overtime', 'Save me', { textLayer: { style: 'bold', bubble: 'shout', y: 0.83, size: 0.12 } }),
+  C('dc-03', '삐짐 vs 달래기', '삐짐 vs 달래기', 'sulk', 'one turned away pouting with crossed arms while the other offers a small gift with an apologetic smile', 'Sulk vs soothe', 'Sulk vs soothe', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.105 } }),
+  C('dc-04', '밥 먹었어', '밥은 먹었어?', 'love', 'one holding a warm bowl toward the other, caring expression', 'Did you eat?', 'Did you eat', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-05', '한잔하자', '오늘 한잔하자', 'joy', 'two clinking small glasses together, happy eyes', "Let's grab a drink", 'Drink together', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-06', '눈치 게임', '눈치 보는 중', 'surprised', 'both glancing sideways at each other nervously, shoulders raised', 'Reading the room', 'Awkward glance', { textLayer: { style: 'bold', bubble: 'none', y: 0.84, size: 0.11 } }),
+  C('dc-07', '같이 가자', '퇴근 같이 가자', 'smug', 'both walking side by side with bags, matching strides', "Let's leave together", 'Leave together', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-08', '칼퇴 성공', '칼퇴 성공!', 'laugh', 'both sprinting out with arms up in triumph', 'Clocked out!', 'Clocked out', { textLayer: { style: 'bold', bubble: 'none', y: 0.84, size: 0.135 }, effect: 'sparkle' }),
+  C('dc-09', '좀 도와줘', '이거 좀 도와줘', 'tired', 'one buried under papers while the other rolls up sleeves to help', 'Help me out', 'Help me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.11 } }),
+  C('dc-10', '미안해', '나 잘못했어', 'sad', 'one bowing with hands together while the other softens with a small smile', "I'm sorry", 'Sorry', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-11', '고마워', '진짜 고마워', 'love', 'both hugging briefly with warm smiles', 'Thank you', 'Thank you', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-12', '우리 사이', '우리 사이 이 정도', 'smug', 'two bumping fists with confident grins', 'We go way back', 'Best buds', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.105 } }),
+];
+
+// ── KILLER 2. 반려동물(AI 펫) 집사 밈 팩 (12컷) ────────────────
+//  · 강아지·고양이 사진 1장으로 만드는 한국형 집사 밈 전용 컷.
+const PET_MEME: FormatCut[] = [
+  C('pm-01', '간식 내놔', '간식 내놔', 'angry', 'staring straight at the camera with an impatient expectant look, small paw raised toward the viewer', 'Give me a treat', 'Treat, now', { textLayer: { style: 'bold', bubble: 'shout', y: 0.84, size: 0.13 } }),
+  C('pm-02', '산책 가자', '산책 가자', 'laugh', 'perking up with ears forward, body leaning excitedly toward the door', "Let's walk!", 'Walk time', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.13 }, effect: 'sparkle' }),
+  C('pm-03', '집사야 일해라', '집사야 일해라', 'smug', 'sitting regally with a commanding look, chin slightly raised', 'Slave, go to work', 'Work, human', { textLayer: { style: 'gothic', bubble: 'none', y: 0.85, size: 0.105 } }),
+  C('pm-04', '밥 줘', '밥 줘', 'sad', 'looking up with big pleading eyes at an empty bowl', 'Feed me', 'Feed me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.14 } }),
+  C('pm-05', '누가 방귀 꼈어', '누가 방귀 꼈어', 'surprised', 'sniffing the air with a suspicious side-eye, nose wrinkled', 'Who farted?', 'Who farted', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.1 } }),
+  C('pm-06', '안아줘', '안아줘', 'love', 'reaching both front paws toward the viewer for a hug', 'Hold me', 'Hug me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.13 } }),
+  C('pm-07', '같이 자자', '같이 자자', 'tired', 'curled up in a cozy blanket, eyes half closed', "Let's sleep", 'Sleep with me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.12 } }),
+  C('pm-08', '뭐 해', '뭐 해', 'blank', 'staring blankly at the camera, deadpan', 'What are you doing', 'What now', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.14 } }),
+  C('pm-09', '칭찬해 줘', '칭찬해 줘', 'joy', 'sitting proudly with chest out, waiting for praise', 'Praise me', 'Praise me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.12 }, effect: 'heart' }),
+  C('pm-10', '화났어', '나 화났어', 'angry', 'turned away with a dramatic huff, tail flicking', "I'm mad", 'Angry', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.12 }, effect: 'anger' }),
+  C('pm-11', '한 번만 더', '한 번만 더', 'love', 'pawing at the treat jar with a hopeful look', 'Just one more', 'One more', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.12 } }),
+  C('pm-12', '출근하기 싫어', '출근하기 싫어', 'tired', 'flopped on the floor dramatically, refusing to move', "Don't wanna go", 'No work', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.11 } }),
+];
+
 export const PACK_FORMATS: PackFormat[] = [
+  {
+    id: 'duo-chemi',
+    label: '2인 케미 팩',
+    labelEn: 'Duo chemistry pack',
+    emoji: '💞',
+    tagline: '커플·단톡방 12컷 — 치맥 콜부터 삐짐까지',
+    taglineEn: '12 couple & group-chat cuts',
+    description: '커플·친구 사진 2장으로 만드는 12컷. “퇴근 후 치맥 콜?”, “야근 중 살려줘”, “삐짐 vs 달래기”처럼 2인 상호작용 전용 대사로 맞췄습니다.',
+    descriptionEn: 'Twelve two-person cuts from two photos: after-work drinks, overtime rescue, sulking vs soothing.',
+    needsSecondPhoto: true,
+    textMode: 'layer',
+    killer: true,
+    unlockPrice: 7900,
+    cuts: DUO_CHEMI,
+    prompt: {
+      scene: 'two people interacting naturally with each other in a warm everyday scene that fits the caption (toasting drinks, rescuing a tired coworker, pouting while being comforted). The first person comes from the first reference photo, the second person comes from the second reference photo',
+      layout: 'both people fully visible side by side at the same scale, facing each other or the viewer, centered with space between them',
+    },
+  },
+  {
+    id: 'pet-meme',
+    label: '반려동물 집사 밈 팩',
+    labelEn: 'Pet butler meme pack',
+    emoji: '🐾',
+    tagline: '강아지·고양이 12컷 — 간식 내놔부터 방귀까지',
+    taglineEn: '12 pet-butler meme cuts',
+    description: '강아지·고양이 사진 1장으로 만드는 12컷. “간식 내놔”, “산책 가자”, “집사야 일해라”, “밥 줘”, “누가 방귀 꼈어” 같은 한국형 집사 밈 전용 대사로 맞췄습니다.',
+    descriptionEn: 'Twelve pet-butler memes from one dog or cat photo: treats, walks, feed me, who farted.',
+    needsSecondPhoto: false,
+    textMode: 'layer',
+    killer: true,
+    unlockPrice: 6900,
+    cuts: PET_MEME,
+    prompt: {
+      scene: 'the pet acting out a funny everyday butler-meme moment that fits the caption (demanding a treat, begging for a walk, commanding its human, sniffing suspiciously)',
+      layout: 'the pet centered and fully visible from ears to paws, expressive face toward the viewer, simple clean background',
+    },
+  },
   {
     id: 'situation',
     label: '상황·행동 리액션',

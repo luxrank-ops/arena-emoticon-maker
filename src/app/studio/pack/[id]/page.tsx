@@ -3,9 +3,13 @@ import { notFound } from 'next/navigation';
 import { PackViewer } from '@/components/studio/PackViewer';
 import { getCurrentUser } from '@/lib/session';
 import { getPackView } from '@/lib/packs';
+import { buildReviewSheet } from '@/lib/reviewer-sheet';
+import { referralSummaryFor } from '@/lib/referral';
 import { validatePackForKakao } from '@/lib/packager';
-import { effectivePlan } from '@/lib/admin-access';
+import { effectivePlan, isFullAccess } from '@/lib/admin-access';
+import { headers } from 'next/headers';
 import { getLocale } from '@/lib/i18n/server';
+import { checkoutSuspended, paymentsUnavailable } from '@/lib/payments';
 import { localizedPath, tr } from '@/lib/i18n/locale';
 
 export const dynamic = 'force-dynamic';
@@ -24,11 +28,26 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
   }
   if (!view) notFound();
 
+  const plan = effectivePlan(user);
   const kakao = {
     validation: validatePackForKakao({ size: view.pack.size, frames: view.frames }),
-    packaging: effectivePlan(user) === 'STUDIO',
-    plan: effectivePlan(user),
+    // Creator Pro(또는 풀액세스)이면서 팩 잠금이 해제된 경우에만 규격 ZIP 을 연다.
+    packaging: (plan === 'STUDIO' || isFullAccess(user)) && view.exportState.unlocked,
+    plan,
   };
+  // Creator Pro: 심사 시트(컨셉·제목·해시태그)를 만들어 카카오 ZIP·화면에 함께 넣는다.
+  const reviewSheet = plan === 'STUDIO' || isFullAccess(user)
+    ? buildReviewSheet({
+        title: view.pack.title,
+        tone: view.pack.tone,
+        format: view.pack.format ?? null,
+        subjectKind: view.pack.subjectKind ?? 'person',
+        frames: view.frames.map((frame) => ({ label: frame.label, line: frame.line })),
+      }, locale)
+    : null;
+  let origin = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://emotihak.com';
+  try { origin = (await headers()).get('x-forwarded-host') ? `https://${(await headers()).get('x-forwarded-host')}` : origin; } catch { /* 요청 밖 */ }
+  const invite = await referralSummaryFor(user.id, origin);
 
   return (
     <div className="wrap py-10">
@@ -55,6 +74,10 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
         total={view.total}
         watermark={view.watermark}
         kakao={kakao}
+        exportState={view.exportState}
+        reviewSheet={reviewSheet}
+        invite={invite}
+        checkoutReady={!paymentsUnavailable() && !checkoutSuspended()}
         locale={locale}
       />
     </div>

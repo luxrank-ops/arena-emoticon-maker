@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
 import { useRouter } from 'next/navigation';
@@ -18,6 +18,11 @@ import type { TextLayer } from '@/lib/studio/layers';
 import type { FrameView, Pack, Plan } from '@/lib/types';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { shareKakaoFeed } from '@/lib/kakao-share';
+import { CheckoutButton } from '@/components/payments/CheckoutButton';
+import type { PackExportState } from '@/lib/packs';
+import type { ReviewSheet } from '@/lib/reviewer-sheet';
+import type { ReferralSummary } from '@/lib/referral';
+import { PREVIEW_WATERMARK, TRIAL_MESSAGES } from '@/lib/trial-policy';
 
 export function PackViewer({
   pack: initialPack,
@@ -26,6 +31,10 @@ export function PackViewer({
   total,
   watermark,
   kakao,
+  exportState,
+  reviewSheet = null,
+  invite = null,
+  checkoutReady = true,
   locale = 'ko',
 }: {
   pack: Pack;
@@ -34,6 +43,12 @@ export function PackViewer({
   total: number;
   watermark: boolean;
   kakao: { validation: PackValidation; packaging: boolean; plan: Plan };
+  /** 잠금 해제 상태 — 무료 미리보기 팩은 이 값으로 내보내기를 잠근다 */
+  exportState?: PackExportState;
+  reviewSheet?: ReviewSheet | null;
+  invite?: ReferralSummary | null;
+  /** 토스 결제가 준비됐는지 — 아니면 잠금 해제 버튼을 '결제 준비 중'으로 막는다 */
+  checkoutReady?: boolean;
   locale?: Locale;
 }) {
   const t = (ko: string, en: string) => tr(locale, ko, en);
@@ -62,6 +77,13 @@ export function PackViewer({
   const [comboBusy, setComboBusy] = useState<string | null>(null);
   const [comboNotice, setComboNotice] = useState<string | null>(null);
   const formatInfo = initialPack.format ? packFormatById(initialPack.format) : undefined;
+  const unlocked = exportState?.unlocked ?? !watermark;
+  const locked = !unlocked;
+  const lockWatermark = initialPack.preview?.watermark ?? PREVIEW_WATERMARK;
+  const [inviteNotice, setInviteNotice] = useState<string | null>(null);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [finalizing, setFinalizing] = useState(false);
+  const finalizedRef = useRef(false);
   const duoScope = `duo:${initialPack.id}` as const;
   const closeSheet = useCallback(() => { setSelectedId(null); setShareLink(null); }, []);
 
@@ -92,6 +114,51 @@ export function PackViewer({
     }).finally(() => setGenerating(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genRound]);
+
+  // 잠금 해제 직후: 미리보기(Flash)로 그린 12컷을 고화질(화풍별 최상위 모델)로 한 번 다시 그린다.
+  //  · 추가 결제 없음(finalize) · 사진이 이 탭에 없으면 팩 화면에서 다시 올리면 된다.
+  useEffect(() => {
+    if (locked || !initialPack.preview || initialPack.hiResAt || finalizedRef.current) return;
+    const photo = loadPhoto(`pack:${initialPack.id}`);
+    if (!photo) return;
+    finalizedRef.current = true;
+    setFinalizing(true);
+    const ids = frames.filter((frame) => frame.spec.imageUrl).map((frame) => frame.id);
+    void runLimited(ids, 2, async (id) => {
+      try {
+        const url = await renderImage({ kind: 'frame', frameId: id, finalize: true }, photo, `pack:${initialPack.id}`, initialPack.subjectKind ?? 'person', formatInfo?.needsSecondPhoto ? duoScope : undefined);
+        setFrames((prev) => prev.map((frame) => (frame.id === id ? { ...frame, spec: { ...frame.spec, imageUrl: url } } : frame)));
+      } catch {
+        // 한 컷 실패는 무시한다 — 필요하면 '실패한 컷 다시 그리기'로 재시도한다.
+      }
+    }).finally(() => setFinalizing(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locked]);
+
+  async function copyInvite() {
+    if (!invite) return;
+    try {
+      await navigator.clipboard.writeText(invite.link);
+      setInviteNotice(t('초대 링크를 복사했어요. 친구에게 보내 보세요!', 'Invite link copied. Send it to a friend!'));
+    } catch {
+      setInviteNotice(t('링크를 길게 눌러 직접 복사해 주세요.', 'Long-press the link to copy it.'));
+    }
+  }
+
+  async function copyReviewSheet() {
+    if (!reviewSheet) return;
+    const text = [
+      '[캐릭터 컨셉]', reviewSheet.concept, '',
+      '[이모티콘 제목 후보]', ...reviewSheet.titles.map((title, index) => `${index + 1}. ${title}`), '',
+      '[해시태그 10개]', reviewSheet.hashtags.map((tag) => `#${tag}`).join(' '),
+    ].join('\n');
+    try {
+      await navigator.clipboard.writeText(text);
+      setInviteNotice(t('심사 시트를 복사했어요.', 'Review sheet copied.'));
+    } catch {
+      setInviteNotice(t('복사하지 못했어요. 화면에서 직접 선택해 주세요.', 'Could not copy. Please select the text manually.'));
+    }
+  }
 
   async function deletePackNow() {
     const ok = window.confirm(t(
@@ -152,7 +219,7 @@ export function PackViewer({
     setSheetNotice(null);
     setShareLink(null);
     try {
-      const blob = await renderPngBlob(f.spec, { watermark });
+      const blob = await renderPngBlob(f.spec, { watermark, watermarkText: lockWatermark });
       const filename = `${initialPack.id}-${f.index + 1}-${f.label}.png`;
       const file = new File([blob], filename, { type: 'image/png' });
       const title = t(`이모티학 ${f.label} 이모티콘`, `EmotiHak ${f.label} sticker`);
@@ -162,9 +229,11 @@ export function PackViewer({
         const json = await res.json().catch(() => null);
         if (!res.ok || !json?.ok) throw new Error(json?.error?.message ?? 'share link failed');
         const tracking = new URLSearchParams({ utm_source: 'kakaotalk', utm_medium: 'share', utm_campaign: 'emoticon_share' });
+        if (invite) tracking.set('ref', invite.code);
         const resultUrl = new URL(json.share.path, window.location.origin);
         resultUrl.search = tracking.toString();
         const createUrl = new URL('/studio/upload', window.location.origin);
+        if (invite) tracking.set('ref', invite.code);
         createUrl.search = tracking.toString();
         setShareLink(resultUrl.toString());
         feed = { title: json.share.title, description: json.share.description, imageUrl: new URL(json.share.imagePath, window.location.origin).toString(), resultUrl: resultUrl.toString(), createUrl: createUrl.toString() };
@@ -187,7 +256,8 @@ export function PackViewer({
         await navigator.share({ files: [file], title, text: `${title}\n${f.line}` });
         setSheetNotice(t('시스템 공유창에서 카카오톡을 선택해 주세요.', 'Choose KakaoTalk in the system share sheet.'));
       } else if (typeof navigator.share === 'function') {
-        await navigator.share({ title, text: feed?.description ?? `${title}\n${f.line}`, url: feed?.resultUrl });
+        const shareText = [feed?.description ?? `${title}\n${f.line}`, locked ? `${PREVIEW_WATERMARK}\n${invite?.link ?? ''}` : ''].filter(Boolean).join('\n');
+        await navigator.share({ title, text: shareText.trim(), url: feed?.resultUrl ?? invite?.link });
         setSheetNotice(t('시스템 공유창을 열었어요.', 'The system share sheet was opened.'));
       } else {
         downloadBlob(blob, filename);
@@ -262,7 +332,7 @@ export function PackViewer({
       const items = visible
         .filter((f) => f.ready)
         .map((f) => ({ spec: f.spec, filename: `${String(f.index + 1).padStart(2, '0')}-${f.label}` }));
-      const blob = await exportPackZip(items, { watermark, outline });
+      const blob = await exportPackZip(items, { watermark, watermarkText: lockWatermark, outline });
       downloadBlob(blob, `emotihak-${initialPack.id}.zip`);
       setNotice(t(`${items.length}컷을 ZIP으로 내려받았어요.`, `Downloaded ${items.length} cuts as a ZIP file.`));
     } finally {
@@ -317,9 +387,12 @@ export function PackViewer({
         .map((f) => ({ spec: f.spec, filename: `${f.index + 1}-${f.label}` }));
       const result = await exportKakaoPackZip(items, {
         watermark,
+        watermarkText: lockWatermark,
         outline,
         motion: kakaoMotion,
         animationFormat: kakaoAnim,
+        ...(reviewSheet ? { reviewSheet: { concept: reviewSheet.concept, titles: reviewSheet.titles, hashtags: reviewSheet.hashtags, checklist: reviewSheet.checklist, cutCount: reviewSheet.cutCount } } : {}),
+        ...(invite ? { inviteLink: invite.link } : {}),
       });
       downloadBlob(result.blob, `emotihak-kakao-${initialPack.id}.zip`);
       setKakaoFiles(result.files);
@@ -368,10 +441,16 @@ export function PackViewer({
           />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
-          <button className="btn-dark !py-2 text-xs" disabled={!done || zipBusy} onClick={downloadZip}>
-            {zipBusy ? t('ZIP 만드는 중…', 'Preparing ZIP…') : t('전체 PNG ZIP 다운로드', 'Download all PNGs (.zip)')}
-          </button>
-          {locale === 'ko' ? <Link href="/reply" className="btn-ghost !py-2 text-xs">톡 답장에 쓰기</Link> : null}
+          {locked ? (
+            <a href="#unlock" className="btn-primary !py-2 text-xs">
+              {t('잠금 해제하고 내려받기', 'Unlock to download')}
+            </a>
+          ) : (
+            <button className="btn-dark !py-2 text-xs" disabled={!done || zipBusy} onClick={downloadZip}>
+              {zipBusy ? t('ZIP 만드는 중…', 'Preparing ZIP…') : t('전체 PNG ZIP 다운로드', 'Download all PNGs (.zip)')}
+            </button>
+          )}
+          {locale === 'ko' && !locked ? <Link href="/reply" className="btn-ghost !py-2 text-xs">톡 답장에 쓰기</Link> : null}
           <button
             onClick={deletePackNow}
             disabled={deleting}
@@ -379,15 +458,124 @@ export function PackViewer({
           >
             {deleting ? t('삭제 중…', 'Deleting…') : t('팩 삭제', 'Delete pack')}
           </button>
-          {locale === 'ko' ? <Link href="/goods" className="btn-ghost !py-2 text-xs">굿즈로 만들기</Link> : null}
-          {watermark && locale === 'ko' ? (
-            <Link href="/pricing" className="chip !border-coral/50 !bg-coral/10 !text-coralink">
-              워터마크 제거는 Plus
-            </Link>
-          ) : null}
+          {locked ? <span className="chip !border-coral/50 !bg-coral/10 !text-coralink">{t('미리보기 · 내보내기 잠김', 'Preview · export locked')}</span> : null}
+          {finalizing ? <span className="chip !bg-primary/10 !text-primary-dark">{t('고화질로 다시 그리는 중…', 'Rendering at full quality…')}</span> : null}
         </div>
         {notice ? <p className="mt-2 text-xs font-bold text-mint">{notice}</p> : null}
       </div>
+
+      {locked ? (
+        <section id="unlock" className="card overflow-hidden scroll-mt-24 border-2 border-primary/40 p-0">
+          <div className="bg-primary/10 px-5 py-4">
+            <p className="text-xs font-black uppercase tracking-widest text-primary-dark">LOCKED PREVIEW</p>
+            <h2 className="mt-1 text-xl font-black break-keep">{t(`${total}컷 완성! 지금은 워터마크 미리보기예요`, `${total} cuts ready — watermarked preview`)}</h2>
+            <p className="mt-2 text-[13px] leading-relaxed text-sub">
+              {t(TRIAL_MESSAGES.lockedExport, 'This pack is a preview. Unlock it to download high-resolution, transparent PNGs and the ZIP.')}
+            </p>
+          </div>
+          <div className="p-5">
+            <div className="flex items-end justify-between gap-3">
+              <div>
+                <p className="text-sm font-black">{exportState?.unlockTitle ?? '단건 팩 완성권'}</p>
+                <p className="mt-0.5 text-[11px] text-sub">{t('구독 없음 · 이 팩만 1회 결제', 'No subscription · one-time for this pack')}</p>
+              </div>
+              <p className="text-2xl font-black">{(exportState?.unlockPrice ?? 5900).toLocaleString('en-US')}<span className="text-sm font-bold text-sub">원</span></p>
+            </div>
+            <ul className="mt-3 grid gap-1.5 text-[12px] leading-relaxed text-ink/80 sm:grid-cols-2">
+              <li>· {t('12컷 고화질 · 투명 PNG', '12 high-resolution transparent PNGs')}</li>
+              <li>· {t('워터마크 제거', 'No watermark')}</li>
+              <li>· {t('카카오·라인 규격 ZIP', 'Kakao / LINE spec ZIP')}</li>
+              <li>· {t('대사·표정 계속 편집', 'Keep editing captions and expressions')}</li>
+            </ul>
+            <div className="mt-4">
+              <CheckoutButton
+                sku={exportState?.unlockSku ?? 'pack-unlock-single'}
+                packId={initialPack.id}
+                disabled={!checkoutReady}
+                label={checkoutReady
+                  ? t(`${(exportState?.unlockPrice ?? 5900).toLocaleString('en-US')}원으로 잠금 해제`, `Unlock for ₩${(exportState?.unlockPrice ?? 5900).toLocaleString('en-US')}`)
+                  : t('결제 준비 중', 'Payment preparing')}
+                className="btn-primary w-full !py-4 text-base"
+              />
+            </div>
+            <p className="mt-2 text-center text-[10px] leading-relaxed text-sub">
+              {t('결제 즉시 이 팩 전체가 열리고, 12컷을 고화질로 다시 그립니다. 디지털 콘텐츠 사용 시작 후에는 청약철회가 제한될 수 있어요.', 'The whole pack opens right after payment and all cuts are re-rendered at full quality. Digital content usage limits cancellation.')}
+            </p>
+            {formatInfo?.needsSecondPhoto ? (
+              <p className="mt-1 text-center text-[10px] font-bold text-coralink">{t('2인 케미 팩 완성권 7,900원이 적용됩니다.', 'The duo chemistry unlock (₩7,900) applies.')}</p>
+            ) : null}
+            {initialPack.subjectKind === 'pet' ? (
+              <p className="mt-1 text-center text-[10px] font-bold text-coralink">{t('반려동물 집사 밈 완성권 6,900원이 적용됩니다.', 'The pet butler unlock (₩6,900) applies.')}</p>
+            ) : null}
+          </div>
+        </section>
+      ) : null}
+
+      {invite ? (
+        <section className="card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-black">🎁 {t('친구 초대하고 3컷 무료 해제', 'Invite a friend, unlock 3 free cuts')}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-sub">
+                {t(`내 초대 링크로 친구가 처음 미리보기 팩을 만들면 ${invite.rewardCuts}컷이 무료로 쌓여요. 지금까지 ${invite.invited}명 초대 · ${invite.earnedCuts}컷 적립.`, `When a friend makes their first preview pack from your link, you earn ${invite.rewardCuts} cuts. Invited ${invite.invited} · ${invite.earnedCuts} cuts earned.`)}
+              </p>
+            </div>
+            <button type="button" onClick={() => void copyInvite()} className="btn-ghost min-h-11 shrink-0 !px-4 !py-2 text-xs">{t('초대 링크 복사', 'Copy invite link')}</button>
+          </div>
+          <p className="mt-2 break-all rounded-xl border border-line bg-cream px-3 py-2 text-[11px] text-sub">{invite.link}</p>
+          {inviteNotice ? <p className="mt-2 text-[11px] font-bold text-mint">{inviteNotice}</p> : null}
+        </section>
+      ) : null}
+
+      {reviewSheet ? (
+        <section className="card p-5">
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <div>
+              <p className="text-sm font-black">📝 {t('카카오·라인 작가 심사 시트', 'Kakao / LINE submission sheet')}</p>
+              <p className="mt-1 text-[11px] leading-relaxed text-sub">{t('카카오 규격 ZIP에 review-sheet.txt·json으로 함께 들어갑니다. Creator Pro 전용.', 'Included in the Kakao spec ZIP as review-sheet.txt/json. Creator Pro only.')}</p>
+            </div>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => void copyReviewSheet()} className="btn-ghost min-h-10 !px-3 !py-1.5 text-[11px]">{t('복사', 'Copy')}</button>
+              <button type="button" onClick={() => setReviewOpen((open) => !open)} className="chip min-h-10">{reviewOpen ? t('접기', 'Hide') : t('미리보기', 'Preview')}</button>
+            </div>
+          </div>
+          <p className="mt-2 line-clamp-2 text-[12px] leading-relaxed text-ink/80">{reviewSheet.concept}</p>
+          <p className="mt-1 text-[11px] font-bold text-coralink">{reviewSheet.titles.slice(0, 3).join(' · ')}</p>
+          {reviewOpen ? (
+            <div className="mt-3 space-y-3 rounded-xl border border-line bg-cream p-3 text-[11px] leading-relaxed">
+              <div>
+                <p className="font-black text-ink">{t('캐릭터 컨셉', 'Character concept')}</p>
+                <p className="mt-1 text-sub">{reviewSheet.concept}</p>
+              </div>
+              <div>
+                <p className="font-black text-ink">{t('제목 후보', 'Title candidates')}</p>
+                <ol className="mt-1 list-decimal space-y-0.5 pl-4 text-sub">{reviewSheet.titles.map((title) => <li key={title}>{title}</li>)}</ol>
+              </div>
+              <div>
+                <p className="font-black text-ink">{t('해시태그 10개', '10 hashtags')}</p>
+                <p className="mt-1 text-sub">{reviewSheet.hashtags.map((tag) => `#${tag}`).join(' ')}</p>
+              </div>
+              <div>
+                <p className="font-black text-ink">{t('제출 전 체크리스트', 'Pre-submission checklist')}</p>
+                <ul className="mt-1 space-y-0.5 text-sub">{reviewSheet.checklist.map((line) => <li key={line}>· {line}</li>)}</ul>
+              </div>
+            </div>
+          ) : null}
+        </section>
+      ) : null}
+
+      {done && !locked && locale === 'ko' ? (
+        <Link
+          href={`/goods?pack=${initialPack.id}&bundle=1&frames=${visible.slice(0, 3).map((frame) => frame.id).join(',')}`}
+          className="card group flex flex-wrap items-center justify-between gap-3 border-2 border-ink/10 p-5 transition hover:-translate-y-0.5 hover:shadow-pop"
+        >
+          <div>
+            <p className="text-sm font-black">방금 만든 최애 3컷으로 아크릴 키링 · 방수 스티커 만들기</p>
+            <p className="mt-1 text-[11px] text-sub">이 팩의 1·2·3번 컷이 그대로 담깁니다 · 굿즈 번들 20% 할인</p>
+          </div>
+          <span className="text-sm font-black text-coralink group-hover:underline">굿즈로 만들기 →</span>
+        </Link>
+      ) : null}
 
       {formatInfo ? (
         <div className="card p-5">
@@ -488,13 +676,27 @@ export function PackViewer({
               type="button"
               disabled={!f.ready}
               aria-haspopup="dialog"
-              aria-label={f.ready ? t(`${f.label} 컷 관리하기`, `Manage ${f.label} sticker`) : t(`${f.label} 컷 생성 중`, `${f.label} sticker is generating`)}
+              aria-label={locked
+                ? t(`${f.label} 미리보기 (잠김)`, `${f.label} preview (locked)`)
+                : f.ready ? t(`${f.label} 컷 관리하기`, `Manage ${f.label} sticker`) : t(`${f.label} 컷 생성 중`, `${f.label} sticker is generating`)}
               onClick={() => { setSelectedId(f.id); setSheetNotice(null); setShareLink(null); }}
               className="group flex h-full w-full flex-col text-left disabled:cursor-wait"
             >
               <div className="relative w-full bg-cream p-2">
                 {f.ready ? (
-                  <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
+                  <div className="relative">
+                    <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
+                    {locked ? (
+                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-xl bg-ink/10" aria-hidden="true">
+                        <div className="rotate-[-24deg] space-y-2 px-1 text-center">
+                          {[0, 1, 2].map((row) => (
+                            <p key={row} className="whitespace-nowrap text-[9px] font-black tracking-tight text-white/85 [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">{lockWatermark} · {lockWatermark.split(' ')[0]}</p>
+                          ))}
+                        </div>
+                        <span className="absolute right-2 top-2 rounded-full bg-ink/70 px-2 py-0.5 text-[9px] font-black text-white">🔒 {t('미리보기', 'Preview')}</span>
+                      </div>
+                    ) : null}
+                  </div>
                 ) : (
                   <div className="grid aspect-square place-items-center rounded-xl bg-[length:200%_100%] bg-gradient-to-r from-line/20 via-line/50 to-line/20 animate-shimmer">
                     <span className="text-[11px] font-bold text-sub">{t('생성 중…', 'Generating…')}</span>
@@ -506,7 +708,7 @@ export function PackViewer({
                 <p className="truncate text-[13px] font-black">{f.label}</p>
                 <p className="mt-0.5 truncate text-[11px] text-sub">“{f.line}”</p>
                 <span className="mt-2 flex min-h-12 w-full items-center justify-center gap-1 rounded-xl border border-line bg-paper px-2 py-2 text-center text-xs font-semibold transition group-hover:border-primary group-hover:bg-primary/5 group-hover:text-primary-dark">
-                  {f.ready ? t('관리하기', 'Manage') : t('생성 중…', 'Generating…')}{f.ready ? <span aria-hidden="true">↑</span> : null}
+                  {locked ? t('미리보기 · 공유', 'Preview · share') : f.ready ? t('관리하기', 'Manage') : t('생성 중…', 'Generating…')}{f.ready ? <span aria-hidden="true">↑</span> : null}
                 </span>
               </div>
             </button>
@@ -514,7 +716,7 @@ export function PackViewer({
         ))}
       </div>
 
-      <div className={locale === 'en' ? 'hidden' : 'card p-5'}>
+      <div className={locale === 'en' || locked ? 'hidden' : 'card p-5'}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div>
             <p className="text-sm font-black">카카오 제안 규격 패키저</p>
@@ -591,7 +793,14 @@ export function PackViewer({
           requiresRedraw={aiPack}
           watermark={watermark}
           onClose={closeSheet}
-          onDownload={() => void downloadOne(selectedFrame)}
+          downloadDisabled={locked}
+          onDownload={() => {
+            if (locked) {
+              setSheetNotice(t('미리보기는 공유만 할 수 있어요. 잠금 해제하면 고화질로 저장할 수 있습니다.', 'Previews can be shared only. Unlock to save in high resolution.'));
+              return;
+            }
+            void downloadOne(selectedFrame);
+          }}
           onShare={() => void shareOne(selectedFrame)}
           shareLink={shareLink}
           onCopyShareLink={() => void copyShareLink()}

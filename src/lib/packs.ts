@@ -16,7 +16,7 @@ import { composePackTemplates } from '@/lib/recommend/engine';
 import { TEMPLATES_BY_ID } from '@/lib/recommend/templates';
 import { applyCredits, CreditError } from '@/lib/credits';
 import { logEvent, uid, withDB } from '@/lib/store';
-import { watermarkFor, type Viewer } from '@/lib/admin-access';
+import { isFullAccess, watermarkFor, effectivePlan, type Viewer } from '@/lib/admin-access';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { loadImage } from '@/lib/images';
 import { localizedComicExpressions, localizedPhotoStickerScenes } from '@/lib/i18n/presets';
@@ -25,6 +25,9 @@ import type { Locale } from '@/lib/i18n/locale';
 import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { defaultLayerOf, formatCuts, packFormatById, type PackFormatId } from '@/lib/pack-formats';
 import { layerFromLine, normalizeLayer, normalizeLayers } from '@/lib/studio/layers';
+import { PREVIEW_PACK_SIZE, PREVIEW_WATERMARK } from '@/lib/trial-policy';
+import { SKUS, unlockSkuForPack } from '@/lib/pricing';
+
 
 const FRAME_INTERVAL_MS = 850;
 
@@ -135,7 +138,16 @@ export async function createPack(
   formatId?: PackFormatId,
   /** 표정·포즈 프리셋 150종 선택 (컷 수만큼, 중복 없이) */
   presetIds?: number[],
+  /**
+   * 무료 12컷 워터마크 미리보기 팩.
+   *  · 크레딧을 차감하지 않고, 첫 팩은 12컷 전체를 저비용(Flash) 렌더로 채운다.
+   *  · 결제(단건 완성권) 전에는 내보내기가 잠긴다 (packExportState).
+   */
+  opts: { preview?: boolean } = {},
 ) {
+  if (opts.preview && size !== PREVIEW_PACK_SIZE) {
+    throw new PackError('INVALID_SIZE', `무료 미리보기는 ${PREVIEW_PACK_SIZE}컷 팩으로만 만들 수 있어요.`);
+  }
   const { sheet, face } = await withDB((db) => {
     const s = db.sheets.find((x) => x.id === sheetId && x.userId === userId);
     if (!s) throw new PackError('SHEET_NOT_FOUND', '캐릭터 시트를 찾을 수 없습니다');
@@ -162,6 +174,9 @@ export async function createPack(
   const packFormat = sheet.format ? packFormatById(sheet.format) : formatId ? packFormatById(formatId) : undefined;
   if (sheet.tone === 'photo-sticker' && !packFormat && size !== 12 && size !== 16) throw new PackError('INVALID_SIZE', '실사 카톡 스티커는 12컷 또는 16컷을 선택해 주세요');
   if (size === 16 && sheet.tone !== 'photo-sticker' && !packFormat) throw new PackError('INVALID_SIZE', '16컷은 실사 카톡 스티커에서만 선택할 수 있습니다');
+  if (packFormat?.id === 'pet-meme' && (sheet.subjectKind ?? 'person') !== 'pet') {
+    throw new PackError('PET_PHOTO_REQUIRED', '반려동물 집사 밈 팩은 반려동물 사진으로 시작해 주세요.');
+  }
   if (comicExpressionIds && (comicExpressionIds.length !== size || new Set(comicExpressionIds).size !== size || comicExpressionIds.some((id) => !comicExpressionById(id)))) throw new PackError('INVALID_COMIC_SELECTION', '선택한 코믹 표정을 컷 수에 맞게 확인해 주세요.');
   if (presetIds && (presetIds.length !== size || new Set(presetIds).size !== size || presetIds.some((id) => !presetById(id)))) {
     throw new PackError('INVALID_PRESET_SELECTION', '선택한 프리셋을 컷 수에 맞게 확인해 주세요.');
@@ -248,7 +263,9 @@ export async function createPack(
   }
 
   try {
-    if (!unlimited) await applyCredits({
+    if (opts.preview) {
+      // 무료 미리보기 — 크레딧을 쓰지 않는다. 원가 상한은 /api/packs 의 체험 카운터가 막는다.
+    } else if (!unlimited) await applyCredits({
       userId,
       delta: -size,
       reason: 'GENERATION',
@@ -284,8 +301,9 @@ export async function createPack(
     size,
     status: 'GENERATING',
     renderer: 'ai',
-    creditsSpent: unlimited ? 0 : size,
+    creditsSpent: opts.preview || unlimited ? 0 : size,
     createdAt: new Date().toISOString(),
+    ...(opts.preview ? { preview: { watermark: PREVIEW_WATERMARK, cuts: PREVIEW_PACK_SIZE, model: 'flash' as const } } : {}),
     frames,
     // 얼굴 프로필이 파기된 뒤에도 이 팩을 계속 그릴 수 있게 비식별 스냅샷을 고정한다
     identity: {
@@ -297,7 +315,7 @@ export async function createPack(
 
   await withDB((db) => {
     db.packs.push(pack);
-    logEvent(db, userId, 'pack_created', { packId, size, tone: sheet.tone, cost: pack.creditsSpent });
+    logEvent(db, userId, 'pack_created', { packId, size, tone: sheet.tone, cost: pack.creditsSpent, preview: !!opts.preview });
     void face;
   });
 
@@ -367,6 +385,61 @@ export function isReady(pack: Pack, now = Date.now()) {
   return readyCount(pack, now) >= pack.frames.filter((frame) => !frame.hiddenAt).length;
 }
 
+// ── 단건 잠금 해제(페이월) ───────────────────────────────────
+/** 이 날짜 이전에 만든 팩은 이미 소유한 것으로 보고 잠그지 않는다 (기존 사용자 보존). */
+const PAYWALL_START = Date.parse('2026-11-22T12:00:00+09:00');
+
+export interface PackExportState {
+  /** 잠금 해제(또는 유료 등급)라 고화질·무워터마크·ZIP 이 열린 상태 */
+  unlocked: boolean;
+  /** 미리보기 워터마크를 얹어야 하는가 */
+  watermark: boolean;
+  /** 이 팩을 열 때 쓰는 단건 완성권 */
+  unlockSku: string;
+  unlockPrice: number;
+  unlockTitle: string;
+  /** 잠긴 이유 — paywall(결제 전) · plan(플랜으로 열림) · unlocked(단건 해제) · legacy */
+  reason: 'paywall' | 'plan' | 'unlocked' | 'legacy';
+}
+
+/**
+ * 팩 내보내기 권한 판정 (서버·클라이언트 공용 규칙).
+ *  · 관리자·검증된 플레이 구매자·유료 등급(Creator Pro/Plus)은 모든 팩을 연다.
+ *  · 무료 등급은 단건 완성권으로 잠금 해제한 팩만 연다.
+ *  · 개편 이전에 만든 팩은 잠그지 않는다.
+ */
+export function packExportState(pack: Pack, viewer: Viewer | null | undefined): PackExportState {
+  const sku = unlockSkuForPack(pack.format, pack.subjectKind);
+  const base = {
+    unlockSku: sku,
+    unlockPrice: SKUS[sku]?.price ?? 5900,
+    unlockTitle: SKUS[sku]?.title ?? '단건 팩 완성권',
+  };
+  if (isFullAccess(viewer) || effectivePlan(viewer) !== 'FREE') {
+    return { ...base, unlocked: true, watermark: false, reason: 'plan' };
+  }
+  if (pack.unlockedAt) return { ...base, unlocked: true, watermark: false, reason: 'unlocked' };
+  // 미리보기 팩은 언제 만들어졌든 잠근다 — 결제 전에는 열리지 않는다.
+  if (pack.preview) return { ...base, unlocked: false, watermark: true, reason: 'paywall' };
+  // 개편 전에 만든 일반 팩은 기존 사용자 보존을 위해 잠그지 않는다.
+  if (Date.parse(pack.createdAt) < PAYWALL_START) return { ...base, unlocked: true, watermark: true, reason: 'legacy' };
+  return { ...base, unlocked: false, watermark: true, reason: 'paywall' };
+}
+
+/** 결제 승인 뒤 팩 잠금을 해제한다 (같은 팩은 1회만). */
+export async function unlockPack(userId: string, packId: string, sku: string): Promise<Pack> {
+  return withDB((db) => {
+    const pack = db.packs.find((p) => p.id === packId && p.userId === userId);
+    if (!pack) throw new PackError('PACK_NOT_FOUND', '팩을 찾을 수 없습니다');
+    if (!pack.unlockedAt) {
+      pack.unlockedAt = new Date().toISOString();
+      pack.unlockSku = sku;
+      logEvent(db, userId, 'pack_unlocked', { packId, sku });
+    }
+    return pack;
+  });
+}
+
 /**
  * @param viewer 현재 요청의 사용자(getCurrentUser 결과)를 전달하면 워터마크 판정이
  *        해당 사용자를 기준으로 한다 — TWA(플레이 유료 앱) 사용자의 임시 play 플래그가
@@ -389,12 +462,16 @@ export async function getPackView(userId: string, packId: string, viewer?: Viewe
         spec: specFromIdentity(identity, f),
         ready: pack.renderer === 'ai' ? !!f.imageId : f.readyAt <= now,
       }));
+    const viewerUser = viewer ?? (db.users.find((u) => u.id === userId) ?? null);
+    const exportState = packExportState(pack, viewerUser);
     return {
       pack: { ...pack, status: (ready >= visibleFrames.length ? 'READY' : 'GENERATING') as Pack['status'] },
       frames,
       ready,
       total: visibleFrames.length,
-      watermark: watermarkFor(viewer ?? (db.users.find((u) => u.id === userId) ?? null)),
+      watermark: exportState.watermark || watermarkFor(viewerUser),
+      unlocked: exportState.unlocked,
+      exportState,
     };
   });
 }

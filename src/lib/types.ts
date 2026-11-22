@@ -122,6 +122,10 @@ export interface User {
   plan: Plan;
   credits: number;
   role: 'user' | 'admin';
+  /** 월간 이용권 만료 시각. 없으면 무기한(레거시·관리자). */
+  planExpiresAt?: string;
+  /** 친구 초대 코드 (서버가 처음 필요할 때 발급) */
+  referralCode?: string;
   /** TWA 환경 신호. 구매 증명이 아니며 크레딧 무차감과 일일 AI 공정 이용이 적용된다 */
   play?: boolean;
   createdAt: string;
@@ -249,6 +253,18 @@ export interface Pack {
   /** 'ai' 면 컷 이미지(imageId)가 있어야 완성. 없으면 레거시 SVG 재조합 팩 */
   renderer?: 'ai';
   /**
+   * 무료 12컷 워터마크 미리보기 팩.
+   *  · 결제 전에는 컷 전체가 반투명 워터마크와 함께 보이고 내보내기가 잠긴다.
+   *  · 단건 완성권(₩5,900~₩7,900) 결제로 unlockedAt 이 채워지면 고화질·투명 PNG·ZIP 이 열린다.
+   */
+  preview?: { watermark: string; cuts: number; model?: 'flash' };
+  /** 단건 잠금 해제 결제 완료 시각 (있으면 내보내기·무워터마크가 열린다) */
+  unlockedAt?: string;
+  /** 잠금 해제에 쓴 SKU (영수증·고객지원 추적용) */
+  unlockSku?: string;
+  /** 잠금 해제 뒤 고화질(Pro 모델)로 다시 그린 시각 */
+  hiResAt?: string;
+  /**
    * 비식별 렌더 스냅샷 (팔레트 + 얼굴 시그니처 + 화풍).
    * 얼굴 프로필은 24시간 뒤 파기되므로, 팩이 그 뒤에도 계속 렌더되려면
    * "이미 만들어진 팩을 다시 그리는 데 필요한 최소값"을 팩에 고정해 둔다.
@@ -284,7 +300,11 @@ export interface CreditEntry {
     | 'GENERATION'
     | 'REFUND'
     | 'PURCHASE'
-    | 'ADMIN_GIFT';
+    | 'ADMIN_GIFT'
+    /** 친구 초대 보상 — 초대받은 사람이 처음 체험/가입했을 때 3컷 지급 */
+    | 'REFERRAL';
+  /** 초대 보상 상세 (초대한 사람에게만) */
+  memo?: string;
   refType?: string;
   refId?: string;
   balanceAfter: number;
@@ -302,7 +322,8 @@ export interface QuotePurchase {
 export interface Order {
   id: string;
   userId: string;
-  kind: 'subscription' | 'credits' | 'goods';
+  /** unlock = 단건 팩 잠금 해제, subscription = Creator Pro 1개월 이용권 */
+  kind: 'subscription' | 'credits' | 'goods' | 'unlock';
   sku: string;
   title: string;
   amount: number;
@@ -316,6 +337,22 @@ export interface Order {
   paymentKey?: string;
   /** 회원 정보와 생성물은 삭제하고 법정 결제 기록만 남긴 시각 */
   accountDeletedAt?: string;
+  /** 잠금 해제 주문이 가리키는 팩 */
+  packId?: string;
+}
+
+/** 친구 초대 추적 — 초대한 사람 1명당 3컷(크레딧) 보상, 1회만 지급 */
+export interface Referral {
+  id: string;
+  inviterId: string;
+  inviteeId: string;
+  code: string;
+  /** 지급한 보너스 컷(=크레딧) 수 */
+  rewardCuts: number;
+  status: 'PENDING' | 'REWARDED' | 'SKIPPED';
+  reason?: string;
+  createdAt: string;
+  rewardedAt?: string;
 }
 
 export interface GoodsOrder extends Order {
@@ -431,6 +468,8 @@ export interface UsageEvent {
     | 'generate'
     | 'export'
     | 'order_paid'
+    | 'pack_unlocked'
+    | 'referral_rewarded'
     | 'quote_pack_purchased'
     | 'content_reported'
     | 'content_moderated'

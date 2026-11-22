@@ -51,31 +51,46 @@ check('일반 스타일은 체험 허용', trial.trialToneAllowed('2d-cute') ===
 
 console.log('\n[2] 기본 상한 값');
 const limits = trial.trialLimits();
-check('사용자 하루 체험 컷 2장', limits.cutsPerUserDay === 2, JSON.stringify(limits));
-check('사용자 하루 이미지 5장 (시안 1 + 컷 2 + 재시도 여유)', limits.imagesPerUserDay === 5);
-check('전체 하루 15장', limits.imagesPerDay === 15);
-check('전체 월 300장', limits.imagesPerMonth === 300);
+check('사용자 하루 미리보기 컷 12장 (한 팩 전체)', limits.cutsPerUserDay === 12, JSON.stringify(limits));
+check('사용자 하루 이미지 18장 (시안 1 + 12컷 + 재시도 여유)', limits.imagesPerUserDay === 18);
+check('전체 하루 45장', limits.imagesPerDay === 45);
+check('전체 월 900장', limits.imagesPerMonth === 900);
+check('사용자 하루 미리보기 팩 1개', limits.previewPacksPerUserDay === 1);
 
-console.log('\n[3] 사용자 하루 2컷 제한 (쿠키를 바꿔도 IP·사용자 카운터가 남는다)');
+console.log('\n[3] 사용자 하루 12컷(한 팩) 제한 (쿠키를 바꿔도 IP·사용자 카운터가 남는다)');
 // 전체·IP 상한은 넉넉히 두고 사용자 상한만 본다
 process.env.TRIAL_IMAGES_PER_DAY = '100';
 process.env.TRIAL_IMAGES_PER_MONTH = '1000';
 process.env.TRIAL_IMAGES_PER_IP_DAY = '20';
 const userA = { userId: 'guest_a', ipHash: 'ip-a' };
 await trial.consumeTrialImage(userA, 'image'); // 시안
-await trial.consumeTrialImage(userA, 'cut');
-const afterOne = await trial.consumeTrialImage(userA, 'cut');
-check('2컷째까지 허용', afterOne.cutsUsedToday === 2);
+let afterOne = await trial.consumeTrialImage(userA, 'cut');
+for (let cut = 2; cut <= 12; cut++) afterOne = await trial.consumeTrialImage(userA, 'cut');
+check('12컷째까지 허용 (한 팩 전체)', afterOne.cutsUsedToday === 12);
 check('남은 컷 0', afterOne.cutsLeftToday === 0);
 let cutLimit: unknown = null;
 try { await trial.consumeTrialImage(userA, 'cut'); } catch (e) { cutLimit = e; }
-check('3컷째는 TRIAL_LIMIT', (cutLimit as { code?: string })?.code === 'TRIAL_LIMIT', JSON.stringify(cutLimit));
-check('3컷째 차단 사유 = user', (cutLimit as { scope?: string })?.scope === 'user');
+check('13컷째는 TRIAL_LIMIT', (cutLimit as { code?: string })?.code === 'TRIAL_LIMIT', JSON.stringify(cutLimit));
+check('13컷째 차단 사유 = user', (cutLimit as { scope?: string })?.scope === 'user');
 check('차단은 429 로 응답', (cutLimit as { status?: number })?.status === 429);
 check('차단 문구에 내일 안내', /내일/.test((cutLimit as Error)?.message ?? ''));
 const statusA = await trial.trialStatusFor(userA);
 check('상태 조회: 남은 컷 0', statusA.cutsLeftToday === 0);
-check('상태 조회: 남은 이미지 2 (5-3)', statusA.imagesLeftToday === 2, JSON.stringify(statusA));
+check('상태 조회: 남은 이미지 5 (18-13)', statusA.imagesLeftToday === 5, JSON.stringify(statusA));
+
+console.log('\n[3a] 미리보기 팩은 사용자·IP 하루 1팩, 이미지 12장을 감당할 때만 열린다');
+process.env.TRIAL_IMAGES_PER_DAY = '100';
+process.env.TRIAL_IMAGES_PER_MONTH = '1000';
+process.env.TRIAL_IMAGES_PER_USER_DAY = '18';
+process.env.TRIAL_IMAGES_PER_IP_DAY = '24';
+const packSubject = { userId: 'guest_pack', ipHash: 'ip-pack' };
+const packStatus = await trial.consumeTrialPreviewPack(packSubject);
+check('첫 미리보기 팩은 열린다', packStatus.previewPacksLeftToday === 0, JSON.stringify(packStatus));
+let packBlocked: unknown = null;
+try { await trial.consumeTrialPreviewPack(packSubject); } catch (e) { packBlocked = e; }
+check('같은 날 두 번째 팩은 TRIAL_LIMIT', (packBlocked as { code?: string })?.code === 'TRIAL_LIMIT', JSON.stringify(packBlocked));
+check('팩 차단 문구는 잠금 해제 안내', /잠금 해제/.test((packBlocked as Error)?.message ?? ''));
+check('미리보기 팩 가능 여부는 읽기 전용으로 확인', (await trial.trialPreviewPackAllowed({ userId: 'guest_pack2', ipHash: 'ip-pack2' })) === true);
 
 console.log('\n[3b] 사진 특징 재확인(AI 비전)도 체험 상한이 있다');
 process.env.TRIAL_PREPS_PER_USER_DAY = '2';
@@ -146,11 +161,13 @@ console.log('\n[8] 라우트·화면 배선 (체험 경로가 팩 대량 생성�
 const render = read('src/app/api/render/route.ts');
 check('렌더가 체험 카운터를 소비', render.includes('consumeTrialImage'));
 check('렌더에 체험 컷(preview) 대상', render.includes("kind: z.literal('preview')"));
-check('렌더가 체험 사용자의 팩 컷을 막음', /access === 'trial' && target\.kind === 'frame'/.test(render));
+check('렌더가 미리보기 팩이 아닌 팩 컷은 막음', /access === 'trial' && plan\.kind === 'frame' && !\('previewPack' in plan && plan\.previewPack\)/.test(render));
+check('렌더가 미리보기 팩은 Flash(저비용) 품질로 표시', render.includes("as 'preview' | 'final'") && render.includes('pack.preview && pack.unlockedAt'));
+check('렌더가 잠금 해제 후 고화질 재생성을 지원', render.includes('finalize: z.boolean().optional()'));
 check('렌더가 체험 스타일을 제한', render.includes('trialToneAllowed(plan.tone)'));
 check('렌더가 체험 시안을 1장으로 제한', render.includes('TRIAL_VARIANT_KEYS'));
 const packs = read('src/app/api/packs/route.ts');
-check('팩 생성은 체험에서 차단', packs.includes("aiAccess(user) === 'trial'") && packs.includes('TRIAL_ONLY'));
+check('팩 생성: 미리보기 팩은 허용, 그 외 대량 생성은 차단', packs.includes('consumeTrialPreviewPack') && packs.includes('TRIAL_ONLY'));
 check('단건 생성도 체험에서 차단', read('src/app/api/generate/route.ts').includes('TRIAL_ONLY'));
 check('배치 생성도 체험에서 차단', read('src/app/api/generate/batch/route.ts').includes('TRIAL_ONLY'));
 const sheets = read('src/app/api/sheets/route.ts');
@@ -158,11 +175,13 @@ check('시안은 체험에서 1장만', /access === 'trial' \? 1 : 3/.test(sheet
 check('시안도 체험 스타일 제한', sheets.includes('trialToneAllowed(body.tone)'));
 check('사진 재확인도 체험 상한을 소비', read('src/app/api/face/consistency/route.ts').includes('consumeTrialPrep'));
 check('시트 화면이 체험 상태를 내려줌', read('src/app/studio/sheet/[id]/page.tsx').includes('trialStatusFor'));
-check('시트 선택 화면에 체험 패널', read('src/components/studio/SheetPicker.tsx').includes('runTrial'));
+check('시트 선택 화면에 12컷 미리보기 패널', read('src/components/studio/SheetPicker.tsx').includes('createPreview'));
+check('미리보기 팩은 12컷 고정', read('src/components/studio/SheetPicker.tsx').includes('PREVIEW_PACK_SIZE'));
 check('업로드 화면에 체험 안내', read('src/components/studio/UploadPageContent.tsx').includes('TRIAL_MESSAGES.banner'));
-check('홈에 무료 체험 CTA', read('src/app/page.tsx').includes('무료로 2컷 체험하기'));
+check('홈에 12컷 미리보기 CTA', read('src/app/page.tsx').includes('12컷 무료로 미리보기'));
 const cf = read('cloudflare.config.ts');
 check('Worker 변수에 체험 개방 스위치', /TRIAL_FREE_ENABLED:\s*bindings\.text\("1"\)/.test(cf));
+check('Worker 변수에 미리보기 하루 상한', /TRIAL_PREVIEW_PACKS_PER_USER_DAY:\s*bindings\.text\("1"\)/.test(cf));
 check('원가 보호 플래그(관리자 전용)는 그대로 1', /GENERATION_ADMIN_ONLY:\s*bindings\.text\("1"\)/.test(cf));
 check('결제 가드는 건드리지 않음 (PLAY_BILLING_ENABLED=0)', /PLAY_BILLING_ENABLED:\s*bindings\.text\("0"\)/.test(cf));
 

@@ -95,7 +95,7 @@ export function linkPhoto(from: PhotoScope, to: PhotoScope) {
 }
 
 export type RenderTarget =
-  | { kind: 'frame'; frameId: string; force?: boolean; accessoryIds?: string[] }
+  | { kind: 'frame'; frameId: string; force?: boolean; accessoryIds?: string[]; /** 잠금 해제 후 고화질 재생성 (추가 차감 없음) */ finalize?: boolean }
   | { kind: 'sheet'; sheetId: string; variantKey: string }
   /** 무료 체험 컷 1장 — 팩에 붙이지 않고 결과 이미지만 받는다 */
   | { kind: 'preview'; sheetId: string; variantKey: string; emotion: Emotion };

@@ -3,6 +3,7 @@ import { CurationPackageSection } from '@/components/studio/CurationPackageSecti
 import { PresetCatalog } from '@/components/studio/PresetCatalog';
 import { PRESET_CATEGORIES, PRESET_COUNT } from '@/data/emoticon-presets-150';
 import { CURATION_PACKAGES } from '@/data/curation-packages';
+import { PACK_FORMATS } from '@/lib/pack-formats';
 import { getLocale } from '@/lib/i18n/server';
 import { localizedPath, tr } from '@/lib/i18n/locale';
 
@@ -51,6 +52,40 @@ export default async function PresetsPage() {
         <span className="chip justify-center !bg-white">{t('② 프리셋 선택', '② Pick a preset')}</span>
         <span className="chip justify-center !bg-white col-span-2 sm:col-span-1">{t('③ 만들기에서 반영', '③ Applied when creating')}</span>
       </div>
+
+      <section aria-labelledby="killer-presets" className="mb-6 rounded-2xl border-2 border-coral/40 bg-coral/[0.04] p-4 sm:p-5">
+        <div className="flex flex-wrap items-end justify-between gap-2">
+          <div>
+            <p className="eyebrow text-coralink">KILLER THEMES · 12 CUTS</p>
+            <h2 id="killer-presets" className="mt-1 text-lg font-black break-keep sm:text-xl">{t('커플·단톡방 케미 & 반려동물 집사 밈', 'Duo chemistry & pet butler memes')}</h2>
+            <p className="mt-1 text-[12px] leading-relaxed text-sub">
+              {t('가장 많이 만드는 두 테마를 12컷으로 먼저 보여 드려요. 마음에 드는 컷만 골라 내 얼굴·반려동물로 만들면 됩니다.', 'The two most-made themes, 12 cuts each. Pick the ones you like and make them with your face or pet.')}
+            </p>
+          </div>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2">
+          {PACK_FORMATS.filter((format) => format.killer).map((format) => (
+            <article key={format.id} className="card flex h-full flex-col p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-base font-black"><span aria-hidden="true">{format.emoji}</span> {locale === 'en' ? format.labelEn : format.label}</h3>
+                <span className="chip !bg-white">{format.cuts.length}{t('컷', ' cuts')}</span>
+              </div>
+              <p className="mt-1 text-[11px] leading-relaxed text-sub">{locale === 'en' ? format.descriptionEn : format.description}</p>
+              <div className="mt-3 flex flex-wrap gap-1">
+                {format.cuts.map((cut) => (
+                  <span key={cut.id} className="rounded-full border border-line bg-cream px-2 py-0.5 text-[10px] font-bold text-ink/70">{locale === 'en' ? cut.labelEn : cut.label}</span>
+                ))}
+              </div>
+              <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-4">
+                <span className="text-[11px] font-black text-coralink">{t(`완성권 ${(format.unlockPrice ?? 5900).toLocaleString('en-US')}원`, `Unlock ₩${(format.unlockPrice ?? 5900).toLocaleString('en-US')}`)}</span>
+                <Link href={lp(format.id === 'pet-meme' ? '/studio/upload?format=pet-meme&subject=pet' : `/studio/upload?format=${format.id}`)} className="btn-primary !px-4 !py-2 text-xs">
+                  {t('12컷 미리보기 →', 'Preview 12 cuts →')}
+                </Link>
+              </div>
+            </article>
+          ))}
+        </div>
+      </section>
 
       <CurationPackageSection locale={locale} />
 

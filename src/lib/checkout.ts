@@ -1,4 +1,5 @@
 import { paymentProvider } from '@/lib/payments';
+import { SKUS } from '@/lib/pricing';
 import { logEvent, uid, withPaymentDB } from '@/lib/store';
 import type { Order } from '@/lib/types';
 
@@ -13,6 +14,7 @@ export interface CheckoutResult {
   alreadyPaid: boolean;
   credits: number;
   kind: Order['kind'];
+  packId?: string;
 }
 
 export class CheckoutError extends Error {
@@ -83,7 +85,13 @@ export async function confirmCheckout(userId: string, input: CheckoutConfirmatio
   // 검증된 주문과 결제키를 먼저 저장해 타임아웃 후에도 같은 키로 복구한다.
   const reserved = await withPaymentDB((db): Reservation => {
     const order = db.orders.find((item) => item.id === input.orderId && item.userId === userId);
-    if (!order || (order.kind !== 'credits' && order.kind !== 'goods') || order.provider !== provider) return { error: 'ORDER_NOT_FOUND' };
+    if (!order || order.provider !== provider) return { error: 'ORDER_NOT_FOUND' };
+    // 팩 잠금 해제 주문은 대상 팩이 아직 내 것이고 잠겨 있을 때만 유효하다.
+    if (order.kind === 'unlock') {
+      const pack = db.packs.find((item) => item.id === order.packId && item.userId === userId);
+      if (!pack) return { error: 'ORDER_NOT_FOUND' };
+      if (pack.unlockedAt && order.status !== 'PAID') return { error: 'ORDER_UNAVAILABLE' };
+    }
     if (order.amount !== input.amount) return { error: 'AMOUNT_MISMATCH' };
     if (!order.consentAt) return { error: 'CONSENT_REQUIRED' };
     if (order.paymentKey && order.paymentKey !== input.paymentKey) return { error: 'KEY_MISMATCH' };
@@ -104,7 +112,7 @@ export async function confirmCheckout(userId: string, input: CheckoutConfirmatio
     };
     throw new CheckoutError(reserved.error, messages[reserved.error] ?? '주문 또는 결제 정보를 확인해 주세요.', reserved.error === 'ORDER_NOT_FOUND' ? 404 : 409);
   }
-  if (reserved.paid) return { orderId: reserved.order.id, alreadyPaid: true, credits: reserved.balance, kind: reserved.order.kind };
+  if (reserved.paid) return { orderId: reserved.order.id, alreadyPaid: true, credits: reserved.balance, kind: reserved.order.kind, ...(reserved.order.packId ? { packId: reserved.order.packId } : {}) };
 
   if (provider === 'toss') {
     await verifyTossPayment(input);
@@ -119,6 +127,32 @@ export async function confirmCheckout(userId: string, input: CheckoutConfirmatio
     if (!order || !account || order.paymentKey !== input.paymentKey || order.provider !== provider || order.amount !== input.amount) return null;
     if (order.status === 'PAID') return { alreadyPaid: true, balance: account.credits };
     if (order.status !== 'PENDING') return null;
+    const nowIso = new Date().toISOString();
+    if (order.kind === 'unlock') {
+      const pack = db.packs.find((item) => item.id === order.packId && item.userId === userId);
+      if (!pack) return null;
+      if (!pack.unlockedAt) {
+        pack.unlockedAt = nowIso;
+        pack.unlockSku = order.sku;
+      }
+      order.status = 'PAID';
+      order.paidAt = nowIso;
+      logEvent(db, userId, 'pack_unlocked', { packId: pack.id, sku: order.sku, amount: order.amount });
+      return { alreadyPaid: false, balance: account.credits };
+    }
+    if (order.kind === 'subscription') {
+      account.plan = order.plan ?? 'STUDIO';
+      const days = SKUS[order.sku]?.days ?? 30;
+      account.planExpiresAt = new Date(Date.now() + days * 86400_000).toISOString();
+      if (order.credits > 0) {
+        account.credits += order.credits;
+        db.credits.push({ id: uid('cr'), userId, delta: order.credits, reason: 'SUBSCRIPTION_GRANT', refType: 'order', refId: order.id, balanceAfter: account.credits, createdAt: nowIso });
+      }
+      order.status = 'PAID';
+      order.paidAt = nowIso;
+      logEvent(db, userId, 'order_paid', { orderId: order.id, amount: order.amount, provider, plan: account.plan });
+      return { alreadyPaid: false, balance: account.credits };
+    }
     if (order.kind === 'goods') {
       if (!('goodsStatus' in order) || order.goodsStatus !== 'PENDING_PAYMENT' || !order.productImageId) return null;
       order.status = 'PAID';
@@ -137,7 +171,7 @@ export async function confirmCheckout(userId: string, input: CheckoutConfirmatio
     return { alreadyPaid: false, balance: account.credits };
   });
   if (!settled) throw new CheckoutError('PAYMENT_REVIEW', '결제 확인이 필요합니다. 고객센터에 문의해 주세요.');
-  return { orderId: input.orderId, alreadyPaid: settled.alreadyPaid, credits: settled.balance, kind: reserved.order.kind };
+  return { orderId: input.orderId, alreadyPaid: settled.alreadyPaid, credits: settled.balance, kind: reserved.order.kind, ...(reserved.order.packId ? { packId: reserved.order.packId } : {}) };
 }
 
 /** 저장된 결제키만 사용하므로 닫힌 결제창의 주문도 소유자가 안전하게 복구할 수 있다. */

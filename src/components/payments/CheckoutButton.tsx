@@ -8,11 +8,14 @@ export function CheckoutButton({
   label,
   className = 'btn-primary w-full',
   disabled,
+  packId,
 }: {
   sku: string;
   label: string;
   className?: string;
   disabled?: boolean;
+  /** 단건 팩 완성권 — 잠금 해제할 팩 */
+  packId?: string;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -25,7 +28,7 @@ export function CheckoutButton({
       const res = await fetch('/api/checkout', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sku }),
+        body: JSON.stringify({ sku, ...(packId ? { packId } : {}) }),
       });
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message ?? '주문을 만들 수 없습니다');
