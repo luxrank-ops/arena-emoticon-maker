@@ -19,6 +19,7 @@ import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
 import { GenerationProgress } from '@/components/studio/GenerationProgress';
 import { CameraPermissionDialog, PhotoRetakeGuide } from '@/components/studio/PhotoSafety';
+import { SampleFlowStrip } from '@/components/studio/SampleFlowStrip';
 import { PackFormatPicker } from '@/components/studio/PackFormatPicker';
 import { packFormatById, type PackFormatId } from '@/lib/pack-formats';
 import { compressPhotoFile, ensurePhotoConsistency, linkPhoto, loadPhoto, photoScopeId, savePhoto } from '@/lib/studio/photo';
@@ -591,6 +592,7 @@ export function UploadFlow({
                   {t('카메라로 찍기', 'Take a photo')}
                 </button>
               </div>
+              {subjectKind === 'person' ? <SampleFlowStrip locale={locale} /> : null}
             </div>
           ) : (
             <div className="w-full">

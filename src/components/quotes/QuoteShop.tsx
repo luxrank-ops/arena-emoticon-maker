@@ -7,6 +7,8 @@ import { Sticker } from '@/components/Sticker';
 import { BACKGROUNDS, DEFAULT_PALETTE, DEFAULT_SIGNATURE, EMOTIONS, signatureFromSeed } from '@/lib/art/sticker';
 import { downloadBlob, renderPngBlob } from '@/lib/export';
 import { exportQuotePackZip } from '@/lib/quote-export';
+import { sampleCutFor } from '@/lib/quote-samples';
+import { layerFromLine, type TextLayer } from '@/lib/studio/layers';
 import type { QuoteLine, QuotePackView } from '@/lib/quote-packs';
 import type { BackgroundKey, Emotion, StickerSpec } from '@/lib/types';
 
@@ -16,7 +18,7 @@ function seedOf(id: string) {
 
 function quoteSpec(pack: QuotePackView, line: QuoteLine, emotion: Emotion, background: BackgroundKey): StickerSpec {
   const seed = seedOf(line.id);
-  return {
+  const base: StickerSpec = {
     seed,
     tone: pack.tone,
     palette: { ...DEFAULT_PALETTE, accent: pack.accent },
@@ -28,6 +30,13 @@ function quoteSpec(pack: QuotePackView, line: QuoteLine, emotion: Emotion, backg
     line: line.line,
     linePosition: 'bottom',
   };
+  // 사진으로 만든 샘플 컷이 있으면 그 컷을 쓰고, 대사는 앱의 캘리그라피 레이어로 얹는다.
+  // (그림에 글자를 굽지 않아 표정만 바꿔도 같은 인물의 다른 컷이 나온다)
+  const imageUrl = sampleCutFor(emotion);
+  if (!imageUrl) return base;
+  const layer = layerFromLine(line.line);
+  const textLayers: TextLayer[] = layer ? [layer] : [];
+  return { ...base, imageUrl, ...(textLayers.length ? { textLayers } : {}) };
 }
 
 export function QuoteShop({
@@ -167,7 +176,7 @@ export function QuoteShop({
             <p className="mt-2 text-sm font-bold">{currentPack.tagline}</p>
             <p className="mt-1 text-xs leading-relaxed text-sub">{currentPack.description}</p>
           </div>
-          <div className="bg-cream p-5"><div className="mx-auto max-w-[340px]"><Sticker spec={spec} ariaLabel={`${selectedLine.label} 대사 이모티콘`} /></div></div>
+          <div className="bg-cream p-5"><div className="mx-auto max-w-[340px] overflow-hidden rounded-2xl" style={{ background: BACKGROUNDS[background].color }}><Sticker spec={spec} ariaLabel={`${selectedLine.label} 대사 이모티콘`} /></div></div>
           <div className="border-t border-line p-4 text-center"><p className="text-xs font-bold text-sub">“{selectedLine.line}”</p><p className="mt-1 text-[11px] text-sub">{selectedLine.label} · 감정과 배경을 바꿔 나만의 컷으로 만들어 보세요</p></div>
         </div>
 
