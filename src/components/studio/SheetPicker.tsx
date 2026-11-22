@@ -8,7 +8,14 @@ import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
 import { PresetPicker } from '@/components/studio/PresetPicker';
 import { recommendedPresetIds } from '@/data/emoticon-presets-150';
-import { presetPickFromSearch, rememberedPresetPick } from '@/lib/studio/preset-selection';
+import { CURATION_PACKAGES, curationPackagePresetIds } from '@/data/curation-packages';
+import {
+  packagePickFromSearch,
+  presetPickFromSearch,
+  rememberedPackagePick,
+  rememberedPresetPick,
+  rememberPackagePick,
+} from '@/lib/studio/preset-selection';
 import { localizedComicExpressions, toneCopy } from '@/lib/i18n/presets';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
@@ -57,7 +64,7 @@ export function SheetPicker({
   const expressions = localizedComicExpressions(locale);
   const formatInfo = format ? packFormatById(format) : undefined;
   const maxCuts = formatInfo?.cuts.length ?? 24;
-  const sizeOptions = (formatInfo ? (maxCuts >= 32 ? [12, 24, 32] : maxCuts >= 24 ? [12, 24] : [12]) : tone === 'photo-sticker' ? [12, 16] : [12, 24]) as readonly number[];
+  const sizeOptions = (formatInfo ? (maxCuts >= 32 ? [12, 24, 32] : maxCuts >= 24 ? [12, 24] : [12]) : tone === 'photo-sticker' ? [12, 16] : [12, 24, 32]) as readonly number[];
   const [chosen, setChosen] = useState<string | null>(alreadyChosen);
   const [size, setSize] = useState<12 | 16 | 24 | 32>(12);
   // 자동 구성(감정 로테이션) · 코믹 24종 · 150종 프리셋 중 하나
@@ -121,12 +128,36 @@ export function SheetPicker({
   // 프리셋 화면에서 골라 온 값이 있으면 '프리셋' 구성으로 미리 채운다.
   useEffect(() => {
     if (trial || formatInfo) return;
+    // 큐레이션 패키지가 우선한다 — 컷 수와 순서를 패키지 그대로 맞춘다.
+    const pickedPackage = packagePickFromSearch(window.location.search) ?? rememberedPackagePick();
+    if (pickedPackage) {
+      const ids = curationPackagePresetIds(pickedPackage);
+      const target = CURATION_PACKAGES.find((pkg) => pkg.id === pickedPackage);
+      if (ids.length && target && (tone === 'photo-sticker' ? target.count <= 16 : true)) {
+        setComposition('preset');
+        setSize(target.count);
+        setPresetIds(ids);
+        return;
+      }
+    }
     const picked = presetPickFromSearch(window.location.search) ?? rememberedPresetPick();
     if (!picked) return;
     setComposition('preset');
     setPresetIds((prev) => (prev.length ? prev : [picked, ...recommendedPresetIds(Math.max(0, size - 1), [picked])]));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  /** 패키지 원클릭: 컷 수·순서를 패키지에 맞추고 만들기까지 들고 간다. */
+  function applyPackage(id: string) {
+    const target = CURATION_PACKAGES.find((pkg) => pkg.id === id);
+    if (!target) return;
+    if (tone === 'photo-sticker' && target.count > 16) return;
+    setComposition('preset');
+    setSize(target.count);
+    setPresetIds(curationPackagePresetIds(target.id));
+    rememberPackagePick(target.id);
+    setError(null);
+  }
 
   async function onPickPhoto(file: File) {
     setError(null);
@@ -251,6 +282,11 @@ export function SheetPicker({
   }
 
   const chosenReady = !!(chosen && images[chosen]);
+  // 지금 고른 프리셋이 어느 패키지와 100% 일치하는지 (원클릭 적용 상태 표시)
+  const activePackage = CURATION_PACKAGES.find(
+    (pkg) => pkg.count === presetIds.length && pkg.cuts.every((cut, index) => presetIds[index] === cut.presetId),
+  );
+  const packageBlocked = tone === 'photo-sticker';
 
   return (
     <div className="space-y-6">
@@ -472,6 +508,49 @@ export function SheetPicker({
           </> : null}
           {!formatInfo && composition === 'preset' ? (
             <div className="mt-3">
+              <div className="mb-2 rounded-xl border-2 border-primary/30 bg-primary/5 p-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-1">
+                  <p className="text-[11px] font-black text-primary-dark">
+                    🎁 {t('추천 큐레이션 패키지 원클릭', 'One-tap curated packages')}
+                  </p>
+                  {activePackage ? (
+                    <span className="chip min-h-7 !border-primary/40 !bg-white !px-2 text-[10px] !text-primary-dark">
+                      {t('적용 중', 'Applied')} · {activePackage.count}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-0.5 text-[10px] leading-relaxed text-sub">
+                  {packageBlocked
+                    ? t('실사 카톡 스티커는 12·16컷만 지원해요. 다른 스타일에서 패키지를 쓸 수 있어요.', 'Photo stickers support 12 or 16 cuts only. Use a package with another style.')
+                    : t('누르면 이 패키지의 컷 수(24·32)와 순서가 그대로 채워집니다.', 'Tap to fill this set’s cut count (24 or 32) and exact order.')}
+                </p>
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-3">
+                  {CURATION_PACKAGES.map((pkg) => {
+                    const applied = activePackage?.id === pkg.id;
+                    return (
+                      <button
+                        key={pkg.id}
+                        type="button"
+                        aria-pressed={applied}
+                        disabled={packageBlocked}
+                        onClick={() => applyPackage(pkg.id)}
+                        className={clsx(
+                          'rounded-xl border-2 px-2 py-2 text-left transition disabled:opacity-40',
+                          applied ? 'border-primary bg-white shadow-card' : 'border-line bg-paper hover:border-primary/50',
+                        )}
+                      >
+                        <span className="block text-[11px] font-black leading-tight text-ink break-keep">
+                          <span aria-hidden="true">{pkg.emoji}</span> {locale === 'en' ? pkg.titleEn : pkg.title}
+                        </span>
+                        <span className="mt-0.5 block text-[10px] font-bold text-coralink">
+                          {t(`${pkg.count}컷`, `${pkg.count} cuts`)} ·{' '}
+                          {applied ? t('적용됨', 'applied') : t('불러오기', 'load')}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
               <PresetPicker selectedIds={presetIds} max={size} onChange={setPresetIds} locale={locale} />
               {presetIds.length !== size ? <p className="mt-2 text-xs font-bold text-coralink">{t(`${size}개를 골라야 팩을 만들 수 있어요.`, `Pick ${size} presets to create this pack.`)}</p> : null}
             </div>
