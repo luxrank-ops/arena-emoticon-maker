@@ -412,7 +412,7 @@ export function UploadFlow({
       <div className="mx-auto mb-6 max-w-3xl sm:mb-8">
         <h1 className="h2 break-keep">{isFormat ? t('어떤 표현 형태로 만들까요?', 'Which pack format?') : isMode ? t('어떤 스타일로 만들까요?', 'What would you like to create?') : isPhoto ? t('사진을 업로드해 주세요', 'Upload your photo') : t('이모티콘 스타일을 골라주세요', 'Choose your sticker style')}</h1>
         <p className="mt-2 text-base leading-relaxed text-sub">
-          {isFormat ? t('상황·행동, 뉴스 자막, 2인 케미, 글자 주인공, 이펙트 콤보 중에서 고르면 그 형태에 맞는 컷과 프롬프트로 만들어 드려요. 기본 감정 팩도 그대로 쓸 수 있어요.', 'Pick a format: situations, captions, duo chemistry, typography or effects. Classic expression packs still work as before.') : isMode ? t('표정을 강조할지, 귀여운 포즈를 살릴지 선택해 주세요.', 'Choose expressive close-ups or cute full-body poses.') : isPhoto ? t('정면과 얼굴이 잘 보이는 사진 한 장이면 충분해요.', 'One clear, front-facing photo is all you need.') : t('구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.', 'Choose a composition and style, accept the required terms, and create your character drafts.')}
+          {isFormat ? t('킬러 테마(2인 케미 · 반려동물 집사 밈)부터 상황·행동, 뉴스 자막, 글자 주인공, 이펙트 콤보까지 고르면 그 형태에 맞는 컷과 프롬프트로 만들어 드려요. 기본 감정 팩도 그대로 쓸 수 있어요.', 'Start with a killer theme (duo chemistry, pet butler memes) or pick situations, captions, typography or effects. Classic expression packs still work as before.') : isMode ? t('표정을 강조할지, 귀여운 포즈를 살릴지 선택해 주세요.', 'Choose expressive close-ups or cute full-body poses.') : isPhoto ? t('정면과 얼굴이 잘 보이는 사진 한 장이면 충분해요.', 'One clear, front-facing photo is all you need.') : t('구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.', 'Choose a composition and style, accept the required terms, and create your character drafts.')}
         </p>
         <ol aria-label={t('제작 진행 단계', 'Creation progress')} className="mt-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold sm:gap-2 sm:text-sm">
           {(locale === 'en' ? ['Mode & photo', 'Style', 'Character', 'Pack'] : ['구도·사진', '스타일·동의', '시안 선택', '팩 완성']).map((label, index) => (
@@ -490,7 +490,7 @@ export function UploadFlow({
         />
         <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-soft backdrop-blur">
           <button type="button" className="btn-primary min-h-14 w-full !py-4 text-base" onClick={() => { setMotion('forward'); setPhotoPhase('mode'); }}>
-            {format ? t(`${formatInfo?.label ?? '표현 형태'} 팩으로 시작`, `Start a ${formatInfo?.labelEn ?? 'format'} pack`) : t('기본 감정 팩으로 시작', 'Start a classic pack')}<span aria-hidden="true"> →</span>
+            {format ? t(`${(formatInfo?.label ?? '표현 형태').replace(/\s*팩$/, '')} 팩으로 시작`, `Start a ${(formatInfo?.labelEn ?? 'format').replace(/\s*pack$/, '')} pack`) : t('기본 감정 팩으로 시작', 'Start a classic pack')}<span aria-hidden="true"> →</span>
           </button>
           <p className="py-2 text-center text-[11px] text-sub">{t('형태는 다음 단계에서도 다시 바꿀 수 있어요.', 'You can change the format again in the next step.')}</p>
         </div>

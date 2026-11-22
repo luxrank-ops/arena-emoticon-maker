@@ -63,7 +63,9 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
       <div className="mb-8">
         <h1 className="h2">{t('내 이모티콘 팩', 'My sticker pack')}</h1>
         <p className="mt-2 text-sm text-sub">
-          {t('컷을 눌러 크게 보고 저장·공유하거나 대사와 표정을 수정해 보세요. AI 이미지의 변경 사항은 다시 그리기로 적용됩니다.', 'Select a cut to preview, save, share, or edit. Regenerate AI images to apply visual changes.')}
+          {view.exportState.unlocked
+            ? t('컷을 눌러 크게 보고 저장·공유하거나 대사와 표정을 수정해 보세요. AI 이미지의 변경 사항은 다시 그리기로 적용됩니다.', 'Select a cut to preview, save, share, or edit. Regenerate AI images to apply visual changes.')
+            : t('지금은 12컷 미리보기 상태예요. 컷을 눌러 공유하거나, 아래 단건 완성권으로 잠금을 해제하면 고화질·투명 PNG와 ZIP을 받을 수 있어요.', 'This is a 12-cut preview. Share a cut, or unlock the pack below to download high-resolution transparent PNGs and the ZIP.')}
         </p>
       </div>
 

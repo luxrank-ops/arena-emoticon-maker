@@ -687,13 +687,15 @@ export function PackViewer({
                   <div className="relative">
                     <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
                     {locked ? (
-                      <div className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-xl bg-ink/10" aria-hidden="true">
-                        <div className="rotate-[-24deg] space-y-2 px-1 text-center">
-                          {[0, 1, 2].map((row) => (
-                            <p key={row} className="whitespace-nowrap text-[9px] font-black tracking-tight text-white/85 [text-shadow:0_1px_2px_rgba(0,0,0,0.45)]">{lockWatermark} · {lockWatermark.split(' ')[0]}</p>
-                          ))}
-                        </div>
+                      <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl" aria-hidden="true">
                         <span className="absolute right-2 top-2 rounded-full bg-ink/70 px-2 py-0.5 text-[9px] font-black text-white">🔒 {t('미리보기', 'Preview')}</span>
+                        <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
+                          <div className="-rotate-[20deg] space-y-3 text-center opacity-45">
+                            {[0, 1].map((row) => (
+                              <p key={row} className="whitespace-nowrap text-[8px] font-black leading-none tracking-tight text-white [text-shadow:0_1px_2px_rgba(0,0,0,0.35)]">{lockWatermark}</p>
+                            ))}
+                          </div>
+                        </div>
                       </div>
                     ) : null}
                   </div>
