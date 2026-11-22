@@ -6,6 +6,7 @@ import { aiAccess, bypassesRateLimit, effectivePlan } from '@/lib/admin-access';
 import { TRIAL_MESSAGES, trialToneAllowed } from '@/lib/free-trial';
 import { PLANS } from '@/lib/pricing';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
+import { PACK_FORMAT_IDS } from '@/lib/pack-formats';
 
 const schema = z.object({
   faceId: z.string().min(3),
@@ -16,7 +17,7 @@ const schema = z.object({
     'doodle', 'office-meme', 'clay-3d', 'pixel-art', 'photo-sticker',
   ]),
   /** 표현 형태(팩 테마) 5종 — 없으면 기존 감정 위주 구성 */
-  format: z.enum(['situation', 'parody', 'duo', 'typo', 'combo']).optional(),
+  format: z.enum(PACK_FORMAT_IDS).optional(),
 });
 
 export async function POST(req: Request) {

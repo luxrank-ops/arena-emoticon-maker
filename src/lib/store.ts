@@ -15,6 +15,7 @@ import type {
   Pack,
   PackShareLink,
   PlayPurchase,
+  Referral,
   PlayUsage,
   QuotePurchase,
   TrialUsage,
@@ -48,6 +49,8 @@ export interface DB {
   playUsage: PlayUsage[];
   /** 무료 체험(일반 방문자) 이미지 생성 카운터 — 사용자·IP·전체 상한 */
   trialUsage: TrialUsage[];
+  /** 친구 초대 추적·보상 원장 (초대한 사람 1명당 3컷) */
+  referrals: Referral[];
   /** 서버가 검증한 구글 플레이 구매 기록 (자격 원장) */
   playPurchases: PlayPurchase[];
   briefs: DailyBrief[];
@@ -72,6 +75,7 @@ const EMPTY: DB = {
   deletionJobs: [],
   playUsage: [],
   trialUsage: [],
+  referrals: [],
   playPurchases: [],
   briefs: [],
   events: [],
@@ -571,7 +575,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
     }
   };
 
-  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'sharedLinks' | 'credits' | 'quotePurchases' | 'orders' | 'contentReports' | 'deletionJobs' | 'playUsage' | 'trialUsage' | 'playPurchases' | 'adminLoginAttempts'>>(rawUsers);
+  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'sharedLinks' | 'credits' | 'quotePurchases' | 'orders' | 'contentReports' | 'deletionJobs' | 'playUsage' | 'trialUsage' | 'referrals' | 'playPurchases' | 'adminLoginAttempts'>>(rawUsers);
   const pShard = parseShard<Pick<DB, 'consistencyPreparations'>>(rawPrep);
   const fShard = parseShard<Pick<DB, 'faces'>>(rawFaces);
   const sShard = parseShard<Pick<DB, 'sheets'>>(rawSheets);
@@ -648,6 +652,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
     playUsage: mergeById(local.playUsage ?? [], uShard.data?.playUsage ?? legacyDB?.playUsage ?? [], (x) => x.id, uRemoteNewer),
     // 무료 체험 카운터는 사용자 샤드에 함께 둔다 — 여러 인스턴스가 같은 상한을 본다.
     trialUsage: mergeById(local.trialUsage ?? [], uShard.data?.trialUsage ?? legacyDB?.trialUsage ?? [], (x) => x.id, uRemoteNewer),
+    referrals: mergeById(local.referrals ?? [], uShard.data?.referrals ?? legacyDB?.referrals ?? [], (x) => x.id, uRemoteNewer),
     playPurchases: mergeById(local.playPurchases ?? [], uShard.data?.playPurchases ?? legacyDB?.playPurchases ?? [], (x) => x.id, uRemoteNewer),
     briefs: mergeById(local.briefs ?? [], kShard.data?.briefs ?? legacyDB?.briefs ?? [], (x) => x.date, kRemoteNewer),
     events: (local.events ?? []).slice(-500),
@@ -691,7 +696,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
   }
   if (pendingLookups.length > 0) await Promise.all(pendingLookups);
 
-  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, sharedLinks: db.sharedLinks, credits: db.credits, quotePurchases: db.quotePurchases, orders: db.orders, contentReports: db.contentReports, deletionJobs: db.deletionJobs, playUsage: db.playUsage, trialUsage: db.trialUsage, playPurchases: db.playPurchases, adminLoginAttempts: db.adminLoginAttempts });
+  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, sharedLinks: db.sharedLinks, credits: db.credits, quotePurchases: db.quotePurchases, orders: db.orders, contentReports: db.contentReports, deletionJobs: db.deletionJobs, playUsage: db.playUsage, trialUsage: db.trialUsage, referrals: db.referrals, playPurchases: db.playPurchases, adminLoginAttempts: db.adminLoginAttempts });
   const snapPrep = () => JSON.stringify({ consistencyPreparations: db.consistencyPreparations });
   const snapFaces = () => JSON.stringify({ faces: db.faces });
   const snapSheets = () => JSON.stringify({ sheets: db.sheets });

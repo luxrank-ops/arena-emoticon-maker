@@ -14,9 +14,9 @@ interface FrameOption {
   spec: StickerSpec;
 }
 
-export function GoodsShop({ frames, discount }: { frames: FrameOption[]; discount: number }) {
+export function GoodsShop({ frames, discount, initialFrameIds }: { frames: FrameOption[]; discount: number; initialFrameIds?: string[] }) {
   const router = useRouter();
-  const [frameId, setFrameId] = useState(frames[0]?.id ?? '');
+  const [frameId, setFrameId] = useState(initialFrameIds?.[0] ?? frames[0]?.id ?? '');
   const [goodsSku, setGoodsSku] = useState(GOODS[0].sku);
   const [form, setForm] = useState({ name: '', phone: '', address: '', memo: '' });
   const [agree, setAgree] = useState(false);

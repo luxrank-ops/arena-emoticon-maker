@@ -9,6 +9,7 @@ export function PaymentSuccess() {
   const [payload, setPayload] = useState<Payload | null>(null);
   const [state, setState] = useState<'loading' | 'success' | 'error'>('loading');
   const [message, setMessage] = useState('결제 승인을 확인하고 있어요.');
+  const [unlockedPackId, setUnlockedPackId] = useState<string | null>(null);
   const confirm = useCallback(async (data: Payload) => {
     setState('loading'); setMessage('결제 승인을 확인하고 있어요.');
     try {
@@ -16,7 +17,15 @@ export function PaymentSuccess() {
       const json = await res.json();
       if (!res.ok) throw new Error(json?.error?.message || '결제를 확인하지 못했어요.');
       try { sessionStorage.removeItem(KEY); } catch { /* 저장소를 사용하지 못해도 결제는 완료됐다 */ }
-      setState('success'); setMessage(json.kind === 'goods' ? '결제가 완료되어 굿즈 주문이 접수되었습니다. 운영자가 주문을 확인합니다.' : '결제가 완료되고 크레딧이 지급되었습니다.');
+      if (json.kind === 'unlock' && json.packId) setUnlockedPackId(json.packId);
+      setState('success');
+      setMessage(json.kind === 'goods'
+        ? '결제가 완료되어 굿즈 주문이 접수되었습니다. 운영자가 주문을 확인합니다.'
+        : json.kind === 'unlock'
+          ? '결제가 완료되어 팩 잠금이 해제되었습니다. 이제 고화질·투명 PNG와 카카오 규격 ZIP을 받을 수 있어요.'
+          : json.kind === 'subscription'
+            ? '결제가 완료되어 Creator Pro 1개월 이용권이 시작되었습니다.'
+            : '결제가 완료되고 크레딧이 지급되었습니다.');
     } catch (e) { setState('error'); setMessage((e as Error).message || '결제를 확인하지 못했어요.'); }
   }, []);
   useEffect(() => {
@@ -39,6 +48,7 @@ export function PaymentSuccess() {
     <h1 className="h2">{state === 'success' ? '결제 완료' : state === 'error' ? '결제 확인 필요' : '결제 확인 중'}</h1>
     <p role="status" className="mt-4 text-sm text-sub">{message}</p>
     {state === 'error' && payload ? <><p className="mt-2 text-xs text-sub">주문번호: {payload.orderId} · 중복 결제를 하지 말고 다시 확인해 주세요.</p><button className="btn-primary mt-4" onClick={() => void confirm(payload)}>승인 결과 다시 확인</button></> : null}
+    {state === 'success' && unlockedPackId ? <Link className="btn-primary mt-5 block w-full !py-4 text-center" href={`/studio/pack/${unlockedPackId}`}>잠금 해제한 팩 열기 →</Link> : null}
     <div className="mt-5 flex gap-2"><Link className="btn-ghost" href="/billing">결제 내역</Link><Link className="btn-ghost" href="/support">고객센터</Link></div>
   </div></div>;
 }

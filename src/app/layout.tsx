@@ -5,6 +5,7 @@ import { SiteFooter } from '@/components/SiteFooter';
 import { BottomNav } from '@/components/BottomNav';
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
 import { PwaRegistration } from '@/components/PwaRegistration';
+import { InviteCapture } from '@/components/referral/InviteCapture';
 import { getLocale } from '@/lib/i18n/server';
 import { tr } from '@/lib/i18n/locale';
 
@@ -68,6 +69,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
       <body className="flex min-h-screen flex-col pb-[calc(4.25rem_+_env(safe-area-inset-bottom))] lg:pb-0">
         <AnalyticsProvider>
           <PwaRegistration />
+          <InviteCapture />
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />

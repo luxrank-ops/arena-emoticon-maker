@@ -5,6 +5,7 @@ import { EnglishLanding } from '@/components/home/EnglishLanding';
 import { getCurrentUser } from '@/lib/session';
 import { aiAccess, canUseAiGeneration } from '@/lib/admin-access';
 import { TRIAL_MESSAGES } from '@/lib/trial-policy';
+import { PRICE_TIERS } from '@/lib/pricing';
 
 const samples = [
   { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
@@ -22,7 +23,7 @@ const steps = [
 ];
 const questions = [
   { q: '사진은 어떻게 사용되나요?', a: '사진은 이 탭에 임시 보관되고, 생성 전 확인과 이미지 생성 시 Google Gemini로 전송됩니다. 원본 사진은 서버에 저장하지 않으며 생성된 시안과 컷은 보관됩니다.' },
-  { q: '몇 장을 만들 수 있고 비용은 얼마인가요?', a: '일반 팩은 12컷·24컷·32컷, 실사 스티커는 12컷 또는 16컷을 선택할 수 있습니다. 팩 생성은 컷당 1크레딧이며 AI로 컷을 다시 그릴 때도 1크레딧이 필요합니다. 관리자는 차감되지 않습니다.' },
+  { q: '몇 장을 만들 수 있고 비용은 얼마인가요?', a: '무료로 12컷 전체를 워터마크 미리보기로 먼저 확인할 수 있어요. 마음에 들면 단건 팩 완성권 5,900원(2인 케미 7,900원 · 반려동물 6,900원)으로 그 팩만 잠금 해제합니다. 여러 팩은 9,900~22,000원 크레딧 팩(1컷=1크레딧)으로 만들고, 작가·브랜드는 Creator Pro 월 19,900원을 쓸 수 있어요.' },
   { q: '사진을 다시 올려야 하나요?', a: '사진은 이 브라우저 탭에만 임시 보관됩니다. 탭을 닫거나 다른 기기에서 열면 시안을 만들 때 사용한 같은 사진을 다시 올려 주세요.' },
   { q: '카카오톡에서 사용할 수 있나요?', a: '내려받은 PNG나 GIF를 채팅방에 사진으로 보낼 수 있습니다. 카카오 이모티콘 스토어 정식 출품과 심사 통과는 별개이며 보장되지 않습니다.' },
 ];
@@ -42,7 +43,7 @@ export default async function LandingPage() {
         <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" />
         <div className="wrap relative grid items-center gap-9 py-10 md:grid-cols-[1fr_0.85fr] md:gap-16 md:py-16">
           <div>
-            <span className="chip !border-primary/20 !bg-primary/10 !text-primary-dark">{trial ? '지금은 시안 1장 + 컷 2장 무료 체험' : '사람과 반려동물 사진 한 장으로 시작해요'}</span>
+            <span className="chip !border-primary/20 !bg-primary/10 !text-primary-dark">{trial ? '12컷 전체를 워터마크로 무료 미리보기' : '사람과 반려동물 사진 한 장으로 시작해요'}</span>
             <h1 className="h1 mt-4">내 사진으로 만드는<br /><span className="text-primary">나만의 이모티콘</span></h1>
             <p className="mt-4 max-w-lg text-[15px] leading-relaxed text-sub sm:text-base">
               {trial
@@ -54,7 +55,7 @@ export default async function LandingPage() {
             <div className="mt-6 grid gap-2 sm:flex sm:flex-wrap">
               {aiEnabled ? (
                 <>
-                  <Link href="/studio/upload" className="btn-primary !py-4 text-base">{trial ? '무료로 2컷 체험하기' : '이모티콘 만들기'} <span aria-hidden="true">→</span></Link>
+                  <Link href="/studio/upload" className="btn-primary !py-4 text-base">{trial ? '12컷 무료로 미리보기' : '이모티콘 만들기'} <span aria-hidden="true">→</span></Link>
                   <Link href="/quotes" className="btn-ghost !py-4">대사 스튜디오</Link>
                 </>
               ) : (
@@ -104,6 +105,64 @@ export default async function LandingPage() {
         <Link href={aiEnabled ? '/studio/upload' : '/quotes'} className="btn-dark mt-6">
           {aiEnabled ? '사진 선택하기 →' : '대사 스튜디오에서 시작하기 →'}
         </Link>
+      </section>
+
+      <section className="wrap py-12 sm:py-16" aria-labelledby="killer-title">
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <span className="chip !border-coral/40 !bg-coral/10 !text-coralink">KILLER THEMES</span>
+            <h2 id="killer-title" className="h2 mt-3">요즘 제일 많이 만드는 두 팩</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">사진 2장이면 커플·단톡방 케미, 한 장이면 반려동물 집사 밈. 12컷 전체를 먼저 보고 필요한 팩만 잠금 해제해요.</p>
+          </div>
+          <Link href="/presets" className="text-sm font-black text-coralink underline underline-offset-4">전체 프리셋 보기 →</Link>
+        </div>
+        <div className="mt-6 grid gap-3 md:grid-cols-2">
+          <Link href="/studio/upload?format=duo-chemi" className="card group flex flex-col overflow-hidden p-0 transition hover:-translate-y-0.5 hover:shadow-pop">
+            <div className="flex items-center justify-between gap-2 bg-gradient-to-br from-pink/70 to-cream px-5 py-4">
+              <span className="text-3xl" aria-hidden="true">💞</span>
+              <span className="rounded-full border border-ink/10 bg-white/70 px-2.5 py-1 text-[10px] font-black">{trial ? '12컷 무료 미리보기' : '12컷 · 7,900원'}</span>
+            </div>
+            <div className="flex flex-1 flex-col p-5">
+              <h3 className="text-lg font-black">2인 케미 팩</h3>
+              <p className="mt-1 text-sm leading-relaxed text-sub">“퇴근 후 치맥 콜?”, “야근 중 살려줘”, “삐짐 vs 달래기” — 커플·친구 12컷 전용.</p>
+              <p className="mt-3 text-[11px] font-bold text-sub">사진 2장 · 12컷 · 완성권 7,900원</p>
+              <span className="mt-4 text-sm font-black text-coralink group-hover:underline">12컷 미리보기 →</span>
+            </div>
+          </Link>
+          <Link href="/studio/upload?format=pet-meme&subject=pet" className="card group flex flex-col overflow-hidden p-0 transition hover:-translate-y-0.5 hover:shadow-pop">
+            <div className="flex items-center justify-between gap-2 bg-gradient-to-br from-mint/60 to-cream px-5 py-4">
+              <span className="text-3xl" aria-hidden="true">🐾</span>
+              <span className="rounded-full border border-ink/10 bg-white/70 px-2.5 py-1 text-[10px] font-black">{trial ? '12컷 무료 미리보기' : '12컷 · 6,900원'}</span>
+            </div>
+            <div className="flex flex-1 flex-col p-5">
+              <h3 className="text-lg font-black">반려동물 집사 밈 팩</h3>
+              <p className="mt-1 text-sm leading-relaxed text-sub">“간식 내놔”, “산책 가자”, “집사야 일해라”, “밥 줘”, “누가 방귀 꼈어” — 강아지·고양이 12컷.</p>
+              <p className="mt-3 text-[11px] font-bold text-sub">사진 1장 · 12컷 · 완성권 6,900원</p>
+              <span className="mt-4 text-sm font-black text-coralink group-hover:underline">12컷 미리보기 →</span>
+            </div>
+          </Link>
+        </div>
+      </section>
+
+      <section className="border-y border-line bg-paper py-12 sm:py-16" aria-labelledby="price-title">
+        <div className="wrap">
+          <span className="chip !bg-lemon/40 !text-ink">PRICING</span>
+          <h2 id="price-title" className="h2 mt-3">미리 보고, 필요한 만큼만</h2>
+          <p className="mt-2 text-sm leading-relaxed text-sub">12컷 전체를 무료로 확인한 뒤, 팩 하나만 결제하거나 여러 팩을 크레딧으로 만드세요.</p>
+          <div className="mt-6 grid gap-3 md:grid-cols-3">
+            {PRICE_TIERS.map((tier) => (
+              <div key={tier.id} className={`card flex h-full flex-col p-5 ${tier.highlight ? 'ring-4 ring-coral/25' : ''}`}>
+                <p className="text-xs font-black uppercase tracking-widest text-sub">{tier.name}</p>
+                <p className="mt-2 text-2xl font-black">{tier.priceLabel}<span className="text-xs font-bold text-sub"> {tier.unit}</span></p>
+                <p className="mt-1 text-[12px] font-bold text-coralink">{tier.tagline}</p>
+                <ul className="mt-3 flex-1 space-y-1 text-[11px] leading-relaxed text-sub">
+                  {tier.points.map((point) => <li key={point}>· {point}</li>)}
+                </ul>
+                <Link href="/pricing" className="btn-ghost mt-4 !py-2 text-xs">자세히 보기 →</Link>
+              </div>
+            ))}
+          </div>
+        </div>
       </section>
 
       <section className="border-y border-line bg-paper py-12 sm:py-16" aria-labelledby="use-title">

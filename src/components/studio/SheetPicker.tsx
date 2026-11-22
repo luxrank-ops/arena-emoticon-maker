@@ -21,7 +21,7 @@ import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
 import type { Emotion, Palette, SheetVariant, StickerSpec, Tone, SubjectKind } from '@/lib/types';
 import { packFormatById, type PackFormatId } from '@/lib/pack-formats';
-import { TRIAL_CUT_EMOTIONS, TRIAL_MESSAGES } from '@/lib/trial-policy';
+import { PREVIEW_PACK_SIZE, TRIAL_MESSAGES } from '@/lib/trial-policy';
 import type { TrialStatus } from '@/lib/free-trial';
 
 // ─────────────────────────────────────────────────────────────
@@ -80,11 +80,9 @@ export function SheetPicker({
   const [failed, setFailed] = useState<Record<string, string>>({});
   const [needPhoto, setNeedPhoto] = useState(false);
   const [photoTick, setPhotoTick] = useState(0);
-  // 무료 체험 상태 (서버가 센 남은 컷 수 — 배포·재방문에도 유지된다)
-  const [trialCuts, setTrialCuts] = useState<{ emotion: Emotion; url: string }[]>([]);
-  const [trialBusy, setTrialBusy] = useState(false);
-  const [trialError, setTrialError] = useState<string | null>(null);
-  const [trialLeft, setTrialLeft] = useState(trialStatus?.cutsLeftToday ?? 0);
+  // 무료 미리보기 팩 — 오늘 남은 미리보기 팩 수(서버 카운터)
+  const [previewLeft, setPreviewLeft] = useState(trialStatus?.previewPacksLeftToday ?? 0);
+  const [previewBusy, setPreviewBusy] = useState(false);
 
   async function generate(keys: string[]) {
     const photo = loadPhoto(`sheet:${sheetId}`);
@@ -186,31 +184,41 @@ export function SheetPicker({
     };
   }
 
-  /** 무료 체험 컷 2장 (기쁨·웃음) — 서버 상한(사용자·IP·전체) 안에서만 만들어진다. */
-  const TRIAL_EMOTIONS: readonly Emotion[] = TRIAL_CUT_EMOTIONS;
-  // 아직 만들지 않은 체험 컷 (남은 수만큼)
-  const trialTodo = TRIAL_EMOTIONS.filter((emotion) => !trialCuts.some((cut) => cut.emotion === emotion)).slice(0, Math.max(0, trialLeft));
-
-  async function runTrial() {
-    const variantKey = chosen ?? variants[0]?.key;
-    if (!variantKey || trialBusy || trialTodo.length === 0) return;
-    const photo = loadPhoto(`sheet:${sheetId}`);
-    if (!photo) {
-      setNeedPhoto(true);
-      return;
-    }
-    setTrialBusy(true);
-    setTrialError(null);
+  /** 무료 12컷 워터마크 미리보기 팩 — 크레딧 없이 만들고, 결제 전에는 내보내기가 잠긴다. */
+  async function createPreview() {
+    if (!chosen || previewBusy) return;
+    setPreviewBusy(true);
+    setError(null);
     try {
-      for (const emotion of trialTodo) {
-        const url = await renderImage({ kind: 'preview', sheetId, variantKey, emotion }, photo, `sheet:${sheetId}`, subjectKind);
-        setTrialCuts((prev) => [...prev, { emotion, url }]);
-        setTrialLeft((left) => Math.max(0, left - 1));
+      const chooseRes = await fetch(`/api/sheets/${sheetId}/choose`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variantKey: chosen }),
+      });
+      if (!chooseRes.ok) {
+        const j = await chooseRes.json().catch(() => null);
+        throw new Error(locale === 'en' ? 'We could not select this character. Try again.' : (j?.error?.message ?? '캐릭터를 선택하지 못했어요'));
       }
+      const packRes = await fetch('/api/packs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sheetId, size: PREVIEW_PACK_SIZE, locale, preview: true, ...(format ? { format } : {}) }),
+      });
+      const packJson = await packRes.json().catch(() => null);
+      if (!packRes.ok) throw new Error(locale === 'en' ? 'We could not open your preview pack. Please try again tomorrow.' : (packJson?.error?.message ?? '미리보기 팩을 만들지 못했어요.'));
+      setPreviewLeft((left) => Math.max(0, left - 1));
+      try {
+        if (loadPhoto(`sheet:${sheetId}`)) linkPhoto(`sheet:${sheetId}`, `pack:${packJson.packId}`);
+        if (formatInfo?.needsSecondPhoto && loadPhoto(`duo:${sheetId}`)) linkPhoto(`duo:${sheetId}`, `duo:${packJson.packId}`);
+      } catch { /* 팩은 이미 만들어졌다 — 팩 화면에서 사진을 다시 올릴 수 있다 */ }
+      const targetUrl = lp(`/studio/pack/${packJson.packId}`);
+      router.push(targetUrl);
+      setTimeout(() => {
+        if (typeof window !== 'undefined' && window.location.pathname !== targetUrl) window.location.assign(targetUrl);
+      }, 1000);
     } catch (e) {
-      setTrialError(locale === 'en' ? 'The trial sticker could not be made. Please try again later.' : (e as Error).message);
-    } finally {
-      setTrialBusy(false);
+      setError(locale === 'en' ? 'Something went wrong. Please try again.' : (e as Error).message);
+      setPreviewBusy(false);
     }
   }
 
@@ -386,51 +394,42 @@ export function SheetPicker({
         <div className="card p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-black">{t('무료 체험 컷', 'Free trial stickers')}</p>
+              <p className="text-sm font-black">{t('무료 12컷 미리보기', 'Free 12-cut preview')}</p>
               <p className="mt-1 max-w-xl text-xs leading-relaxed text-sub">
-                {t(TRIAL_MESSAGES.banner, 'Free trial: one draft and up to two stickers. Full packs open at launch.')}
+                {t(TRIAL_MESSAGES.banner, 'Free preview: one draft, then all twelve cuts with a watermark. Unlock the pack to download.')}
               </p>
             </div>
-            <span className="chip">{t(`오늘 ${trialLeft}컷 남음`, `${trialLeft} left today`)}</span>
+            <span className="chip">{t(`오늘 ${previewLeft}팩 남음`, `${previewLeft} preview today`)}</span>
           </div>
 
-          {trialCuts.length ? (
-            <div className="mt-4 grid grid-cols-2 gap-3">
-              {trialCuts.map((cut) => (
-                <div key={cut.emotion} className="overflow-hidden rounded-2xl border-2 border-line bg-cream p-2 text-center">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={cut.url} alt={t(`체험 컷 ${cut.emotion}`, `Trial sticker ${cut.emotion}`)} className="aspect-square w-full object-contain" />
-                  <span className="mt-1 inline-block rounded-full bg-ink/80 px-2 py-0.5 text-[10px] font-black text-cream">{t('체험용 미리보기', 'Trial preview')}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-4 rounded-xl border border-line bg-cream px-4 py-3 text-[12px] leading-relaxed text-sub">
-              {t('마음에 드는 시안을 고르면 기쁨·웃음 2컷을 무료로 만들어 드려요. 체험 컷은 미리보기용이라 저장·정식 내려받기는 정식 출시 후에 열려요.', 'Pick a draft and we will make two free stickers (happy, laugh). Trial stickers are previews — saving and official downloads open at launch.')}
-            </div>
-          )}
+          <ul className="mt-4 grid gap-1.5 text-[12px] leading-relaxed text-ink/80 sm:grid-cols-2">
+            <li>· {t('12컷 전체를 워터마크로 먼저 확인', 'See all 12 cuts, watermarked')}</li>
+            <li>· {t('마음에 들면 ₩5,900에 잠금 해제 (2인 케미 ₩7,900 · 반려동물 ₩6,900)', 'Unlock from ₩5,900 (duo ₩7,900 · pet ₩6,900)')}</li>
+            <li>· {t('친구 초대 1명당 3컷 무료 해제', '3 free cuts per invited friend')}</li>
+            <li>· {t('잠금 해제 후 고화질·투명 PNG·ZIP', 'High-res transparent PNG & ZIP after unlock')}</li>
+          </ul>
 
-          {trialError ? (
-            <p className="mt-3 rounded-lg border-2 border-coral/50 bg-coral/10 px-3 py-2 text-sm font-bold text-coralink">{trialError}</p>
+          {error ? (
+            <p className="mt-3 rounded-lg border-2 border-coral/50 bg-coral/10 px-3 py-2 text-sm font-bold text-coralink">{error}</p>
           ) : null}
 
           <button
             type="button"
             className="btn-primary mt-4 w-full !py-4"
-            disabled={!chosenReady || trialBusy || trialTodo.length === 0}
-            onClick={runTrial}
+            disabled={!chosenReady || previewBusy || previewLeft === 0}
+            onClick={() => void createPreview()}
           >
-            {trialBusy
-              ? t('체험 컷을 만드는 중…', 'Making your trial stickers…')
-              : trialTodo.length === 0
-                ? t('오늘의 무료 체험을 모두 사용했어요', 'Today\'s free trial is used up')
-                : t(`무료 체험 컷 ${trialTodo.length}장 만들기`, `Make ${trialTodo.length} trial stickers`)}
+            {previewBusy
+              ? t('12컷 미리보기 팩을 여는 중…', 'Opening your 12-cut preview…')
+              : previewLeft === 0
+                ? t('오늘의 무료 미리보기를 모두 사용했어요', "Today's free preview is used up")
+                : t(`12컷 전체 미리보기 팩 만들기`, 'Open my 12-cut preview pack')}
           </button>
           <p className="mt-2 text-center text-[11px] leading-relaxed text-sub">
-            {t(TRIAL_MESSAGES.packBlocked, 'The trial covers up to two stickers. Full packs open at launch.')}
+            {t('미리보기는 저해상도·워터마크이며, 결제 전에는 내보내기가 잠깁니다.', 'Previews are low-resolution and watermarked; exports stay locked until payment.')}
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
-            <Link href={lp('/pricing')} className="btn-ghost !px-4 !py-2 text-xs">{t('정식 요금제 보기', 'See plans')}</Link>
+            <Link href={lp('/pricing')} className="btn-ghost !px-4 !py-2 text-xs">{t('가격 보기', 'See pricing')}</Link>
             <Link href={lp('/quotes')} className="btn-ghost !px-4 !py-2 text-xs">{t('대사 스튜디오 바로 쓰기', 'Try the quote studio')}</Link>
           </div>
         </div>

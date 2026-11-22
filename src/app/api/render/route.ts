@@ -54,6 +54,8 @@ const schema = z.object({
       frameId: z.string().min(3).max(80),
       /** true 면 기존 컷을 무시하고 현재 대사·표정으로 다시 그린다 (에디터, 1크레딧) */
       force: z.boolean().optional(),
+      /** 잠금 해제한 미리보기 팩을 고화질로 다시 그린다 — 추가 크레딧 없음 */
+      finalize: z.boolean().optional(),
       accessoryIds: z.array(z.string().refine((id) => ACCESSORIES.some((a) => a.id === id), '알 수 없는 악세사리입니다'))
         .max(3).refine((ids) => new Set(ids).size === ids.length, '중복된 악세사리입니다').optional(),
     }),
@@ -108,12 +110,7 @@ export async function POST(req: Request) {
     if (!identityGuidance) return fail('CONSISTENCY_REQUIRED', '사진이 바뀌었거나 준비가 만료됐어요. 사진을 다시 확인해 주세요.', 409);
     const target = body.target;
 
-    // 무료 체험은 '맛보기'만 — 팩 컷(12컷 등 다량 생성)은 막는다.
-    if (access === 'trial' && target.kind === 'frame') {
-      return fail('TRIAL_ONLY', TRIAL_MESSAGES.packBlocked, 403);
-    }
-
-    if (target.kind === 'frame' && target.accessoryIds && !target.force) {
+    if (target.kind === 'frame' && target.accessoryIds && !target.force && !target.finalize) {
       return fail('INVALID_INPUT', '악세사리를 적용하려면 다시 그려야 합니다', 422);
     }
 
@@ -126,7 +123,7 @@ export async function POST(req: Request) {
         if (frame.hiddenAt) throw Object.assign(new Error('컷을 찾을 수 없습니다'), { code: 'FRAME_NOT_FOUND' });
         const sheet = db.sheets.find((s) => s.id === pack.sheetId && s.userId === user.id);
         const chosenImageId = pack.characterReferenceImageId ?? sheet?.variants.find((variant) => variant.key === sheet.chosenKey)?.imageId;
-        if (frame.imageId && !target.force) return { existing: frame.imageId as string };
+        if (frame.imageId && !target.force && !target.finalize) return { existing: frame.imageId as string };
         // 표정·포즈 프리셋을 고른 컷이면 표정·포즈·이펙트를 그대로 프롬프트에 넣는다.
         const framePreset = presetById(frame.presetId);
         return {
@@ -143,8 +140,12 @@ export async function POST(req: Request) {
           accessoryIds: target.accessoryIds ?? frame.accessoryIds ?? [],
           chosenImageId,
           variantNote: undefined as string | undefined,
-          charged: !!target.force && !isUnlimited(user),
+          charged: !!target.force && !target.finalize && !isUnlimited(user),
           previousImageId: frame.imageId as string | undefined,
+          /** 무료 미리보기 팩: Flash 모델로 그리고 내보내기는 잠긴다 */
+          previewPack: !!pack.preview && !pack.unlockedAt,
+          quality: (pack.preview && pack.unlockedAt ? 'final' : pack.preview ? 'preview' : 'final') as 'preview' | 'final',
+          isPreviewPack: !!pack.preview,
           format: pack.format,
           textMode: pack.textMode ?? 'baked',
           designSheet: isCharacterDesignSheet(pack.designSheet) ? pack.designSheet : undefined,
@@ -178,6 +179,9 @@ export async function POST(req: Request) {
           variantNote: 'one expressive reaction sticker on a plain cream background, same person and same outfit as the reference',
           charged: false,
           previousImageId: undefined as string | undefined,
+          previewPack: false,
+          quality: 'final' as 'preview' | 'final',
+          isPreviewPack: false,
           format: undefined as string | undefined,
           textMode: 'baked' as 'baked' | 'layer',
           designSheet: buildCharacterSheet({
@@ -208,6 +212,9 @@ export async function POST(req: Request) {
         variantNote: SHEET_NOTES[variantIndex] ?? SHEET_NOTES[0],
         charged: false,
         previousImageId: undefined as string | undefined,
+        previewPack: false,
+        quality: 'final' as 'preview' | 'final',
+        isPreviewPack: false,
         format: undefined as string | undefined,
         textMode: 'baked' as 'baked' | 'layer',
         designSheet: undefined as CharacterDesignSheet | undefined,
@@ -218,6 +225,11 @@ export async function POST(req: Request) {
 
     if ('existing' in plan) {
       return ok({ imageId: plan.existing, imageUrl: `/api/images/${plan.existing}` });
+    }
+
+    // 무료 체험은 미리보기 팩의 컷만 만들 수 있다 (12컷 상한은 free-trial 카운터가 막는다).
+    if (access === 'trial' && plan.kind === 'frame' && !('previewPack' in plan && plan.previewPack)) {
+      return fail('TRIAL_ONLY', TRIAL_MESSAGES.packBlocked, 403);
     }
 
     // 무료 체험 제한 — 스타일(실사 스티커 제외)과 시안 1장.
@@ -282,7 +294,7 @@ export async function POST(req: Request) {
     try {
       // 무료 체험은 실제 생성 직전에 상한을 1회 소비한다 (실패한 호출도 원가 방어를 위해 시도로 센다).
       const trial = access === 'trial'
-        ? await consumeTrialImage({ userId: user.id, ipHash: trialIpHash(req) }, plan.kind === 'preview' ? 'cut' : 'image')
+        ? await consumeTrialImage({ userId: user.id, ipHash: trialIpHash(req) }, plan.kind === 'preview' || (plan.kind === 'frame' && ('previewPack' in plan) && plan.previewPack) ? 'cut' : 'image')
         : null;
       // 실제 AI 생성이 필요하고 참조·요금 검증이 끝난 뒤에만 공정 이용 1회를 소비한다.
       const playUsage = await consumePlayGeneration(user);
@@ -313,6 +325,7 @@ export async function POST(req: Request) {
         accessoryPrompts,
         sceneAction: cutInfo?.cut.action ?? plan.sceneAction,
         preset: plan.presetPrompt,
+        quality: ('quality' in plan ? plan.quality : 'final') as 'preview' | 'final',
       });
 
       // 4) 컷은 360px로 선명하게 저장하고 시안은 참조용 512px를 유지한다.
@@ -329,6 +342,10 @@ export async function POST(req: Request) {
           else {
             frame.imageId = imageId;
             frame.accessoryIds = plan.accessoryIds;
+            // 잠금 해제 뒤 고화질로 다시 그린 시각을 남긴다 (심사 시트·고객지원 추적용).
+            if (pack && ('isPreviewPack' in plan) && plan.isPreviewPack && ('quality' in plan) && plan.quality === 'final') {
+              pack.hiResAt = new Date().toISOString();
+            }
           }
         } else if (plan.kind === 'sheet') {
           const sheet = db.sheets.find((s) => s.id === plan.sheetId && s.userId === user.id);

@@ -14,6 +14,7 @@ import { buildFaceCondition } from '@/lib/ai/face-embedding';
 import { consumePlayGeneration } from '@/lib/play-usage';
 import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { packFormatById } from '@/lib/pack-formats';
+import { PACK_FORMAT_IDS } from '@/lib/pack-formats';
 
 const batchSchema = z.object({
   faceId: z.string().min(1),
@@ -30,7 +31,7 @@ const batchSchema = z.object({
   line: z.string().max(34).optional(),
   intensity: z.number().min(0).max(100).optional(),
   /** 표현 형태(팩 테마) — 있으면 장면·구도 지시를 함께 넣는다 */
-  format: z.enum(['situation', 'parody', 'duo', 'typo', 'combo']).optional(),
+  format: z.enum(PACK_FORMAT_IDS).optional(),
   /** 'layer' 면 글자 없이 생성하고 앱이 한글을 합성한다 */
   textMode: z.enum(['baked', 'layer']).optional(),
 });

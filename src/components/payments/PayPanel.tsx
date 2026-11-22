@@ -8,7 +8,7 @@ import { won } from '@/lib/pricing';
 import { isTWA } from '@/lib/twa';
 
 export function PayPanel({ orderId, amount, title, credits, provider, clientKey, available, kind }: {
-  orderId: string; amount: number; title: string; credits: number; provider: string; clientKey: string; available: boolean; kind: 'subscription' | 'credits' | 'goods';
+  orderId: string; amount: number; title: string; credits: number; provider: string; clientKey: string; available: boolean; kind: 'subscription' | 'credits' | 'goods' | 'unlock';
 }) {
   const router = useRouter();
   const [agree, setAgree] = useState(false);
@@ -26,7 +26,7 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
 
   // 구글 플레이 인앱결제 정책: TWA 안에서는 디지털 상품(크레딧) 결제를 제공하지 않는다.
   // (물리 굿즈는 웹 결제 허용 — goods 는 그대로)
-  const twaCreditBlocked = inTWA && kind === 'credits';
+  const twaCreditBlocked = inTWA && kind !== 'goods';
 
   useEffect(() => {
     if (!available || provider !== 'toss' || twaCreditBlocked) return;
@@ -90,6 +90,6 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
     </label>
     {error ? <p role="alert" className="mt-3 rounded-lg border-2 border-coral/50 bg-coral/10 p-3 text-xs font-bold text-coralink">{error}</p> : null}
     <button className="btn-primary mt-4 w-full !py-4" disabled={!available || !agree || busy || (provider === 'toss' && !ready)} onClick={pay}>{busy ? '결제 처리 중…' : `${won(amount)}원 결제하기`}</button>
-    <p className="mt-3 text-center text-[10px] text-sub">{kind === 'goods' ? '승인 완료 후 운영자가 주문을 확인합니다.' : `승인 완료 시 ${credits}크레딧이 지급됩니다.`}</p></>}
+    <p className="mt-3 text-center text-[10px] text-sub">{kind === 'goods' ? '승인 완료 후 운영자가 주문을 확인합니다.' : kind === 'unlock' ? '승인 완료 시 팩 잠금이 해제되고 고화질·ZIP 내보내기가 열립니다.' : kind === 'subscription' ? '승인 완료 시 Creator Pro 1개월 이용권이 시작됩니다.' : `승인 완료 시 ${credits}크레딧이 지급됩니다.`}</p></>}
   </div>;
 }

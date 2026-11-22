@@ -27,6 +27,7 @@ export function FrameBottomSheet({
   onSaveCaption,
   onLayersSaved,
   watermark = false,
+  downloadDisabled = false,
 }: {
   frame: FrameView;
   packId: string;
@@ -43,6 +44,8 @@ export function FrameBottomSheet({
   onSaveCaption: (line: string) => Promise<void>;
   onLayersSaved?: (layers: TextLayer[]) => void;
   watermark?: boolean;
+  /** 미리보기 잠금 팩 — 공유(워터마크)만 허용하고 저장은 잠근다 */
+  downloadDisabled?: boolean;
 }) {
   const sheetRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLInputElement>(null);
@@ -169,7 +172,7 @@ export function FrameBottomSheet({
             <button type="button" className="btn-dark min-h-12 !px-3 !py-3 text-sm" onClick={onShare} disabled={!!busy}>
               {busy === 'share' ? t('공유 준비 중…', 'Preparing…') : t('카카오톡에 공유', 'Share to KakaoTalk')}
             </button>
-            <button type="button" className="btn-primary min-h-12 !px-3 !py-3 text-sm" onClick={onDownload} disabled={!!busy}>
+            <button type="button" className="btn-primary min-h-12 !px-3 !py-3 text-sm" onClick={onDownload} disabled={!!busy || downloadDisabled}>
               {busy === 'download' ? t('저장 중…', 'Saving…') : t('기기에 PNG 저장', 'Save PNG')}
             </button>
           </div>

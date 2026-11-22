@@ -21,7 +21,7 @@ import { GenerationProgress } from '@/components/studio/GenerationProgress';
 import { CameraPermissionDialog, PhotoRetakeGuide } from '@/components/studio/PhotoSafety';
 import { SampleFlowStrip } from '@/components/studio/SampleFlowStrip';
 import { PackFormatPicker } from '@/components/studio/PackFormatPicker';
-import { packFormatById, type PackFormatId } from '@/lib/pack-formats';
+import { isPackFormatId, packFormatById, type PackFormatId } from '@/lib/pack-formats';
 import { compressPhotoFile, ensurePhotoConsistency, linkPhoto, loadPhoto, photoScopeId, savePhoto } from '@/lib/studio/photo';
 import { apiResponseError, clientErrorCode, clientErrorGuide, isRetryableError } from '@/lib/client-errors';
 import { clearStudioRetry, loadStudioRetry, saveStudioRetry } from '@/lib/studio/retry';
@@ -180,6 +180,14 @@ export function UploadFlow({
         setError(clientErrorGuide(retry.code, locale).message);
       }
     } catch { /* 잘못된 임시 정보는 무시하고 사진부터 다시 시작한다 */ }
+    // 홈·프리셋의 킬러 테마 카드 — ?format=duo-chemi / pet-meme 로 바로 이어진다.
+    const searchParams = new URLSearchParams(window.location.search);
+    const formatFromUrl = searchParams.get('format');
+    if (isPackFormatId(formatFromUrl)) {
+      setFormat(formatFromUrl);
+      if (formatFromUrl === 'pet-meme') setSubjectKind('pet');
+    }
+    if (searchParams.get('subject') === 'pet') setSubjectKind('pet');
     setPickedPresetId(presetPickFromSearch(window.location.search) ?? rememberedPresetPick());
     // /presets 의 "이 패키지로 팩 만들기" — 탭 이동 뒤에도 패키지 선택을 유지한다.
     const fromUrl = packagePickFromSearch(window.location.search);
@@ -464,7 +472,22 @@ export function UploadFlow({
     <>
       {stepHeader}
       <div key="format" className={clsx('mx-auto max-w-3xl space-y-4', motionClass)}>
-        <PackFormatPicker value={format} onChange={setFormat} locale={locale} subjectKind={subjectKind} />
+        <PackFormatPicker
+          value={format}
+          onChange={(next) => {
+            setFormat(next);
+            // 반려동물 집사 밈은 반려동물 사진으로 시작한다 — 이미 고른 사람 사진은 다시 확인해야 한다.
+            if (next === 'pet-meme' && subjectKind !== 'pet') {
+              setSubjectKind('pet');
+              setAnalysis(null);
+              setPhotoPreview(null);
+              setFileName('');
+              try { sessionStorage.removeItem(DRAFT_KEY); } catch { /* 무시 */ }
+            }
+          }}
+          locale={locale}
+          subjectKind={subjectKind}
+        />
         <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-soft backdrop-blur">
           <button type="button" className="btn-primary min-h-14 w-full !py-4 text-base" onClick={() => { setMotion('forward'); setPhotoPhase('mode'); }}>
             {format ? t(`${formatInfo?.label ?? '표현 형태'} 팩으로 시작`, `Start a ${formatInfo?.labelEn ?? 'format'} pack`) : t('기본 감정 팩으로 시작', 'Start a classic pack')}<span aria-hidden="true"> →</span>

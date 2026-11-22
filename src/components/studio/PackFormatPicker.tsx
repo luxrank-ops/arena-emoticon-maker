@@ -32,8 +32,55 @@ export function PackFormatPicker({
     badge: t('12·24·32컷', '12/24/32 cuts'),
   };
 
+  const killerFormats = PACK_FORMATS.filter((format) => format.killer);
+  const otherFormats = PACK_FORMATS.filter((format) => !format.killer);
+
   return (
     <div className="space-y-3">
+      {killerFormats.length ? (
+        <section aria-labelledby="killer-themes" className="rounded-2xl border-2 border-coral/40 bg-coral/[0.04] p-3 sm:p-4">
+          <div className="flex items-center justify-between gap-2">
+            <h2 id="killer-themes" className="text-sm font-black">🔥 {t('킬러 테마 — 가장 많이 만드는 두 팩', 'Killer themes — the two most-made packs')}</h2>
+            <span className="chip !border-coral/40 !bg-white !text-coralink">{t('12컷', '12 cuts')}</span>
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-sub">
+            {t('커플·단톡방 2인 케미, 강아지·고양이 집사 밈. 12컷 전체를 먼저 보고 필요한 팩만 잠금 해제하세요.', 'Couple/group-chat duo chemistry and dog/cat butler memes. Preview all 12 cuts, unlock only what you need.')}
+          </p>
+          <div role="radiogroup" aria-label={t('킬러 테마 선택', 'Choose a killer theme')} className="mt-3 grid gap-3 sm:grid-cols-2">
+            {killerFormats.map((format) => {
+              const active = value === format.id;
+              return (
+                <button
+                  key={format.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={active}
+                  onClick={() => onChange(format.id)}
+                  className={clsx(
+                    'card flex h-full flex-col items-start gap-1 p-4 text-left transition',
+                    active ? 'border-2 border-primary bg-primary/[0.04] ring-4 ring-primary/10' : 'hover:-translate-y-0.5 hover:shadow-pop',
+                  )}
+                >
+                  <span className="text-2xl" aria-hidden="true">{format.emoji}</span>
+                  <span className="text-sm font-black">{locale === 'en' ? format.labelEn : format.label}</span>
+                  <span className="text-[11px] leading-snug text-sub">{locale === 'en' ? format.taglineEn : format.tagline}</span>
+                  <span className="mt-auto flex flex-wrap gap-1 pt-2">
+                    <span className="rounded-full border border-line px-2 py-0.5 text-[10px] font-bold text-sub">{format.cuts.length}{t('컷', ' cuts')}</span>
+                    {format.unlockPrice ? (
+                      <span className="rounded-full border border-primary/30 bg-primary/5 px-2 py-0.5 text-[10px] font-black text-primary-dark">
+                        {t(`완성권 ${format.unlockPrice.toLocaleString('en-US')}원`, `Unlock ₩${format.unlockPrice.toLocaleString('en-US')}`)}
+                      </span>
+                    ) : null}
+                    {format.needsSecondPhoto ? (
+                      <span className="rounded-full border border-coral/40 bg-coral/10 px-2 py-0.5 text-[10px] font-bold text-coralink">{t('사진 2장', 'Two photos')}</span>
+                    ) : null}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
+      ) : null}
       <div role="radiogroup" aria-label={t('표현 형태 선택', 'Choose a pack format')} className="grid gap-3 sm:grid-cols-2">
         <button
           type="button"
@@ -51,7 +98,7 @@ export function PackFormatPicker({
           <span className="mt-auto pt-2 text-[10px] font-bold text-sub">{basic.badge}</span>
         </button>
 
-        {PACK_FORMATS.map((format) => {
+        {otherFormats.map((format) => {
           const active = value === format.id;
           const needsPetNote = format.id === 'duo' && subjectKind === 'pet';
           return (

@@ -102,6 +102,11 @@ export interface RenderInput {
   sceneAction?: string;
   /** 사용자가 고른 표정·포즈 프리셋 150종의 영문 지시 (표정·포즈·이펙트) */
   preset?: { expression: string; pose: string; effect: string };
+  /**
+   * preview = 무료 워터마크 미리보기용 저비용 Flash 렌더
+   * final   = 잠금 해제 후 고화질(화풍별 최상위) 렌더
+   */
+  quality?: 'preview' | 'final';
 }
 
 export function modelForTone(tone: Tone): string {
@@ -276,7 +281,8 @@ export async function renderWithGemini(input: RenderInput): Promise<Buffer> {
   const apiKey = ((globalThis as any).CLOUDFLARE_ENV?.GEMINI_API_KEY || process.env.GEMINI_API_KEY || '').trim();
   if (!apiKey) throw new RenderError('AI_NOT_CONFIGURED', 'AI 생성 키가 설정되지 않았습니다');
 
-  const model = modelForTone(input.tone);
+  // 무료 미리보기는 화풍과 무관하게 저비용 Flash 모델로 그린다 (원가 이원화).
+  const model = input.quality === 'preview' ? STYLE_MODEL : modelForTone(input.tone);
   const body = JSON.stringify({
     contents: [
       {

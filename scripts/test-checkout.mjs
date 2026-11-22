@@ -31,9 +31,13 @@ async function adminLogin() {
   return `${auth}; emotime_sid=${sid}`;
 }
 
-// 구독은 1차 출시 범위에서 계속 차단한다.
-const plan = await post('/api/checkout', { sku: 'plan-plus-monthly' });
-assert.equal(plan.status, 503);
+// 2026-11-23 가격 개편: 기존 Plus/Studio 월 구독 SKU 는 판매하지 않고(400/503),
+// Creator Pro 1개월 이용권만 서버 금액 19,900원으로 주문된다.
+const legacyPlan = await post('/api/checkout', { sku: 'plan-plus-monthly' });
+assert.ok([400, 503].includes(legacyPlan.status), `legacy plan must not be sold (${legacyPlan.status})`);
+const creatorPlan = await post('/api/checkout', { sku: 'plan-creator-monthly' });
+assert.equal(creatorPlan.status, 200);
+assert.equal(creatorPlan.body.order.amount, 19900);
 
 // 동의·금액·소유자·출처·동시 승인과 재시도 멱등성.
 const o = await order();
