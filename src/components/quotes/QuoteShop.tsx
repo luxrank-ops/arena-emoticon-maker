@@ -34,7 +34,8 @@ function quoteSpec(pack: QuotePackView, line: QuoteLine, emotion: Emotion, backg
   // (그림에 글자를 굽지 않아 표정만 바꿔도 같은 인물의 다른 컷이 나온다)
   const imageUrl = sampleCutFor(emotion);
   if (!imageUrl) return base;
-  const layer = layerFromLine(line.line);
+  // 사진 컷은 얼굴이 화면 위쪽에 커서 기본 크기·위치면 턱을 가린다 → 조금 작게, 더 아래에.
+  const layer = layerFromLine(line.line, { size: 0.12, y: 0.88 });
   const textLayers: TextLayer[] = layer ? [layer] : [];
   return { ...base, imageUrl, ...(textLayers.length ? { textLayers } : {}) };
 }

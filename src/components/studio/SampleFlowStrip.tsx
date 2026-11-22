@@ -36,8 +36,8 @@ export function SampleFlowStrip({ locale }: { locale: Locale }) {
   return (
     <div className="mt-6 w-full rounded-2xl border border-line bg-cream/70 p-3">
       <p className="text-[11px] font-bold text-sub">{t('예시 · 사진 한 장이면 이렇게 만들어져요', 'Example · one photo is all it takes')}</p>
-      <div className="mt-2 flex items-center justify-center gap-2">
-        <figure className="w-[86px] shrink-0 text-center">
+      <div className="mt-2 flex items-center justify-center gap-1.5 sm:gap-2">
+        <figure className="w-[62px] shrink-0 text-center sm:w-[86px]">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/samples/original-portrait.webp"
@@ -48,9 +48,9 @@ export function SampleFlowStrip({ locale }: { locale: Locale }) {
           />
           <figcaption className="mt-1 text-[10px] font-black text-sub">{t('원본', 'Photo')}</figcaption>
         </figure>
-        <span aria-hidden="true" className="text-base font-black text-coralink">→</span>
+        <span aria-hidden="true" className="text-sm font-black text-coralink sm:text-base">→</span>
         {cuts.map((cut) => (
-          <figure key={cut.emotion} className="w-[86px] text-center">
+          <figure key={cut.emotion} className="w-[62px] text-center sm:w-[86px]">
             <Sticker spec={sampleSpec(cut.emotion)} ariaLabel={t(`${cut.line} 예시 이모티콘`, `${cut.line} sample sticker`)} />
             <figcaption className="truncate text-[10px] font-black text-sub">{cut.line}</figcaption>
           </figure>
