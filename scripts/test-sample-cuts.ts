@@ -20,7 +20,7 @@ assert.equal(emotions.length, 12, '감정 12종이 기준입니다');
 for (const emotion of emotions) {
   const src = (SAMPLE_CUTS as Record<string, string | undefined>)[emotion];
   assert.ok(src, `${emotion} 감정의 샘플 컷 경로가 없습니다`);
-  assert.ok(src!.startsWith('/samples/cut/'), `${emotion} 샘플 컷은 /samples/cut/ 아래여야 합니다`);
+  assert.ok(src!.startsWith('/samples/quote-photo/'), `${emotion} 샘플 컷은 /samples/quote-photo/ 아래여야 합니다`);
   const file = join(publicRoot, src!.replace(/^\//, ''));
   const stat = statSync(file);
   assert.ok(stat.size > 8_000, `${emotion} 샘플 컷이 너무 작습니다 (${stat.size} bytes)`);
