@@ -6,6 +6,7 @@ import { KAKAO_RULES, KAKAO_ANIMATED_RULES, validateKakaoFiles, type PackValidat
 import { applyMask, applyWhiteOutline, computeAlphaMask, outlineSilhouette } from '@/lib/studio/matte';
 import { assembleApng } from '@/lib/studio/apng';
 import { drawLayers, normalizeLayers, type TextLayer } from '@/lib/studio/layers';
+import { captionFontCss, ensureCaptionFonts } from '@/lib/svg-fonts';
 import {
   DEFAULT_MOTION,
   motionById,
@@ -122,6 +123,9 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
   const size = opts.size ?? SIZE;
   const canvas = canvasOf(size);
   const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
+  const layers = layersOf(spec, opts);
+  // 캘리그라피 폰트가 준비된 뒤에 그린다(대체 폰트로 먼저 그리는 것 방지)
+  await ensureCaptionFonts();
   ctx.clearRect(0, 0, size, size);
   if (spec.background !== 'transparent') {
     ctx.fillStyle = backgroundFill(spec.background);
@@ -141,7 +145,10 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
       fctx.putImageData(image, 0, 0);
     }
   } else {
-    const img = await loadImage(renderSticker({ ...spec, imageUrl: undefined }));
+    // 글자 레이어가 있으면 그쪽이 대사다 — 절차적 SVG 대사와 겹쳐 찍지 않는다.
+    const fontCss = layers.length ? '' : await captionFontCss('calli');
+    const svg = renderSticker({ ...spec, imageUrl: undefined, line: layers.length ? '' : spec.line }, { fontCss });
+    const img = await loadImage(svg);
     fctx.drawImage(img, 0, 0, size, size);
   }
 
@@ -157,8 +164,7 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
   ctx.drawImage(figure, 0, 0);
 
   // 3) 글자·이펙트 레이어
-  const layers = layersOf(spec, opts);
-  if (layers.length) drawLayers(ctx, layers, size);
+  if (layers.length) drawLayers(ctx, layers, size, { emotion: spec.emotion });
   if (opts.watermark) drawWatermark(ctx, size);
   return canvas;
 }

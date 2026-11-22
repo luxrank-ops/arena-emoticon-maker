@@ -5,7 +5,18 @@
 //  · 레이어 데이터는 프레임에 저장되고, PNG/GIF/APNG/ZIP 내보내기에 모두 합성된다.
 // ─────────────────────────────────────────────────────────────
 
-export type TextLayerStyle = 'hand' | 'gothic' | 'bold' | 'stamp';
+import type { Emotion } from '@/lib/types';
+import {
+  CAPTION_BOLD,
+  CAPTION_FONT_FAMILIES,
+  CAPTION_OUTLINE,
+  captionFaceOf,
+  inkFor,
+  layoutCaption,
+  type CaptionLine,
+} from '@/lib/studio/caption';
+
+export type TextLayerStyle = 'calli' | 'hand' | 'gothic' | 'bold' | 'stamp';
 export type BubbleStyle = 'none' | 'round' | 'shout' | 'caption' | 'tape';
 export type EffectKind = 'none' | 'sweat' | 'heart' | 'sparkle' | 'anger' | 'money' | 'flame';
 
@@ -38,12 +49,21 @@ export const TEXT_STYLES: {
   letterSpacing: number;
 }[] = [
   {
+    id: 'calli',
+    label: '캘리그라피',
+    labelEn: 'Calligraphy',
+    font: CAPTION_FONT_FAMILIES.calli,
+    weight: 400,
+    outline: CAPTION_OUTLINE.calli,
+    letterSpacing: 0,
+  },
+  {
     id: 'hand',
     label: '손글씨',
     labelEn: 'Handwriting',
-    font: '"Nanum Pen Script", "Gaegu", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
+    font: CAPTION_FONT_FAMILIES.hand,
     weight: 700,
-    outline: 0.16,
+    outline: CAPTION_OUTLINE.hand,
     letterSpacing: 0,
   },
   {
@@ -68,7 +88,7 @@ export const TEXT_STYLES: {
     id: 'stamp',
     label: '도장',
     labelEn: 'Stamp',
-    font: '"Nanum Myeongjo", "Batang", "Apple SD Gothic Neo", serif',
+    font: CAPTION_FONT_FAMILIES.serif,
     weight: 800,
     outline: 0.04,
     letterSpacing: 0.04,
@@ -98,7 +118,7 @@ const DEFAULT_COLOR = '#191512';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 export function textStyleById(id: string | undefined) {
-  return TEXT_STYLES.find((item) => item.id === id) ?? TEXT_STYLES[1];
+  return TEXT_STYLES.find((item) => item.id === id) ?? TEXT_STYLES[0];
 }
 
 export function bubbleById(id: string | undefined) {
@@ -145,12 +165,12 @@ export function layerFromLine(line: string, overrides: Partial<TextLayer> = {}):
   return normalizeLayer({
     id: `line-${Math.abs(hash(text)) % 100000}`,
     text,
-    style: 'hand',
-    bubble: 'round',
+    style: 'calli',
+    bubble: 'none',
     effect: 'none',
     x: 0.5,
     y: 0.84,
-    size: text.length > 10 ? 0.1 : 0.13,
+    size: text.length > 9 ? 0.145 : text.length > 6 ? 0.165 : text.length > 3 ? 0.18 : 0.19,
     color: DEFAULT_COLOR,
     rotate: -3,
     ...overrides,
@@ -166,44 +186,49 @@ function hash(value: string) {
   return h | 0;
 }
 
-function wrapLines(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
-  const lines: string[] = [];
-  for (const paragraph of text.split('\n')) {
-    if (!paragraph) continue;
-    let current = '';
-    for (const char of [...paragraph]) {
-      const next = current + char;
-      if (current && ctx.measureText(next).width > maxWidth) {
-        lines.push(current);
-        current = char.trim() ? char : '';
-      } else {
-        current = next;
-      }
-    }
-    if (current) lines.push(current);
-  }
-  return lines.length ? lines : [text];
-}
-
-/** 레이어 한 장을 캔버스에 그린다 (size = 캔버스 한 변 px) */
-export function drawLayer(ctx: CanvasRenderingContext2D, layer: TextLayer, size: number) {
+/**
+ * 레이어 한 장을 캔버스에 그린다 (size = 캔버스 한 변 px).
+ *  · 글자 하나씩 살짝 기울이고 흔들어 손글씨 리듬을 낸다 — SVG 렌더러와 같은 계산(caption.ts).
+ *  · 그림자 → 두꺼운 흰색 외곽선 → 컬러 채우기 순서로 쌓아 스티커처럼 보이게 한다.
+ */
+export function drawLayer(
+  ctx: CanvasRenderingContext2D,
+  layer: TextLayer,
+  size: number,
+  opts: { emotion?: Emotion } = {},
+) {
   const style = textStyleById(layer.style);
+  const face = captionFaceOf(style.id);
   const fontSize = Math.max(8, layer.size * size);
   const centerX = layer.x * size;
   const centerY = layer.y * size;
 
+  const layout = layoutCaption(layer.text, {
+    size: fontSize,
+    maxWidth: size * 0.86,
+    face,
+    seed: hash(layer.text),
+  });
+  const blockWidth = layout.width;
+  const blockHeight = layout.height;
+  const padding = fontSize * 0.42;
+
+  // 블록이 캔버스 밖으로 잘리지 않게 중심을 clamp 한다(2줄·큰 글자·회전 대응).
+  const rot = Math.abs(layer.rotate) * (Math.PI / 180);
+  const halfW = (blockWidth / 2) * Math.cos(rot) + (blockHeight / 2) * Math.sin(rot);
+  const halfH = (blockHeight / 2) * Math.cos(rot) + (blockWidth / 2) * Math.sin(rot);
+  const pad = size * 0.015;
+  const drawX = Math.min(Math.max(centerX, halfW + pad), size - halfW - pad);
+  const drawY = Math.min(Math.max(centerY, halfH + pad), size - halfH - pad);
+
   ctx.save();
-  ctx.translate(centerX, centerY);
+  ctx.translate(drawX, drawY);
   ctx.rotate((layer.rotate * Math.PI) / 180);
   ctx.font = `${style.weight} ${fontSize}px ${style.font}`;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  const maxWidth = size * 0.82;
-  const lines = wrapLines(ctx, layer.text, maxWidth);
-  const lineHeight = fontSize * 1.12;
-  const blockWidth = Math.min(maxWidth, Math.max(...lines.map((l) => ctx.measureText(l).width)));
-  const blockHeight = lineHeight * lines.length;
-  const padding = fontSize * 0.42;
+  ctx.textBaseline = 'alphabetic';
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
 
   if (layer.bubble !== 'none') {
     drawBubble(ctx, layer.bubble, blockWidth + padding * 2, blockHeight + padding * 2, size, layer.color);
@@ -221,22 +246,65 @@ export function drawLayer(ctx: CanvasRenderingContext2D, layer: TextLayer, size:
     ctx.stroke();
   }
 
-  const fill = layer.style === 'stamp' ? '#C9342B' : layer.color;
-  const strokeColor = layer.bubble === 'none' ? '#FFFFFF' : 'rgba(255,255,255,0.92)';
-  lines.forEach((line, index) => {
-    const offsetY = (index - (lines.length - 1) / 2) * lineHeight;
-    ctx.lineJoin = 'round';
-    ctx.miterLimit = 2;
-    ctx.strokeStyle = strokeColor;
-    ctx.lineWidth = Math.max(0, fontSize * style.outline);
-    ctx.strokeText(line, 0, offsetY);
-    ctx.fillStyle = fill;
-    ctx.fillText(line, 0, offsetY);
-  });
+  const fill = layer.style === 'stamp' ? '#C9342B' : inkFor(opts.emotion, layer.color);
+  const inBubble = layer.bubble !== 'none';
+  const outlineWidth = Math.max(0, fontSize * (style.id === 'calli' || style.id === 'hand' ? CAPTION_OUTLINE[face] : style.outline));
+  const boldWidth = Math.max(0, fontSize * CAPTION_BOLD[face]);
+  const top = -blockHeight / 2;
+  const left = -blockWidth / 2;
+
+  // 1) 그림자 — 외곽선 패스에만 얹어 스티커가 살짝 떠 보이게 한다.
+  if (!inBubble && outlineWidth > 0) {
+    ctx.save();
+    ctx.shadowColor = 'rgba(25,21,18,0.30)';
+    ctx.shadowBlur = fontSize * 0.2;
+    ctx.shadowOffsetY = fontSize * 0.06;
+    ctx.strokeStyle = '#FFFFFF';
+    ctx.lineWidth = outlineWidth;
+    for (const line of layout.lines) drawGlyphs(ctx, line, left, top, 'stroke', blockWidth);
+    ctx.restore();
+  }
+
+  // 2) 흰색 외곽선 (그림자 없이 한 번 더 → 지저분한 이중 테두리 방지)
+  if (outlineWidth > 0) {
+    ctx.strokeStyle = inBubble ? 'rgba(255,255,255,0.92)' : '#FFFFFF';
+    ctx.lineWidth = outlineWidth;
+    for (const line of layout.lines) drawGlyphs(ctx, line, left, top, 'stroke', blockWidth);
+  }
+
+  // 3) 잉크 외곽선(글자 살 찌우기) → 채우기
+  if (boldWidth > 0) {
+    ctx.strokeStyle = fill;
+    ctx.lineWidth = boldWidth;
+    for (const line of layout.lines) drawGlyphs(ctx, line, left, top, 'stroke', blockWidth);
+  }
+  ctx.fillStyle = fill;
+  for (const line of layout.lines) drawGlyphs(ctx, line, left, top, 'fill', blockWidth);
   ctx.restore();
 
   if (layer.effect !== 'none') {
     drawEffect(ctx, layer.effect, centerX, centerY, Math.max(blockWidth, blockHeight) / 2 + fontSize * 0.5, size);
+  }
+}
+
+function drawGlyphs(
+  ctx: CanvasRenderingContext2D,
+  line: CaptionLine,
+  left: number,
+  top: number,
+  mode: 'stroke' | 'fill',
+  blockWidth = line.width,
+) {
+  // 줄마다 가운데 정렬 (블록 폭 기준)
+  const offset = (blockWidth - line.width) / 2;
+  for (const glyph of line.glyphs) {
+    if (glyph.ch === ' ') continue;
+    ctx.save();
+    ctx.translate(left + offset + glyph.x, top + line.baseline + glyph.dy);
+    if (glyph.angle) ctx.rotate((glyph.angle * Math.PI) / 180);
+    if (mode === 'stroke') ctx.strokeText(glyph.ch, 0, 0);
+    else ctx.fillText(glyph.ch, 0, 0);
+    ctx.restore();
   }
 }
 
@@ -435,11 +503,16 @@ function drawSparkle(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: n
   ctx.stroke();
 }
 
-export function drawLayers(ctx: CanvasRenderingContext2D, layers: TextLayer[], size: number) {
-  for (const layer of layers) drawLayer(ctx, layer, size);
+export function drawLayers(
+  ctx: CanvasRenderingContext2D,
+  layers: TextLayer[],
+  size: number,
+  opts: { emotion?: Emotion } = {},
+) {
+  for (const layer of layers) drawLayer(ctx, layer, size, opts);
 }
 
 /** 편집 UI용 기본 레이어 (새 레이어 추가) */
 export function newLayer(index: number, text = '안녕!'): TextLayer {
-  return normalizeLayer({ id: `layer-${Date.now()}-${index}`, text, style: 'hand', bubble: 'round', x: 0.5, y: 0.8, size: 0.14, rotate: -2 }, index);
+  return normalizeLayer({ id: `layer-${Date.now()}-${index}`, text, style: 'calli', bubble: 'none', x: 0.5, y: 0.84, size: 0.18, rotate: -2 }, index);
 }

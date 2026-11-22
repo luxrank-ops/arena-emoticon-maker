@@ -8,7 +8,7 @@ import { composeFrame } from '@/lib/packs';
 const layerSchema = z.object({
   id: z.string().min(1).max(40),
   text: z.string().min(1).max(24),
-  style: z.enum(['hand', 'gothic', 'bold', 'stamp']),
+  style: z.enum(['calli', 'hand', 'gothic', 'bold', 'stamp']),
   bubble: z.enum(['none', 'round', 'shout', 'caption', 'tape']),
   effect: z.enum(['none', 'sweat', 'heart', 'sparkle', 'anger', 'money', 'flame']),
   x: z.number().min(0).max(1),

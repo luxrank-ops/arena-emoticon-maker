@@ -248,13 +248,14 @@ export function effectKindOfEffectText(effectText: string): EffectKind {
   return 'none';
 }
 
-function bubbleFor(emotion: Emotion): BubbleStyle {
-  return emotion === 'angry' || emotion === 'king' ? 'shout' : 'round';
+function bubbleFor(_emotion: Emotion): BubbleStyle {
+  // 기본은 말풍선 없이 캘리그라피 글자만 — 박스형 말풍선은 편집기에서 고르는 옵션이다.
+  return 'none';
 }
 
-function styleFor(emotion: Emotion): TextLayerStyle {
-  if (emotion === 'angry' || emotion === 'king' || emotion === 'laugh') return 'bold';
-  return 'hand';
+function styleFor(_emotion: Emotion): TextLayerStyle {
+  // 기본값 자체를 캘리그라피로 둔다(감정별 포인트 컬러는 레이어 렌더러가 입힌다).
+  return 'calli';
 }
 
 /** 150종 프리셋 (파생 필드 포함) */
@@ -373,9 +374,9 @@ export function presetTextLayer(preset: EmoticonPreset, locale: Locale): TextLay
     effect: preset.effectKind,
     x: 0.5,
     y: caption.length > 10 ? 0.82 : 0.85,
-    size: caption.length > 10 ? 0.09 : 0.12,
+    size: caption.length > 9 ? 0.145 : caption.length > 6 ? 0.165 : caption.length > 3 ? 0.18 : 0.19,
     color: '#191512',
-    rotate: preset.emotion === 'angry' || preset.emotion === 'king' ? -4 : 0,
+    rotate: preset.emotion === 'angry' || preset.emotion === 'king' ? -4 : -2,
   };
 }
 

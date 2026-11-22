@@ -127,9 +127,9 @@ check('잘못된 색은 기본색으로', layer.color === '#191512');
 check('스타일·말풍선·이펙트 유지', layer.style === 'stamp' && layer.bubble === 'caption' && layer.effect === 'sparkle');
 check('빈 텍스트 레이어는 제거', normalizeLayers([{ text: '  ' }, { text: '안녕' }]).length === 1);
 check('레이어 최대 4장', normalizeLayers(Array.from({ length: 9 }, (_, i) => ({ text: `레이어${i}`, style: 'hand' }))).length === MAX_LAYERS);
-check('글꼴 4종 · 말풍선 5종 · 이펙트 7종', TEXT_STYLES.length === 4 && LAYER_BUBBLES.length === 5 && LAYER_EFFECTS.length === 7);
+check('글꼴 5종(캘리그라피 우선) · 말풍선 5종 · 이펙트 7종', TEXT_STYLES.length === 5 && TEXT_STYLES[0].id === 'calli' && LAYER_BUBBLES.length === 5 && LAYER_EFFECTS.length === 7);
 const fromLine = layerFromLine('확인했습니다');
-check('대사 → 기본 레이어 생성', !!fromLine && fromLine.text === '확인했습니다' && fromLine.bubble === 'round');
+check('대사 → 기본 레이어 생성(캘리그라피, 말풍선 없음)', !!fromLine && fromLine.text === '확인했습니다' && fromLine.bubble === 'none' && fromLine.style === 'calli');
 check('빈 대사는 레이어 없음', layerFromLine('   ') === null);
 
 // ── 5. 표현 형태 5종 ───────────────────────────────────────
