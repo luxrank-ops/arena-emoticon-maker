@@ -83,5 +83,25 @@ const apiLib = read('src/lib/api.ts');
 check('깨진 JSON 본문은 400 INVALID_JSON 으로 응답', apiLib.includes('e instanceof SyntaxError') && apiLib.includes("fail('INVALID_JSON'") && /INVALID_JSON'[\s\S]{0,80}?400\)/.test(apiLib));
 check('검증 오류(ZodError) 응답은 그대로 유지', apiLib.includes("fail('INVALID_INPUT'") && apiLib.includes('422'));
 
+// ── 9. 첫 화면(홈) · 하단 고정 내비게이션 ─────────────────────
+const layout = read('src/app/layout.tsx');
+check('하단 고정 바가 루트 레이아웃에 붙어 있음', layout.includes("from '@/components/BottomNav'") && layout.includes('<BottomNav'));
+check('본문이 하단 바 높이 + 안전 영역만큼 여백을 가짐', layout.includes('pb-[calc(4.25rem_+_env(safe-area-inset-bottom))]'));
+check('뷰포트가 안전 영역을 덮음(viewportFit cover)', layout.includes("viewportFit: 'cover'"));
+const bottomNav = read('src/components/BottomNav.tsx');
+check('하단 바가 안전 영역 여백을 사용', bottomNav.includes('env(safe-area-inset-bottom)'));
+check('하단 바는 데스크톱에서 숨기고 모바일에서만 고정', bottomNav.includes('fixed') && bottomNav.includes('lg:hidden'));
+check('하단 바 현재 위치 표시(aria-current)', bottomNav.includes("aria-current={active ? 'page' : undefined}"));
+const navSource = read('src/lib/nav.ts');
+const bottomKeys = navSource.match(/BOTTOM_NAV_KEYS: NavKey\[\] = \[([^\]]*)\]/)?.[1] ?? '';
+check('하단 바 주요 위치는 5곳 이내', (bottomKeys.match(/'[a-z]+'/g) ?? []).length === 5);
+check('하단 바 첫 항목이 홈(/)', /home: \{ key: 'home', href: '\/'/.test(navSource));
+const headerSource = read('src/components/SiteHeader.tsx');
+check('상단 탭과 하단 바가 같은 목록을 공유', headerSource.includes('SiteNav') && read('src/components/SiteNav.tsx').includes('headerNav'));
+const manifestSource = JSON.parse(read('public/manifest.webmanifest'));
+check('매니페스트 첫 화면(start_url)이 홈(/)', manifestSource.start_url === '/');
+check('매니페스트 바로가기에 홈·만들기·내 팩이 있음', (manifestSource.shortcuts ?? []).map((s) => s.url).join(',').includes('/studio/upload'));
+check('로그인한 사람의 로그인 화면은 홈으로 리다이렉트', read('src/app/login/page.tsx').includes('redirect('));
+
 console.log(`\n출시 준비 정적 점검: ${passed}개 통과`);
 console.log('Note: 브라우저·실기기·스토어 콘솔 동작은 이 점검 범위가 아닙니다.');

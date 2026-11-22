@@ -6,6 +6,7 @@
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
   "orientation": "portrait",
   "lang": "ko",
   "dir": "ltr",
@@ -29,6 +30,29 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "홈",
+      "short_name": "홈",
+      "description": "내 사진으로 만드는 나만의 이모티콘 홈",
+      "url": "/",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "이모티콘 만들기",
+      "short_name": "만들기",
+      "description": "사진을 올려 AI 이모티콘 팩 만들기",
+      "url": "/studio/upload",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "내 팩",
+      "short_name": "내 팩",
+      "description": "만든 이모티콘 팩 확인·편집·내려받기",
+      "url": "/studio/packs",
+      "icons": [{ "src": "/icons/icon-192.png", "sizes": "192x192" }]
     }
   ]
 }

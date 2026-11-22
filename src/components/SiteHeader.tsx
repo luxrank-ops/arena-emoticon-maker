@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/session';
 import { creditsLabel, planLabel } from '@/lib/admin-access';
 import { LogoutButton } from '@/components/LogoutButton';
 import { LanguageLink } from '@/components/i18n/LanguageLink';
+import { SiteNav } from '@/components/SiteNav';
 import { getLocale } from '@/lib/i18n/server';
 import { localizedPath, tr } from '@/lib/i18n/locale';
 
@@ -13,21 +14,6 @@ export async function SiteHeader() {
   const rawCredits = creditsLabel(user);
   const credits = user.role === 'admin' ? '∞' : locale === 'en' && rawCredits === '무제한' ? 'Unlimited' : locale === 'en' && rawCredits === '차감 없음' ? 'No deduction' : rawCredits;
   const lp = (href: string) => localizedPath(locale, href);
-  const nav = locale === 'en'
-    ? [
-        { href: '/studio/upload', label: 'Create' },
-        { href: '/studio/packs', label: 'My packs' },
-        { href: '/support', label: 'Help' },
-      ]
-    : [
-        { href: '/studio/upload', label: '만들기' },
-        { href: '/studio/packs', label: '내 팩' },
-        { href: '/reply', label: '톡 답장' },
-        { href: '/quotes', label: '대사' },
-        { href: '/brief', label: '오늘의 브리핑' },
-        { href: '/goods', label: '굿즈' },
-        { href: '/pricing', label: '요금제' },
-      ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-cyber bg-cyber text-white shadow-soft">
@@ -66,18 +52,10 @@ export async function SiteHeader() {
         </div>
       </div>
 
-      {/* Equal-width items share desktop space and retain those widths while scrolling on mobile. */}
+      {/* Equal-width items share desktop space; on mobile the primary destinations move to the bottom bar. */}
       <nav aria-label={tr(locale, '주요 메뉴', 'Main navigation')} className="border-t border-white/10">
         <div className="wrap flex gap-1 overflow-x-auto py-2">
-          {nav.map((item) => (
-            <Link
-              key={item.href}
-              href={lp(item.href)}
-              className="flex min-h-10 min-w-[104px] flex-1 basis-0 items-center justify-center whitespace-nowrap rounded-xl px-2 text-center text-xs font-semibold text-white/80 transition hover:bg-white/10 hover:text-white focus-visible:bg-white/10 sm:text-sm"
-            >
-              {item.label}
-            </Link>
-          ))}
+          <SiteNav locale={locale} />
         </div>
       </nav>
     </header>
