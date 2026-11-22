@@ -166,7 +166,7 @@ export function FrameEditor({
               {redrawing ? 'AI가 그리는 중…' : dirty ? '변경됨 · 다시 그리기 필요' : savedAt ? `저장됨 ${savedAt}` : '자동 저장'}
             </span>
           </div>
-          <div className="bg-cream p-4">
+          <div className={clsx('p-4', spec.background === 'transparent' ? 'checker' : 'bg-cream')}>
             <div className="mx-auto max-w-[340px]">
               <Sticker spec={spec} />
             </div>

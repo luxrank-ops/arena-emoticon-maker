@@ -14,6 +14,14 @@
 }
 
 @font-face {
+  font-family: 'EmotiHak Brush';
+  src: url('/fonts/EmotiHakBrush.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
   font-family: 'EmotiHak Hand';
   src: url('/fonts/EmotiHakHand.woff2') format('woff2');
   font-weight: 700;
@@ -82,6 +90,15 @@ body {
   }
   .muted {
     @apply text-sub;
+  }
+  /* 투명 배경(누끼) 스티커를 화면에서 구분해 주는 은은한 체크무늬 캔버스 */
+  .checker {
+    background-color: #fbfaf7;
+    background-image:
+      linear-gradient(45deg, rgba(124, 77, 255, 0.09) 25%, transparent 25%, transparent 75%, rgba(124, 77, 255, 0.09) 75%),
+      linear-gradient(45deg, rgba(124, 77, 255, 0.09) 25%, transparent 25%, transparent 75%, rgba(124, 77, 255, 0.09) 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 8px 8px;
   }
   .dot-grid {
     background-image: radial-gradient(rgba(124, 77, 255, 0.2) 1.2px, transparent 1.2px);

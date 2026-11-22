@@ -11,7 +11,7 @@ import {
   CAPTION_BOLD,
   CAPTION_OUTLINE,
   captionFaceOf,
-  inkFor,
+  inkTonesFor,
   layoutCaption,
   type CaptionFace,
   type CaptionLine,
@@ -39,11 +39,17 @@ export interface CaptionPlan {
   size: number;
   face: CaptionFace;
   ink: string;
+  /** 위쪽 하이라이트 채움색 (세로 그라데이션) */
+  inkLight: string;
+  /** 흰 테두리와 글자 사이의 얇은 톤 링 */
+  ring: string;
   /** 흰 외곽선 두께(px) */
   outline: number;
   /** 잉크 살찌우기 두께(px) */
   bold: number;
   shadow: { color: string; blur: number; offsetY: number };
+  /** 붓 밑줄 포인트 (블록 중심 기준 좌표) */
+  underline: { width: number; y: number; thickness: number; curve: number; tilt: number; color: string } | null;
 }
 
 const DEFAULT_INK = '#191512';
@@ -65,7 +71,22 @@ export function planCaption(input: CaptionPlanInput, canvas: number, emotion?: E
   const x = Math.min(Math.max(input.x * canvas, halfW + pad), canvas - halfW - pad);
   const y = Math.min(Math.max(input.y * canvas, halfH + pad), canvas - halfH - pad);
   const stamp = input.style === 'stamp';
-  const ink = stamp ? '#C9342B' : inkFor(emotion, input.color);
+  const tones = stamp
+    ? { ink: '#C9342B', inkLight: '#E0665C', ring: '#F4C7BD', underline: '#C9342B' }
+    : inkTonesFor(emotion, input.color);
+  // 붓 밑줄: 손글씨 계열만, 글자가 어느 정도 있을 때만 — 절제된 포인트 데코.
+  const hand = face === 'calli' || face === 'brush' || face === 'hand';
+  const underlineWidth = Math.min(layout.width * 0.74, canvas * 0.46);
+  const underline = hand && layout.width > fontSize * 1.4
+    ? {
+        width: underlineWidth,
+        y: layout.height / 2 + fontSize * 0.16,
+        thickness: Math.max(1.4, fontSize * 0.052),
+        curve: fontSize * 0.055,
+        tilt: -2.2,
+        color: tones.underline,
+      }
+    : null;
   return {
     x,
     y,
@@ -75,10 +96,13 @@ export function planCaption(input: CaptionPlanInput, canvas: number, emotion?: E
     lines: layout.lines,
     size: layout.size,
     face,
-    ink,
+    ink: tones.ink,
+    inkLight: tones.inkLight,
+    ring: tones.ring,
     outline: Math.max(0, fontSize * CAPTION_OUTLINE[face]),
     bold: Math.max(0, fontSize * CAPTION_BOLD[face]),
-    shadow: { color: 'rgba(25,21,18,0.30)', blur: fontSize * 0.2, offsetY: fontSize * 0.06 },
+    shadow: { color: 'rgba(25,21,18,0.32)', blur: fontSize * 0.22, offsetY: fontSize * 0.075 },
+    underline,
   };
 }
 

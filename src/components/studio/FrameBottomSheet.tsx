@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { ContentReportButton } from '@/components/moderation/ContentReportButton';
 import { FrameEffectsPanel } from '@/components/studio/FrameEffectsPanel';
@@ -129,7 +130,7 @@ export function FrameBottomSheet({
         </div>
 
         <div className="px-5 pb-5 pt-3">
-          <div className="mx-auto max-w-[230px] rounded-2xl border-2 border-line bg-cream p-3">
+          <div className={clsx('mx-auto max-w-[230px] rounded-2xl border-2 border-line p-3', frame.spec.background === 'transparent' ? 'checker' : 'bg-cream')}>
             <Sticker spec={frame.spec} ariaLabel={t(`${frame.label} 컷 크게 보기`, `${frame.label} sticker preview`)} />
           </div>
           <p className="mt-3 text-center text-sm font-bold">“{frame.line}”</p>

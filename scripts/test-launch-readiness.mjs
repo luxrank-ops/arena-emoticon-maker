@@ -40,7 +40,7 @@ check('굿즈 할인 판촉 문구 제거', !pricing.includes('굿즈 20% 할인
 
 // ── 3. 미구현 기능 문구 정정 ─────────────────────────────────
 const disclosures = read('src/lib/pricing.ts');
-check('카카오 최신 규격(32종·150KB) 참고 안내 존재', disclosures.includes('32종') && disclosures.includes('150KB'));
+check('카카오 최신 규격(멈춘 32컷·움직이는 24컷·150KB) 참고 안내 존재', disclosures.includes('32컷') && disclosures.includes('24컷') && disclosures.includes('150KB'));
 check('카카오 출품 보장 아님을 명시', disclosures.includes('대행하거나 보장하지 않고'));
 check('푸시 알림 미구현 안내 존재', disclosures.includes('푸시 알림은 준비 중'));
 check('움직이는 이모티콘(APNG·GIF) 내보내기와 150KB 자동 압축 안내 존재', disclosures.includes('APNG') && disclosures.includes('150KB') && !disclosures.includes('변환하지는 않습니다'));

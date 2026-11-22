@@ -81,6 +81,29 @@ check('가운데 캐릭터는 남긴다', mask.alpha[16 * 32 + 16] === 255);
 check('경계에 페더링 알파가 생긴다', mask.feathered > 0 && Array.from(mask.alpha).some((a) => a > 0 && a < 255));
 const masked = Uint8ClampedArray.from(whiteBg);
 applyMask(masked, mask, { feather: 2, decontaminate: true });
+check('감지된 배경색은 순백', mask.backgroundColor?.join(',') === '255,255,255');
+
+// 옅은 크림/미색 배경(#FFF3DF)도 자동 색 감지로 지운다 — 기존 밝기 규칙으로는 남던 색
+const creamBg = solidImage(32, [40, 50, 70, 255], [255, 243, 223, 255]);
+const creamMask = computeAlphaMask(creamBg, 32, 32, { feather: 2 });
+check('크림 배경을 감지한다', creamMask.backgroundColor !== null && Math.abs(creamMask.backgroundColor![2] - 223) <= 4);
+check('크림 배경을 지운다', creamMask.alpha[0] === 0 && creamMask.removed > 0);
+check('크림 배경에서도 인물은 남는다', creamMask.alpha[16 * 32 + 16] === 255);
+
+// 어두운 단색 배경도 지운다 (가장자리에서 이어진 색만)
+const darkBg = solidImage(32, [230, 200, 170, 255], [38, 34, 30, 255]);
+const darkMask = computeAlphaMask(darkBg, 32, 32, { feather: 2 });
+check('어두운 단색 배경을 지운다', darkMask.alpha[0] === 0 && darkMask.alpha[16 * 32 + 16] === 255);
+
+// 인물 안쪽의 흰색(치아·눈동자·흰 옷)은 배경과 끊겨 있어 남는다
+const inner = solidImage(32, [40, 50, 70, 255], [252, 245, 235, 255]);
+for (let y = 12; y < 20; y++) for (let x = 12; x < 20; x++) {
+  const i = (y * 32 + x) * 4;
+  inner[i] = 255; inner[i + 1] = 255; inner[i + 2] = 255; inner[i + 3] = 255;
+}
+const innerMask = computeAlphaMask(inner, 32, 32, { feather: 1 });
+check('내부 흰색(치아·눈)은 지우지 않는다', innerMask.alpha[16 * 32 + 16] === 255);
+check('내부 흰색 주변도 남는다', innerMask.alpha[13 * 32 + 13] === 255);
 check('지운 픽셀의 알파가 0 이 된다', masked[3] === 0);
 check('가운데 알파는 그대로', masked[(16 * 32 + 16) * 4 + 3] === 255);
 
@@ -126,7 +149,7 @@ check('잘못된 색은 기본색으로', layer.color === '#191512');
 check('스타일·이펙트 유지(말풍선은 항상 없음)', layer.style === 'stamp' && layer.bubble === 'none' && layer.effect === 'sparkle');
 check('빈 텍스트 레이어는 제거', normalizeLayers([{ text: '  ' }, { text: '안녕' }]).length === 1);
 check('레이어 최대 4장', normalizeLayers(Array.from({ length: 9 }, (_, i) => ({ text: `레이어${i}`, style: 'hand' }))).length === MAX_LAYERS);
-check('글꼴 5종(캘리그라피 우선) · 이펙트 7종', TEXT_STYLES.length === 5 && TEXT_STYLES[0].id === 'calli' && LAYER_EFFECTS.length === 7);
+check('글꼴 6종(캘리그라피·붓글씨 우선) · 이펙트 7종', TEXT_STYLES.length === 6 && TEXT_STYLES[0].id === 'calli' && TEXT_STYLES[1].id === 'brush' && LAYER_EFFECTS.length === 7);
 const fromLine = layerFromLine('확인했습니다');
 check('대사 → 기본 레이어 생성(캘리그라피, 말풍선 없음)', !!fromLine && fromLine.text === '확인했습니다' && fromLine.bubble === 'none' && fromLine.style === 'calli');
 check('빈 대사는 레이어 없음', layerFromLine('   ') === null);
@@ -185,10 +208,13 @@ const comboPrompt = buildRenderPrompt({ photoBase64: 'cGhvdG8=', mimeType: 'imag
 check('콤보 아래 조각은 위 컷과 이어지도록 지시', comboPrompt.includes('LOWER panel') && comboPrompt.includes('top edge'));
 
 // ── 8. 카톡 규격 (150KB) ──────────────────────────────────
-check('규격이 360px · 150KB · 32종', KAKAO_RULES.size === 360 && KAKAO_RULES.maxBytes === 150 * 1024 && KAKAO_RULES.count === 32);
+check('멈춘 규격은 360px · 150KB · 32컷', KAKAO_RULES.size === 360 && KAKAO_RULES.maxBytes === 150 * 1024 && KAKAO_RULES.count === 32);
+check('움직이는 규격은 24컷', KAKAO_ANIMATED_RULES.count === 24);
 check('움직이는 규격은 APNG/GIF · 2MB', KAKAO_ANIMATED_RULES.format === 'apng' && KAKAO_ANIMATED_RULES.maxBytes === 2 * 1024 * 1024);
 const files = (count: number, bytes: number) => Array.from({ length: count }, (_, i) => ({ name: `${i}.png`, bytes, width: 360, height: 360 }));
 check('32개 · 150KB 이하 통과', validateKakaoFiles(files(32, 120 * 1024)).ok);
+check('움직이는 24개 파일은 규격 통과', validateKakaoFiles(files(24, 400 * 1024), { animated: true }).ok);
+check('움직이는 32개는 규격 미충족', validateKakaoFiles(files(32, 400 * 1024), { animated: true }).ok === false);
 const twelve = validateKakaoFiles(files(12, 100 * 1024));
 check('12컷은 제안 규격 미충족(32종 아님)', twelve.ok === false && twelve.checks.find((c) => c.id === 'count')?.blocking === true);
 check('12컷도 내 대화방용 ZIP 은 만들 수 있다', twelve.exportable === true);
