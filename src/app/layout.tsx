@@ -1,7 +1,8 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
+import { BottomNav } from '@/components/BottomNav';
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
 import { PwaRegistration } from '@/components/PwaRegistration';
 import { getLocale } from '@/lib/i18n/server';
@@ -47,16 +48,26 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
+// 홈 화면(PWA)·엣지투엣지 기기에서 하단 바가 안전 영역(safe-area-inset-bottom)을 피하도록 한다.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
+  themeColor: '#7C4DFF',
+};
+
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   return (
     <html lang={locale}>
-      <body className="flex min-h-screen flex-col">
+      {/* 본문 하단 여백 = 하단 고정 바 높이(3.375rem) + 안전 영역. 바가 콘텐츠를 가리지 않게 한다. */}
+      <body className="flex min-h-screen flex-col pb-[calc(4.25rem_+_env(safe-area-inset-bottom))] lg:pb-0">
         <AnalyticsProvider>
           <PwaRegistration />
           <SiteHeader />
           <main className="flex-1">{children}</main>
           <SiteFooter />
+          <BottomNav locale={locale} />
         </AnalyticsProvider>
       </body>
     </html>
