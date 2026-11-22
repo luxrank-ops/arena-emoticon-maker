@@ -119,9 +119,16 @@ assert.equal(strokes.length, fills.length * 3, 'shadow + clean white outline + i
 assert.ok(fills.some((c) => (c.fill ?? '').toLowerCase() === inkFor('tired').toLowerCase()), 'canvas uses the tired ink');
 assert.ok(!calls.some((c) => c.op === 'fillRect'), 'no bubble rectangle for bubble=none');
 
+// 예전에 저장된 말풍선 레이어(bubble: 'round')도 다운로드에는 박스를 그리지 않는다.
+const legacy = normalizeLayer({ text: '출근', style: 'calli', bubble: 'round', x: 0.5, y: 0.86, size: 0.14 });
+assert.equal(legacy.bubble, 'none', 'legacy bubble data normalizes to none');
 calls.length = 0;
-drawLayer(fake, normalizeLayer({ text: '출근', style: 'calli', bubble: 'round', x: 0.5, y: 0.86, size: 0.14 }), 360, { emotion: 'joy' });
-assert.ok(calls.some((c) => c.op === 'arcTo' || c.op === 'roundRect'), 'round bubble stays available as an option');
+drawLayer(fake, legacy, 360, { emotion: 'joy' });
+assert.ok(
+  !calls.some((c) => c.op === 'fillRect' || c.op === 'roundRect' || c.op === 'arcTo' || c.op === 'strokeRect'),
+  'legacy round bubble draws no box — calligraphy text only',
+);
+assert.ok(calls.some((c) => c.op === 'fillText'), 'the caption text is still drawn');
 
 for (const item of [spec(), spec({ emotion: 'angry' }), spec({ tone: 'watercolor' }), spec({ tone: 'pixel-art', linePosition: 'top' })]) {
   const png = await sharp(Buffer.from(renderSticker(item))).resize(360, 360).png().toBuffer();

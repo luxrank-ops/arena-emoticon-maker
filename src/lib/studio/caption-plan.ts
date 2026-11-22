@@ -6,7 +6,7 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { Emotion } from '@/lib/types';
-import type { BubbleStyle, TextLayerStyle } from '@/lib/studio/layers';
+import type { TextLayerStyle } from '@/lib/studio/layers';
 import {
   CAPTION_BOLD,
   CAPTION_OUTLINE,
@@ -25,7 +25,6 @@ export interface CaptionPlanInput {
   y: number;
   size: number;
   rotate?: number;
-  bubble?: BubbleStyle;
 }
 
 export interface CaptionPlan {
@@ -45,7 +44,6 @@ export interface CaptionPlan {
   /** 잉크 살찌우기 두께(px) */
   bold: number;
   shadow: { color: string; blur: number; offsetY: number };
-  inBubble: boolean;
 }
 
 const DEFAULT_INK = '#191512';
@@ -81,7 +79,6 @@ export function planCaption(input: CaptionPlanInput, canvas: number, emotion?: E
     outline: Math.max(0, fontSize * CAPTION_OUTLINE[face]),
     bold: Math.max(0, fontSize * CAPTION_BOLD[face]),
     shadow: { color: 'rgba(25,21,18,0.30)', blur: fontSize * 0.2, offsetY: fontSize * 0.06 },
-    inBubble: (input.bubble ?? 'none') !== 'none',
   };
 }
 

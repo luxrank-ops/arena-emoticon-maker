@@ -1,7 +1,7 @@
 // ─────────────────────────────────────────────────────────────
 // 한글 대사·효과음 레이어 (업그레이드 4)
 //  · AI 이미지에는 글자를 넣지 않고(또는 넣더라도) 앱이 캔버스 위에 깨끗한 글자를 얹는다.
-//  · 글꼴(손글씨/고딕/굵은체/도장) · 말풍선 · 도장 · 이펙트를 위치·문구·스타일까지 편집한다.
+//  · 글꼴(손글씨/고딕/굵은체/도장) · 도장 · 이펙트를 위치·문구·스타일까지 편집한다.
 //  · 레이어 데이터는 프레임에 저장되고, PNG/GIF/APNG/ZIP 내보내기에 모두 합성된다.
 // ─────────────────────────────────────────────────────────────
 
@@ -17,6 +17,7 @@ export interface TextLayer {
   id: string;
   text: string;
   style: TextLayerStyle;
+  /** 레거시 필드 — 말풍선 박스는 그리지 않는다(화면·내보내기 모두 글자만). 저장 호환용. */
   bubble: BubbleStyle;
   effect: EffectKind;
   /** 캔버스 기준 중심 좌표 (0~1) */
@@ -88,14 +89,6 @@ export const TEXT_STYLES: {
   },
 ];
 
-export const LAYER_BUBBLES: { id: BubbleStyle; label: string; labelEn: string }[] = [
-  { id: 'none', label: '없음', labelEn: 'None' },
-  { id: 'round', label: '둥근 말풍선', labelEn: 'Round bubble' },
-  { id: 'shout', label: '삐죽 말풍선', labelEn: 'Shout bubble' },
-  { id: 'caption', label: '자막 바', labelEn: 'Caption bar' },
-  { id: 'tape', label: '테이프', labelEn: 'Tape' },
-];
-
 export const LAYER_EFFECTS: { id: EffectKind; label: string; labelEn: string; emoji: string }[] = [
   { id: 'none', label: '없음', labelEn: 'None', emoji: '∅' },
   { id: 'sweat', label: '땀방울', labelEn: 'Sweat', emoji: '💧' },
@@ -114,10 +107,6 @@ export function textStyleById(id: string | undefined) {
   return TEXT_STYLES.find((item) => item.id === id) ?? TEXT_STYLES[0];
 }
 
-export function bubbleById(id: string | undefined) {
-  return LAYER_BUBBLES.find((item) => item.id === id) ?? LAYER_BUBBLES[0];
-}
-
 export function effectById(id: string | undefined) {
   return LAYER_EFFECTS.find((item) => item.id === id) ?? LAYER_EFFECTS[0];
 }
@@ -125,7 +114,9 @@ export function effectById(id: string | undefined) {
 /** 알 수 없는 입력도 안전한 레이어로 정규화한다 (서버 저장값·구버전 데이터 대비) */
 export function normalizeLayer(input: Partial<TextLayer> | null | undefined, index = 0): TextLayer {
   const style = textStyleById(input?.style).id;
-  const bubble = bubbleById(input?.bubble).id;
+  // 말풍선 박스는 더 이상 그리지 않는다 — 화면(SVG)과 내보내기(Canvas) 모두 캘리그라피 글자만.
+  //  · 예전에 저장된 레이어(bubble: 'round' 등)도 다운로드에 박스가 찍히지 않도록 'none' 으로 통일한다.
+  const bubble: BubbleStyle = 'none';
   const effect = effectById(input?.effect).id;
   const text = String(input?.text ?? '').slice(0, 24);
   return {
@@ -200,7 +191,6 @@ export function drawLayer(
       y: layer.y,
       size: layer.size,
       rotate: layer.rotate,
-      bubble: layer.bubble,
     },
     size,
     opts.emotion,
@@ -217,9 +207,6 @@ export function drawLayer(
   ctx.lineJoin = 'round';
   ctx.miterLimit = 2;
 
-  if (layer.bubble !== 'none') {
-    drawBubble(ctx, layer.bubble, plan.width + padding * 2, plan.height + padding * 2, size, layer.color);
-  }
   if (layer.style === 'stamp') {
     const radius = Math.max(plan.width, plan.height) * 0.78 + padding * 0.6;
     ctx.strokeStyle = '#C9342B';
@@ -237,7 +224,7 @@ export function drawLayer(
   const left = -plan.width / 2;
 
   // 1) 그림자 — 외곽선 패스에만 얹어 스티커가 살짝 떠 보이게 한다.
-  if (!plan.inBubble && plan.outline > 0) {
+  if (plan.outline > 0) {
     ctx.save();
     ctx.shadowColor = plan.shadow.color;
     ctx.shadowBlur = plan.shadow.blur;
@@ -250,7 +237,7 @@ export function drawLayer(
 
   // 2) 흰색 외곽선 (그림자 없이 한 번 더 → 지저분한 이중 테두리 방지)
   if (plan.outline > 0) {
-    ctx.strokeStyle = plan.inBubble ? 'rgba(255,255,255,0.92)' : '#FFFFFF';
+    ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = plan.outline;
     for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width);
   }
@@ -292,83 +279,6 @@ function drawGlyphs(
 }
 
 
-function drawBubble(
-  ctx: CanvasRenderingContext2D,
-  kind: Exclude<BubbleStyle, 'none'>,
-  width: number,
-  height: number,
-  size: number,
-  ink: string,
-) {
-  const w = width / 2;
-  const h = height / 2;
-  ctx.save();
-  ctx.fillStyle = '#FFFFFF';
-  ctx.strokeStyle = ink === '#FFFFFF' ? '#191512' : 'rgba(25,21,18,0.85)';
-  ctx.lineWidth = Math.max(2, size * 0.008);
-  if (kind === 'round') {
-    roundedRect(ctx, -w, -h, width, height, Math.min(w, h) * 0.55);
-    ctx.fill();
-    ctx.stroke();
-    // 꼬리
-    ctx.beginPath();
-    ctx.moveTo(-w * 0.18, h * 0.9);
-    ctx.lineTo(-w * 0.05, h + h * 0.38);
-    ctx.lineTo(w * 0.16, h * 0.92);
-    ctx.closePath();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.fill();
-    ctx.stroke();
-  } else if (kind === 'shout') {
-    const spikes = 14;
-    ctx.beginPath();
-    for (let i = 0; i < spikes * 2; i++) {
-      const angle = (Math.PI * i) / spikes;
-      const radius = i % 2 === 0 ? 1 : 0.82;
-      const x = Math.cos(angle) * w * radius * 1.12;
-      const y = Math.sin(angle) * h * radius * 1.16;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.stroke();
-  } else if (kind === 'caption') {
-    // 자막 바 (예능·뉴스 자막 스타일)
-    ctx.fillStyle = '#191512';
-    ctx.fillRect(-w * 1.05, -h, width * 1.05, height);
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = Math.max(1, size * 0.004);
-    ctx.strokeRect(-w * 1.05, -h, width * 1.05, height);
-  } else if (kind === 'tape') {
-    ctx.fillStyle = 'rgba(255,242,199,0.94)';
-    ctx.beginPath();
-    ctx.moveTo(-w * 1.08, -h * 0.9);
-    ctx.lineTo(w * 1.04, -h);
-    ctx.lineTo(w * 1.08, h * 0.92);
-    ctx.lineTo(-w * 1.04, h);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(25,21,18,0.16)';
-    ctx.stroke();
-  }
-  ctx.restore();
-}
-
-function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
-  const r = Math.min(radius, width / 2, height / 2);
-  ctx.beginPath();
-  if (typeof (ctx as CanvasRenderingContext2D).roundRect === 'function') {
-    (ctx as CanvasRenderingContext2D).roundRect(x, y, width, height, r);
-    return;
-  }
-  ctx.moveTo(x + r, y);
-  ctx.arcTo(x + width, y, x + width, y + height, r);
-  ctx.arcTo(x + width, y + height, x, y + height, r);
-  ctx.arcTo(x, y + height, x, y, r);
-  ctx.arcTo(x, y, x + width, y, r);
-  ctx.closePath();
-}
 
 const EFFECT_COLOR: Record<Exclude<EffectKind, 'none'>, string> = {
   sweat: '#7CC6F2',

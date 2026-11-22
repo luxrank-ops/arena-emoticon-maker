@@ -10,7 +10,6 @@ import {
   renderPngBlob,
 } from '@/lib/export';
 import {
-  LAYER_BUBBLES,
   LAYER_EFFECTS,
   MAX_LAYERS,
   TEXT_STYLES,
@@ -313,7 +312,7 @@ export function FrameEffectsPanel({
                   />
                 </label>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 gap-2">
                   <label className="block text-[10px] font-bold text-sub">
                     {t('글꼴', 'Font')}
                     <select
@@ -323,18 +322,6 @@ export function FrameEffectsPanel({
                     >
                       {TEXT_STYLES.map((style) => (
                         <option key={style.id} value={style.id}>{locale === 'en' ? style.labelEn : style.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block text-[10px] font-bold text-sub">
-                    {t('말풍선', 'Bubble')}
-                    <select
-                      value={active.bubble}
-                      onChange={(event) => patchLayer({ bubble: event.target.value as TextLayer['bubble'] })}
-                      className="mt-1 min-h-10 w-full rounded-lg border border-line bg-white px-2 text-xs font-semibold"
-                    >
-                      {LAYER_BUBBLES.map((bubble) => (
-                        <option key={bubble.id} value={bubble.id}>{locale === 'en' ? bubble.labelEn : bubble.label}</option>
                       ))}
                     </select>
                   </label>

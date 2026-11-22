@@ -35,7 +35,6 @@ export function renderTextLayersSvg(layers: TextLayer[], emotion?: Emotion): str
           y: layer.y,
           size: layer.size,
           rotate: layer.rotate,
-          bubble: layer.bubble,
         },
         SIZE,
         emotion,
