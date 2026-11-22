@@ -99,6 +99,8 @@ export interface RenderInput {
   /** 추가 악세사리 프롬프트 지시어들 */
   accessoryPrompts?: string[];
   sceneAction?: string;
+  /** 사용자가 고른 표정·포즈 프리셋 150종의 영문 지시 (표정·포즈·이펙트) */
+  preset?: { expression: string; pose: string; effect: string };
 }
 
 export function modelForTone(tone: Tone): string {
@@ -122,6 +124,12 @@ export function buildPetRenderPrompt(input: RenderInput): string {
   if (input.designSheet) parts.push(designSheetPrompt(input.designSheet));
   if (input.characterReference) parts.push('The second image is the chosen design reference. Match its illustration style, framing, scale, palette and animal proportions across all cuts. Do not copy its expression or pose. If it conflicts with the first image, preserve the animal identity and markings from the first photo.');
   if (input.sceneAction) parts.push(`For this individual sticker adapt this action naturally for the animal: ${input.sceneAction}. Keep its face visible and identity consistent.`);
+  if (input.preset) {
+    parts.push(
+      `The user picked this sticker preset and expects it exactly: facial expression — ${input.preset.expression}; body pose — ${input.preset.pose}; decorative effect accents — ${input.preset.effect}. ` +
+      'Adapt the pose and the decoration to the animal’s anatomy and keep its face clearly visible and recognizable. Draw the effect accents small around the animal, never covering its face or eyes.',
+    );
+  }
   if (input.secondPhoto) parts.push('The extra reference image shows the second subject (a partner, friend or family member). Keep that subject’s real identity as well; never merge the two subjects into one.');
   if (input.formatDirectives?.scene) parts.push(`Format direction: ${input.formatDirectives.scene}.`);
   if (input.formatDirectives?.layout) parts.push(`Format layout: ${input.formatDirectives.layout}.`);
@@ -175,6 +183,12 @@ export function buildRenderPrompt(input: RenderInput): string {
     );
   }
   if (input.sceneAction) parts.push(`For this individual sticker, show the person ${input.sceneAction}. Keep the face clearly visible and retain the same identity, framing and clothing; adapt only the requested gesture and expression.`);
+  if (input.preset) {
+    parts.push(
+      `The user picked this sticker preset and expects it exactly: facial expression — ${input.preset.expression}; body pose and gesture — ${input.preset.pose}; decorative effect accents — ${input.preset.effect}. ` +
+      'Reproduce that expression and pose faithfully while keeping the face clearly visible, centered and instantly recognizable. Show as much of the pose as the square frame allows. Draw the effect accents small and around the subject, never covering the face, eyes or mouth.',
+    );
+  }
   if (textFree) {
     parts.push('No lettering at all: do not draw any text, letters, numbers, speech bubble, sign, label, logo or watermark anywhere in the image. The app composes legible Korean lettering as a separate layer.');
   } else if (input.line) {

@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
+import { PresetPicker } from '@/components/studio/PresetPicker';
+import { recommendedPresetIds } from '@/data/emoticon-presets-150';
+import { presetPickFromSearch, rememberedPresetPick } from '@/lib/studio/preset-selection';
 import { localizedComicExpressions, toneCopy } from '@/lib/i18n/presets';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
@@ -57,8 +60,10 @@ export function SheetPicker({
   const sizeOptions = (formatInfo ? (maxCuts >= 32 ? [12, 24, 32] : maxCuts >= 24 ? [12, 24] : [12]) : tone === 'photo-sticker' ? [12, 16] : [12, 24]) as readonly number[];
   const [chosen, setChosen] = useState<string | null>(alreadyChosen);
   const [size, setSize] = useState<12 | 16 | 24 | 32>(12);
-  const [comicMode, setComicMode] = useState(false);
+  // 자동 구성(감정 로테이션) · 코믹 24종 · 150종 프리셋 중 하나
+  const [composition, setComposition] = useState<'auto' | 'comic' | 'preset'>('auto');
   const [comicIds, setComicIds] = useState<string[]>([]);
+  const [presetIds, setPresetIds] = useState<number[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<Record<string, string>>(() =>
@@ -112,6 +117,16 @@ export function SheetPicker({
     if (missing.length) void generate(missing);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [photoTick]);
+
+  // 프리셋 화면에서 골라 온 값이 있으면 '프리셋' 구성으로 미리 채운다.
+  useEffect(() => {
+    if (trial || formatInfo) return;
+    const picked = presetPickFromSearch(window.location.search) ?? rememberedPresetPick();
+    if (!picked) return;
+    setComposition('preset');
+    setPresetIds((prev) => (prev.length ? prev : [picked, ...recommendedPresetIds(Math.max(0, size - 1), [picked])]));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function onPickPhoto(file: File) {
     setError(null);
@@ -168,6 +183,25 @@ export function SheetPicker({
     }
   }
 
+  /** 팩 크기가 바뀌면 고른 구성도 그 크기에 맞춘다 (부족분은 카테고리를 번갈아 추천). */
+  function changeSize(next: 12 | 16 | 24 | 32) {
+    setSize(next);
+    if (composition === 'comic') setComicIds(expressions.slice(0, next).map((item) => item.id));
+    if (composition === 'preset') {
+      setPresetIds((prev) => {
+        const kept = prev.slice(0, next);
+        if (kept.length === next) return kept;
+        return [...kept, ...recommendedPresetIds(next - kept.length, kept)];
+      });
+    }
+  }
+
+  function changeComposition(next: 'auto' | 'comic' | 'preset') {
+    setComposition(next);
+    if (next === 'comic' && comicIds.length !== size) setComicIds(expressions.slice(0, size).map((item) => item.id));
+    if (next === 'preset' && presetIds.length !== size) setPresetIds(recommendedPresetIds(size, presetIds));
+  }
+
   async function create() {
     if (!chosen) return;
     setBusy(true);
@@ -185,7 +219,14 @@ export function SheetPicker({
       const packRes = await fetch('/api/packs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId, size, locale, ...(format ? { format } : {}), ...(comicMode ? { comicExpressionIds: comicIds } : {}) }),
+        body: JSON.stringify({
+          sheetId,
+          size,
+          locale,
+          ...(format ? { format } : {}),
+          ...(composition === 'comic' ? { comicExpressionIds: comicIds } : {}),
+          ...(composition === 'preset' ? { presetIds } : {}),
+        }),
       });
       const packJson = await packRes.json();
       if (!packRes.ok) throw new Error(locale === 'en' ? 'We could not create this pack. Check your credits and try again.' : (packJson?.error?.message ?? '팩을 만들지 못했어요'));
@@ -375,7 +416,7 @@ export function SheetPicker({
             {sizeOptions.map((s) => (
               <button
                 key={s}
-                onClick={() => { setSize(s as 12 | 16 | 24 | 32); if (comicMode) setComicIds(expressions.slice(0, s).map((item) => item.id)); }}
+                onClick={() => changeSize(s as 12 | 16 | 24 | 32)}
                 className={clsx(
                   'rounded-xl border-2 px-4 py-2 text-sm font-black transition',
                   size === s ? 'border-ink bg-ink text-cream' : 'border-line bg-paper hover:border-ink',
@@ -389,17 +430,52 @@ export function SheetPicker({
         </div>
 
         <div className="mt-5 rounded-xl border-2 border-line p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div><p className="text-sm font-black">{t('코믹 감정 표현', 'Comic reactions')}</p><p className="mt-1 text-xs text-sub">{t('일상에서 쓰기 좋은 오리지널 코믹 반응 24종. 원하는 컷을 직접 골라 주세요.', 'Choose from 24 original reactions written for everyday chats.')}</p></div>
-            <button type="button" aria-pressed={comicMode} onClick={() => { setComicMode(!comicMode); if (!comicMode) setComicIds(expressions.slice(0, size).map((item) => item.id)); }} className="btn-ghost !px-3 !py-2 text-xs">{comicMode ? t('기본 자동 구성으로', 'Use automatic pack') : t('코믹 구성 선택', 'Choose reactions')}</button>
-          </div>
-          {comicMode ? <>
+          <p className="text-sm font-black">{t('컷 구성 방식', 'How the cuts are chosen')}</p>
+          {formatInfo ? (
+            <p className="mt-1 text-xs leading-relaxed text-sub">
+              {t('표현 형태 팩은 컷 구성이 형태에 맞춰 자동으로 정해져요. 프리셋을 고르려면 형태를 “기본 감정 팩”으로 두고 시작해 주세요.', 'A format pack uses its own cut list. To pick presets, start with the classic pack.')}
+            </p>
+          ) : (
+            <>
+              <div className="mt-2 grid grid-cols-3 gap-1.5" role="group" aria-label={t('컷 구성 방식 선택', 'Choose how cuts are built')}>
+                {([
+                  ['auto', t('자동 구성', 'Automatic')],
+                  ['comic', t('코믹 24종', 'Comic 24')],
+                  ['preset', t('프리셋 150', 'Presets 150')],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    aria-pressed={composition === value}
+                    onClick={() => changeComposition(value)}
+                    className={clsx('min-h-11 rounded-xl border-2 px-1 text-[11px] font-black transition', composition === value ? 'border-primary bg-primary/10 text-primary-dark' : 'border-line bg-paper text-sub')}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] leading-relaxed text-sub">
+                {composition === 'auto'
+                  ? t('감정을 골고루 섞어 자동으로 컷을 구성해요.', 'Cuts are mixed automatically across emotions.')
+                  : composition === 'comic'
+                    ? t('일상에서 쓰기 좋은 오리지널 코믹 반응 24종 중에서 직접 골라요.', 'Pick from 24 original everyday reactions.')
+                    : t('표정·포즈·이펙트·대사가 묶인 150종 중에서 골라요. 검색과 카테고리로 찾을 수 있어요.', 'Pick from 150 bundles of expression, pose, effects and caption — searchable by category.')}
+              </p>
+            </>
+          )}
+          {!formatInfo && composition === 'comic' ? <>
             <p className="mt-3 text-xs font-bold text-sub">{comicIds.length} / {size}{t('개 선택 · 선택 순서대로 개별 이미지 생성', ' selected · generated individually in selection order')}</p>
             <div className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3" role="group" aria-label={t('코믹 감정 표현 선택', 'Choose comic reactions')}>
               {expressions.map((item) => { const selected = comicIds.includes(item.id); return <button key={item.id} type="button" aria-pressed={selected} disabled={!selected && comicIds.length >= size} onClick={() => setComicIds((prev) => selected ? prev.filter((id) => id !== item.id) : [...prev, item.id])} className={clsx('rounded-xl border-2 p-2 text-left text-xs font-bold disabled:opacity-40', selected ? 'border-ink bg-lemon/30 text-ink' : 'border-line bg-paper text-sub')}><span aria-hidden="true">{item.emoji}</span> {item.label} <span className="block pt-1 text-[10px] font-normal">{item.line}</span></button>; })}
             </div>
             {comicIds.length !== size ? <p className="mt-2 text-xs font-bold text-coralink">{t(`${size}개를 선택해야 팩을 만들 수 있어요.`, `Select ${size} reactions to create this pack.`)}</p> : null}
           </> : null}
+          {!formatInfo && composition === 'preset' ? (
+            <div className="mt-3">
+              <PresetPicker selectedIds={presetIds} max={size} onChange={setPresetIds} locale={locale} />
+              {presetIds.length !== size ? <p className="mt-2 text-xs font-bold text-coralink">{t(`${size}개를 골라야 팩을 만들 수 있어요.`, `Pick ${size} presets to create this pack.`)}</p> : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="mt-4 rounded-xl border border-line bg-cream px-4 py-3 text-[12px] leading-relaxed text-sub">
@@ -414,7 +490,7 @@ export function SheetPicker({
           </p>
         ) : null}
 
-        <button className="btn-primary mt-4 w-full !py-4" disabled={!chosenReady || busy || (comicMode && comicIds.length !== size)} onClick={create}>
+        <button className="btn-primary mt-4 w-full !py-4" disabled={!chosenReady || busy || (composition === 'comic' && comicIds.length !== size) || (composition === 'preset' && presetIds.length !== size)} onClick={create}>
           {busy
             ? t('팩 만드는 중…', 'Creating your pack…')
             : chosenReady

@@ -5,6 +5,7 @@ import { consumeTrialImage, TRIAL_MESSAGES, TRIAL_VARIANT_KEYS, trialIpHash, tri
 import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { preparedSchema } from '@/lib/ai/consistency';
 import { comicExpressionById } from '@/lib/comic-expressions';
+import { presetById, presetPrompt } from '@/data/emoticon-presets-150';
 import { PHOTO_STICKER_SCENES } from '@/lib/photo-stickers';
 import { z } from 'zod';
 import { fail, handleError, ok, photoInputError } from '@/lib/api';
@@ -126,6 +127,8 @@ export async function POST(req: Request) {
         const sheet = db.sheets.find((s) => s.id === pack.sheetId && s.userId === user.id);
         const chosenImageId = pack.characterReferenceImageId ?? sheet?.variants.find((variant) => variant.key === sheet.chosenKey)?.imageId;
         if (frame.imageId && !target.force) return { existing: frame.imageId as string };
+        // 표정·포즈 프리셋을 고른 컷이면 표정·포즈·이펙트를 그대로 프롬프트에 넣는다.
+        const framePreset = presetById(frame.presetId);
         return {
           kind: 'frame' as const,
           subjectKind: pack.subjectKind ?? 'person',
@@ -134,6 +137,7 @@ export async function POST(req: Request) {
           tone: pack.tone as Tone,
           mode: pack.mode ?? 'face',
           emotion: frame.emotion as Emotion,
+          presetPrompt: framePreset ? presetPrompt(framePreset) : undefined,
           sceneAction: frame.comicExpressionId ? comicExpressionById(frame.comicExpressionId)?.action : pack.tone === 'photo-sticker' ? PHOTO_STICKER_SCENES.find((s) => s.id === frame.templateId && s.emotion === frame.emotion)?.action : undefined,
           line: frame.line,
           accessoryIds: target.accessoryIds ?? frame.accessoryIds ?? [],
@@ -166,6 +170,7 @@ export async function POST(req: Request) {
           tone: sheet.tone as Tone,
           mode: sheet.mode ?? 'face',
           emotion: target.emotion as Emotion,
+          presetPrompt: undefined as { expression: string; pose: string; effect: string } | undefined,
           sceneAction: undefined as string | undefined,
           line: '',
           accessoryIds: [] as string[],
@@ -195,6 +200,7 @@ export async function POST(req: Request) {
         tone: sheet.tone as Tone,
         mode: sheet.mode ?? 'face',
         emotion: 'joy' as Emotion,
+        presetPrompt: undefined as { expression: string; pose: string; effect: string } | undefined,
         sceneAction: undefined as string | undefined,
         line: '',
         accessoryIds: [] as string[],
@@ -306,6 +312,7 @@ export async function POST(req: Request) {
         variantNote: plan.variantNote,
         accessoryPrompts,
         sceneAction: cutInfo?.cut.action ?? plan.sceneAction,
+        preset: plan.presetPrompt,
       });
 
       // 4) 컷은 360px로 선명하게 저장하고 시안은 참조용 512px를 유지한다.

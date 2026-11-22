@@ -202,6 +202,8 @@ export interface Frame {
   usageCount: number;
   /** 선택한 코믹 프리셋 (기존 컷에는 없을 수 있음) */
   comicExpressionId?: string;
+  /** 선택한 표정·포즈 프리셋 150종의 id (표정·포즈·이펙트·대사가 생성 프롬프트에 반영된다) */
+  presetId?: number;
   /** 마지막으로 생성한 이미지에 적용한 AI 악세사리 */
   accessoryIds?: string[];
   /** AI 생성 이미지 ID (`/api/images/<id>`) */

@@ -6,7 +6,7 @@ import type { Locale } from '@/lib/i18n/locale';
  *    두 곳의 현재 위치 표시가 어긋나지 않게 한다.
  *  · 하단 바는 모바일에서 한 번의 탭으로 닿아야 하는 5개 주요 위치만 담는다.
  */
-export type NavKey = 'home' | 'create' | 'packs' | 'reply' | 'quotes' | 'brief' | 'goods' | 'pricing' | 'help';
+export type NavKey = 'home' | 'create' | 'packs' | 'reply' | 'quotes' | 'presets' | 'brief' | 'goods' | 'pricing' | 'help';
 
 export type NavItem = {
   key: NavKey;
@@ -23,6 +23,7 @@ export const NAV_ITEMS: Record<NavKey, NavItem> = {
   packs: { key: 'packs', href: '/studio/packs', ko: '내 팩', en: 'My packs', primary: true },
   reply: { key: 'reply', href: '/reply', ko: '톡 답장', en: 'Reply', primary: true },
   quotes: { key: 'quotes', href: '/quotes', ko: '대사', en: 'Quotes', primary: true },
+  presets: { key: 'presets', href: '/presets', ko: '프리셋 150', en: 'Presets 150', primary: false },
   brief: { key: 'brief', href: '/brief', ko: '오늘의 브리핑', en: 'Daily brief', primary: false },
   goods: { key: 'goods', href: '/goods', ko: '굿즈', en: 'Goods', primary: false },
   pricing: { key: 'pricing', href: '/pricing', ko: '요금제', en: 'Pricing', primary: false },
@@ -33,8 +34,8 @@ export const NAV_ITEMS: Record<NavKey, NavItem> = {
 export const BOTTOM_NAV_KEYS: NavKey[] = ['home', 'create', 'packs', 'reply', 'quotes'];
 
 const HEADER_NAV_KEYS: Record<Locale, NavKey[]> = {
-  ko: ['home', 'create', 'packs', 'reply', 'quotes', 'brief', 'goods', 'pricing'],
-  en: ['home', 'create', 'packs', 'reply', 'quotes', 'help'],
+  ko: ['home', 'create', 'packs', 'reply', 'quotes', 'presets', 'brief', 'goods', 'pricing'],
+  en: ['home', 'create', 'packs', 'reply', 'quotes', 'presets', 'help'],
 };
 
 export function headerNav(locale: Locale): NavItem[] {
@@ -64,6 +65,8 @@ export function isNavActive(key: NavKey, pathname: string): boolean {
       return path === '/reply' || path.startsWith('/reply/');
     case 'quotes':
       return path === '/quotes' || path.startsWith('/quotes/');
+    case 'presets':
+      return path === '/presets' || path.startsWith('/presets/');
     case 'brief':
       return path === '/brief' || path.startsWith('/brief/');
     case 'goods':

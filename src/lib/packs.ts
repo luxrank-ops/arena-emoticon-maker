@@ -20,6 +20,7 @@ import { watermarkFor, type Viewer } from '@/lib/admin-access';
 import { comicExpressionById } from '@/lib/comic-expressions';
 import { loadImage } from '@/lib/images';
 import { localizedComicExpressions, localizedPhotoStickerScenes } from '@/lib/i18n/presets';
+import { presetById, presetCaption, presetKeyword, presetTextLayer } from '@/data/emoticon-presets-150';
 import type { Locale } from '@/lib/i18n/locale';
 import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { defaultLayerOf, formatCuts, packFormatById, type PackFormatId } from '@/lib/pack-formats';
@@ -132,6 +133,8 @@ export async function createPack(
   comicExpressionIds?: string[],
   locale: Locale = 'ko',
   formatId?: PackFormatId,
+  /** 표정·포즈 프리셋 150종 선택 (컷 수만큼, 중복 없이) */
+  presetIds?: number[],
 ) {
   const { sheet, face } = await withDB((db) => {
     const s = db.sheets.find((x) => x.id === sheetId && x.userId === userId);
@@ -160,15 +163,29 @@ export async function createPack(
   if (sheet.tone === 'photo-sticker' && !packFormat && size !== 12 && size !== 16) throw new PackError('INVALID_SIZE', '실사 카톡 스티커는 12컷 또는 16컷을 선택해 주세요');
   if (size === 16 && sheet.tone !== 'photo-sticker' && !packFormat) throw new PackError('INVALID_SIZE', '16컷은 실사 카톡 스티커에서만 선택할 수 있습니다');
   if (comicExpressionIds && (comicExpressionIds.length !== size || new Set(comicExpressionIds).size !== size || comicExpressionIds.some((id) => !comicExpressionById(id)))) throw new PackError('INVALID_COMIC_SELECTION', '선택한 코믹 표정을 컷 수에 맞게 확인해 주세요.');
+  if (presetIds && (presetIds.length !== size || new Set(presetIds).size !== size || presetIds.some((id) => !presetById(id)))) {
+    throw new PackError('INVALID_PRESET_SELECTION', '선택한 프리셋을 컷 수에 맞게 확인해 주세요.');
+  }
   if (packFormat && comicExpressionIds) throw new PackError('INVALID_COMIC_SELECTION', '표현 형태 팩에는 코믹 표정을 함께 고를 수 없습니다.');
+  if (packFormat && presetIds) throw new PackError('INVALID_PRESET_SELECTION', '표현 형태 팩에는 프리셋을 함께 고를 수 없습니다.');
+  if (comicExpressionIds && presetIds) throw new PackError('INVALID_PRESET_SELECTION', '코믹 표정과 프리셋은 함께 고를 수 없습니다.');
   const formatCutList = packFormat ? formatCuts(packFormat.id, size, locale) : null;
   if (packFormat && (!formatCutList || formatCutList.length < size)) throw new PackError('INVALID_SIZE', `${packFormat.label} 팩은 최대 ${packFormat.cuts.length}컷까지 만들 수 있습니다.`);
+  /** 프리셋 팩: 고른 순서 그대로 컷이 만들어진다 */
+  const presetList = presetIds ? presetIds.map((id) => presetById(id)!) : null;
   const templates = formatCutList
     ? formatCutList.map((cut) => ({
         id: `fmt-${packFormat!.id}-${cut.id}`,
         label: cut.label,
         line: cut.line,
         emotion: cut.emotion,
+      }))
+    : presetList
+    ? presetList.map((preset) => ({
+        id: `preset-${preset.id}`,
+        label: presetKeyword(preset, locale),
+        line: presetCaption(preset, locale),
+        emotion: preset.emotion,
       }))
     : comicExpressionIds
     ? localizedComicExpressions(locale)
@@ -182,15 +199,18 @@ export async function createPack(
         : composePackTemplates(size, new Date(), recent);
   const packId = uid('pack');
   const now = Date.now();
-  const textMode: 'baked' | 'layer' = packFormat?.textMode ?? sheet.textMode ?? 'baked';
+  const textMode: 'baked' | 'layer' = packFormat?.textMode ?? (presetList ? 'layer' : sheet.textMode ?? 'baked');
 
   const frames: Frame[] = templates.map((t, i) => {
     const cut = packFormat ? packFormat.cuts.find((item) => `fmt-${packFormat.id}-${item.id}` === t.id) : undefined;
+    const preset = presetList ? presetList[i] : undefined;
     const presetLayer = cut ? defaultLayerOf(cut) : null;
     const textLayers = textMode === 'layer'
-      ? presetLayer
-        ? [normalizeLayer({ ...presetLayer, id: `cut-${cut!.id}` }, 0)]
-        : (() => { const layer = layerFromLine(t.line); return layer ? [layer] : []; })()
+      ? preset
+        ? [normalizeLayer(presetTextLayer(preset, locale), 0)]
+        : presetLayer
+          ? [normalizeLayer({ ...presetLayer, id: `cut-${cut!.id}` }, 0)]
+          : (() => { const layer = layerFromLine(t.line); return layer ? [layer] : []; })()
       : undefined;
     return {
       id: uid('frm'),
@@ -200,6 +220,7 @@ export async function createPack(
       intensity: t.emotion === 'king' || t.emotion === 'angry' ? 88 : t.emotion === 'laugh' ? 82 : 62,
       templateId: t.id,
       ...(comicExpressionIds ? { comicExpressionId: comicExpressionIds[i] } : {}),
+      ...(preset ? { presetId: preset.id } : {}),
       label: t.label,
       line: t.line,
       prop: 'none',
@@ -388,6 +409,8 @@ export async function composeFrame(
     intensity?: number;
     emotion?: Frame['emotion'];
     comicExpressionId?: string | null;
+    /** 표정·포즈 프리셋 150종 — null 이면 해제 */
+    presetId?: number | null;
     textLayers?: Frame['textLayers'];
   },
 ): Promise<FrameView> {
@@ -403,6 +426,18 @@ export async function composeFrame(
     if (patch.emotion) frame.emotion = patch.emotion;
     if (patch.comicExpressionId === null) delete frame.comicExpressionId;
     else if (patch.comicExpressionId !== undefined) frame.comicExpressionId = patch.comicExpressionId;
+    if (patch.presetId === null) delete frame.presetId;
+    else if (patch.presetId !== undefined) {
+      const preset = presetById(patch.presetId);
+      if (preset) {
+        const locale = pack.locale ?? 'ko';
+        frame.presetId = preset.id;
+        // 프리셋만 바꾸고 대사·표정을 따로 보내지 않았으면 프리셋 값으로 맞춘다.
+        if (typeof patch.line !== 'string') frame.line = presetCaption(preset, locale);
+        if (!patch.emotion) frame.emotion = preset.emotion;
+        if (!patch.textLayers && frame.textLayers) frame.textLayers = [normalizeLayer(presetTextLayer(preset, locale), 0)];
+      }
+    }
     if (patch.textLayers !== undefined) {
       const layers = normalizeLayers(patch.textLayers);
       if (layers.length) frame.textLayers = layers;
