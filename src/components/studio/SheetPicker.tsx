@@ -560,7 +560,11 @@ export function SheetPicker({
         <div className="mt-4 rounded-xl border border-line bg-cream px-4 py-3 text-[12px] leading-relaxed text-sub">
           {tone === 'photo-sticker'
             ? t('표정마다 각각 독립된 이미지로 만들어집니다. 12·16컷은 개인 사용용이며 카카오 정식 제안 규격 충족을 보장하지 않습니다.', 'Each reaction is generated as an individual image. The 12- and 16-cut packs are for personal use; compliance with official Kakao submission requirements is not guaranteed.')
-            : <><strong className="text-ink">{t('24컷', '24 cuts')}</strong>{t('은 카카오 이모티콘 스튜디오 제안 규격과 동일한 구성입니다. 12컷은 개인 사용·빠른 제작에 적합합니다.', ' matches the cut count used for Kakao Emoticon Studio submissions. Twelve cuts is a quicker option for personal use.')}</>}
+            : <>
+                <strong className="text-ink">{t('24컷', '24 cuts')}</strong>{t('은 카카오 이모티콘 스튜디오 제안 규격과 동일한 구성입니다. ', ' matches the cut count used for Kakao Emoticon Studio submissions. ')}
+                <strong className="text-ink">{t('12컷', '12 cuts')}</strong>{t('은 개인 사용·빠른 제작에 적합합니다.', ' is a quicker option for personal use.')}
+                {sizeOptions.includes(32) ? <> <strong className="text-ink">{t('32컷', '32 cuts')}</strong>{t('은 볼륨·소장·시리즈용으로, 표정과 상황을 넉넉히 담아 오래 쓰거나 여러 시리즈로 확장할 때 좋습니다.', ' is the volume set, good for collecting or running a series — room for plenty of expressions and situations to use over time.')}</> : null}
+              </>}
         </div>
 
         {error ? (
