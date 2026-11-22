@@ -3,14 +3,12 @@
 import { Sticker } from '@/components/Sticker';
 import { DEFAULT_PALETTE, DEFAULT_SIGNATURE } from '@/lib/art/sticker';
 import { SAMPLE_CUTS } from '@/lib/quote-samples';
-import { layerFromLine } from '@/lib/studio/layers';
 import type { Emotion, StickerSpec } from '@/lib/types';
 import { tr, type Locale } from '@/lib/i18n/locale';
 
-function sampleSpec(emotion: Emotion, line: string, seed: number): StickerSpec {
-  const layer = layerFromLine(line);
+function sampleSpec(emotion: Emotion): StickerSpec {
   return {
-    seed,
+    seed: 1061,
     tone: '2d-cute',
     palette: DEFAULT_PALETTE,
     signature: DEFAULT_SIGNATURE,
@@ -18,10 +16,9 @@ function sampleSpec(emotion: Emotion, line: string, seed: number): StickerSpec {
     intensity: 74,
     prop: 'none',
     background: 'transparent',
-    line,
+    line: '',
     linePosition: 'bottom',
     imageUrl: SAMPLE_CUTS[emotion],
-    ...(layer ? { textLayers: [layer] } : {}),
   };
 }
 
@@ -40,7 +37,7 @@ export function SampleFlowStrip({ locale }: { locale: Locale }) {
     <div className="mt-6 w-full rounded-2xl border border-line bg-cream/70 p-3">
       <p className="text-[11px] font-bold text-sub">{t('예시 · 사진 한 장이면 이렇게 만들어져요', 'Example · one photo is all it takes')}</p>
       <div className="mt-2 flex items-center justify-center gap-2">
-        <figure className="w-[74px] shrink-0 text-center">
+        <figure className="w-[86px] shrink-0 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/samples/original-portrait.webp"
@@ -52,9 +49,9 @@ export function SampleFlowStrip({ locale }: { locale: Locale }) {
           <figcaption className="mt-1 text-[10px] font-black text-sub">{t('원본', 'Photo')}</figcaption>
         </figure>
         <span aria-hidden="true" className="text-base font-black text-coralink">→</span>
-        {cuts.map((cut, index) => (
-          <figure key={cut.emotion} className="w-[74px] text-center">
-            <Sticker spec={sampleSpec(cut.emotion, cut.line, 1061 + index * 37)} ariaLabel={t(`${cut.line} 예시 이모티콘`, `${cut.line} sample sticker`)} />
+        {cuts.map((cut) => (
+          <figure key={cut.emotion} className="w-[86px] text-center">
+            <Sticker spec={sampleSpec(cut.emotion)} ariaLabel={t(`${cut.line} 예시 이모티콘`, `${cut.line} sample sticker`)} />
             <figcaption className="truncate text-[10px] font-black text-sub">{cut.line}</figcaption>
           </figure>
         ))}
