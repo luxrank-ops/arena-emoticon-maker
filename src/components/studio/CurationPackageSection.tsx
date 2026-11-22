@@ -71,8 +71,15 @@ export function CurationPackageSection({ locale }: { locale: Locale }) {
                 aria-expanded={expanded}
                 aria-controls={detailId}
                 onClick={() => {
-                  setOpenId(expanded ? null : pkg.id);
+                  const next = expanded ? null : pkg.id;
+                  setOpenId(next);
                   setCategory(null);
+                  // 펼친 구성이 화면 밖(카드 아래)에 있어 바로 보이도록 이동한다.
+                  if (next) {
+                    window.setTimeout(() => {
+                      document.getElementById(`curation-${next}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                    }, 80);
+                  }
                 }}
                 className="flex-1 p-3 text-left"
               >

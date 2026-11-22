@@ -29,7 +29,7 @@ export function PackFormatPicker({
     emoji: '😊',
     label: t('기본 감정 팩', 'Classic emotions'),
     tagline: t('기쁨·슬픔·화남 등 표정 중심', 'Joy, sadness, anger and more'),
-    badge: t('12·24컷', '12/24 cuts'),
+    badge: t('12·24·32컷', '12/24/32 cuts'),
   };
 
   return (
