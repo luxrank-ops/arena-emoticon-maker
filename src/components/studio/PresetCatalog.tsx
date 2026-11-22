@@ -19,7 +19,7 @@ import {
   searchPresets,
 } from '@/data/emoticon-presets-150';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
-import { rememberPresetPick } from '@/lib/studio/preset-selection';
+import { rememberPackagePick, rememberPresetPick } from '@/lib/studio/preset-selection';
 
 export function PresetCatalog({ locale }: { locale: Locale }) {
   const t = (ko: string, en: string) => tr(locale, ko, en);
@@ -146,7 +146,7 @@ export function PresetCatalog({ locale }: { locale: Locale }) {
           </dl>
           <Link
             href={createHref}
-            onClick={() => rememberPresetPick(picked.id)}
+            onClick={() => { rememberPresetPick(picked.id); rememberPackagePick(null); }}
             className="btn-primary mt-2 min-h-12 w-full !py-3 text-sm"
           >
             {t('이 프리셋으로 내 이모티콘 만들기', 'Make my stickers with this preset')} <span aria-hidden="true">→</span>

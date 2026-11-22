@@ -7,7 +7,14 @@ import clsx from 'clsx';
 import { analyzeSelfie, analyzePetPhoto, type FaceAnalysis } from '@/lib/face/analyze';
 import { tonesForLocale } from '@/lib/i18n/presets';
 import { presetById, presetKeyword } from '@/data/emoticon-presets-150';
-import { presetPickFromSearch, rememberedPresetPick } from '@/lib/studio/preset-selection';
+import { curationPackageById } from '@/data/curation-packages';
+import {
+  packagePickFromSearch,
+  presetPickFromSearch,
+  rememberedPackagePick,
+  rememberedPresetPick,
+  rememberPackagePick,
+} from '@/lib/studio/preset-selection';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
 import { GenerationProgress } from '@/components/studio/GenerationProgress';
@@ -108,6 +115,7 @@ export function UploadFlow({
   const [dragging, setDragging] = useState(false);
   const [hydrated, setHydrated] = useState(false);
   const [pickedPresetId, setPickedPresetId] = useState<number | null>(null);
+  const [pickedPackageId, setPickedPackageId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState<'photo' | 'settings'>(step);
 
   useEffect(() => {
@@ -172,6 +180,10 @@ export function UploadFlow({
       }
     } catch { /* 잘못된 임시 정보는 무시하고 사진부터 다시 시작한다 */ }
     setPickedPresetId(presetPickFromSearch(window.location.search) ?? rememberedPresetPick());
+    // /presets 의 "이 패키지로 팩 만들기" — 탭 이동 뒤에도 패키지 선택을 유지한다.
+    const fromUrl = packagePickFromSearch(window.location.search);
+    if (fromUrl) rememberPackagePick(fromUrl);
+    setPickedPackageId(fromUrl ?? rememberedPackagePick());
     setHydrated(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -369,6 +381,7 @@ export function UploadFlow({
 
   const isPhoto = currentStep === 'photo';
   const pickedPreset = pickedPresetId ? presetById(pickedPresetId) : undefined;
+  const pickedPackage = pickedPackageId ? curationPackageById(pickedPackageId) : undefined;
   const isMode = isPhoto && photoPhase === 'mode';
   const isFormat = isPhoto && photoPhase === 'format';
   const motionClass = motion === 'forward' ? 'motion-safe:animate-step-left' : motion === 'back' ? 'motion-safe:animate-step-right' : '';
@@ -399,7 +412,13 @@ export function UploadFlow({
             </li>
           ))}
         </ol>
-        {pickedPreset ? (
+        {pickedPackage ? (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-[11px] font-bold text-primary-dark">
+            <span>{t(`선택한 패키지: ${pickedPackage.title} · ${pickedPackage.count}컷`, `Selected set: ${pickedPackage.titleEn} · ${pickedPackage.count} cuts`)}</span>
+            <Link href={lp('/presets')} className="underline">{t('바꾸기', 'Change')}</Link>
+            <span className="font-normal text-sub">{t('시안을 고르면 이 패키지의 컷과 순서가 그대로 채워집니다.', 'Once you pick a draft, this set’s cuts and order are filled in.')}</span>
+          </div>
+        ) : pickedPreset ? (
           <div className="mt-3 flex flex-wrap items-center gap-2 rounded-xl border border-primary/25 bg-primary/5 px-3 py-2 text-[11px] font-bold text-primary-dark">
             <span>{t(`선택한 프리셋: ${presetKeyword(pickedPreset, locale)}`, `Selected preset: ${presetKeyword(pickedPreset, locale)}`)}</span>
             <Link href={lp('/presets')} className="underline">{t('바꾸기', 'Change')}</Link>
