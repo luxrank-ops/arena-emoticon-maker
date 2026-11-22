@@ -31,8 +31,8 @@ export default async function PackPage({ params }: { params: Promise<{ id: strin
   const plan = effectivePlan(user);
   const kakao = {
     validation: validatePackForKakao({ size: view.pack.size, frames: view.frames }),
-    // Creator Pro(또는 풀액세스)이면서 팩 잠금이 해제된 경우에만 규격 ZIP 을 연다.
-    packaging: (plan === 'STUDIO' || isFullAccess(user)) && view.exportState.unlocked,
+    // 잠금이 해제된 팩은 등급과 무관하게 규격 ZIP 을 열고, Creator Pro 는 심사 시트까지 함께 넣는다.
+    packaging: view.exportState.unlocked,
     plan,
   };
   // Creator Pro: 심사 시트(컨셉·제목·해시태그)를 만들어 카카오 ZIP·화면에 함께 넣는다.

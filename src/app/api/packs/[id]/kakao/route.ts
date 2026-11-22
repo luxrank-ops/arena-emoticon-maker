@@ -20,9 +20,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return ok({
       validation,
       rules: KAKAO_RULES,
-      /** Studio 플랜부터 규격 패키징(ZIP) 제공 */
-      packaging: plan === 'STUDIO',
-      plan,
+      /** 잠금 해제한 팩은 규격 패키징(ZIP)을 받을 수 있다 (Creator Pro 는 심사 시트 포함) */
+      packaging: view.exportState.unlocked,
+      plan, reviewSheet: plan === 'STUDIO',
     });
   } catch (e) {
     return handleError(e);

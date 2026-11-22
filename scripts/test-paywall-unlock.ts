@@ -130,6 +130,7 @@ check('잠금 해제 후 고화질 재생성(finalize)', viewer.includes('finali
 check('굿즈 업셀 배너(3컷 · 20% 번들)', viewer.includes('아크릴 키링') && viewer.includes('bundle=1'));
 const checkoutRoute = read('src/app/api/checkout/route.ts');
 check('주문 생성이 팩 소유·잠금 상태를 확인', checkoutRoute.includes('unlockSkuForPack') && checkoutRoute.includes('ALREADY_UNLOCKED'));
+check('잠금 해제한 팩은 규격 ZIP 을 연다', read('src/app/studio/pack/[id]/page.tsx').includes('packaging: view.exportState.unlocked'));
 const render = read('src/app/api/render/route.ts');
 check('미리보기는 Flash · 잠금 해제 후 고화질', render.includes("as 'preview' | 'final'") && render.includes('hiResAt'));
 check('워터마크 문구를 내보내기에 전달', read('src/lib/export.ts').includes('watermarkText'));
