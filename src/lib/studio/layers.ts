@@ -6,15 +6,8 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { Emotion } from '@/lib/types';
-import {
-  CAPTION_BOLD,
-  CAPTION_FONT_FAMILIES,
-  CAPTION_OUTLINE,
-  captionFaceOf,
-  inkFor,
-  layoutCaption,
-  type CaptionLine,
-} from '@/lib/studio/caption';
+import { CAPTION_FONT_FAMILIES, CAPTION_OUTLINE, type CaptionLine } from '@/lib/studio/caption';
+import { planCaption } from '@/lib/studio/caption-plan';
 
 export type TextLayerStyle = 'calli' | 'hand' | 'gothic' | 'bold' | 'stamp';
 export type BubbleStyle = 'none' | 'round' | 'shout' | 'caption' | 'tape';
@@ -198,32 +191,26 @@ export function drawLayer(
   opts: { emotion?: Emotion } = {},
 ) {
   const style = textStyleById(layer.style);
-  const face = captionFaceOf(style.id);
+  const plan = planCaption(
+    {
+      text: layer.text,
+      style: layer.style,
+      color: layer.color,
+      x: layer.x,
+      y: layer.y,
+      size: layer.size,
+      rotate: layer.rotate,
+      bubble: layer.bubble,
+    },
+    size,
+    opts.emotion,
+  );
   const fontSize = Math.max(8, layer.size * size);
-  const centerX = layer.x * size;
-  const centerY = layer.y * size;
-
-  const layout = layoutCaption(layer.text, {
-    size: fontSize,
-    maxWidth: size * 0.86,
-    face,
-    seed: hash(layer.text),
-  });
-  const blockWidth = layout.width;
-  const blockHeight = layout.height;
   const padding = fontSize * 0.42;
 
-  // 블록이 캔버스 밖으로 잘리지 않게 중심을 clamp 한다(2줄·큰 글자·회전 대응).
-  const rot = Math.abs(layer.rotate) * (Math.PI / 180);
-  const halfW = (blockWidth / 2) * Math.cos(rot) + (blockHeight / 2) * Math.sin(rot);
-  const halfH = (blockHeight / 2) * Math.cos(rot) + (blockWidth / 2) * Math.sin(rot);
-  const pad = size * 0.015;
-  const drawX = Math.min(Math.max(centerX, halfW + pad), size - halfW - pad);
-  const drawY = Math.min(Math.max(centerY, halfH + pad), size - halfH - pad);
-
   ctx.save();
-  ctx.translate(drawX, drawY);
-  ctx.rotate((layer.rotate * Math.PI) / 180);
+  ctx.translate(plan.x, plan.y);
+  ctx.rotate((plan.rotate * Math.PI) / 180);
   ctx.font = `${style.weight} ${fontSize}px ${style.font}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
@@ -231,10 +218,10 @@ export function drawLayer(
   ctx.miterLimit = 2;
 
   if (layer.bubble !== 'none') {
-    drawBubble(ctx, layer.bubble, blockWidth + padding * 2, blockHeight + padding * 2, size, layer.color);
+    drawBubble(ctx, layer.bubble, plan.width + padding * 2, plan.height + padding * 2, size, layer.color);
   }
   if (layer.style === 'stamp') {
-    const radius = Math.max(blockWidth, blockHeight) * 0.78 + padding * 0.6;
+    const radius = Math.max(plan.width, plan.height) * 0.78 + padding * 0.6;
     ctx.strokeStyle = '#C9342B';
     ctx.lineWidth = Math.max(2, fontSize * 0.09);
     ctx.beginPath();
@@ -246,44 +233,40 @@ export function drawLayer(
     ctx.stroke();
   }
 
-  const fill = layer.style === 'stamp' ? '#C9342B' : inkFor(opts.emotion, layer.color);
-  const inBubble = layer.bubble !== 'none';
-  const outlineWidth = Math.max(0, fontSize * (style.id === 'calli' || style.id === 'hand' ? CAPTION_OUTLINE[face] : style.outline));
-  const boldWidth = Math.max(0, fontSize * CAPTION_BOLD[face]);
-  const top = -blockHeight / 2;
-  const left = -blockWidth / 2;
+  const top = -plan.height / 2;
+  const left = -plan.width / 2;
 
   // 1) 그림자 — 외곽선 패스에만 얹어 스티커가 살짝 떠 보이게 한다.
-  if (!inBubble && outlineWidth > 0) {
+  if (!plan.inBubble && plan.outline > 0) {
     ctx.save();
-    ctx.shadowColor = 'rgba(25,21,18,0.30)';
-    ctx.shadowBlur = fontSize * 0.2;
-    ctx.shadowOffsetY = fontSize * 0.06;
+    ctx.shadowColor = plan.shadow.color;
+    ctx.shadowBlur = plan.shadow.blur;
+    ctx.shadowOffsetY = plan.shadow.offsetY;
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = outlineWidth;
-    for (const line of layout.lines) drawGlyphs(ctx, line, left, top, 'stroke', blockWidth);
+    ctx.lineWidth = plan.outline;
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width);
     ctx.restore();
   }
 
   // 2) 흰색 외곽선 (그림자 없이 한 번 더 → 지저분한 이중 테두리 방지)
-  if (outlineWidth > 0) {
-    ctx.strokeStyle = inBubble ? 'rgba(255,255,255,0.92)' : '#FFFFFF';
-    ctx.lineWidth = outlineWidth;
-    for (const line of layout.lines) drawGlyphs(ctx, line, left, top, 'stroke', blockWidth);
+  if (plan.outline > 0) {
+    ctx.strokeStyle = plan.inBubble ? 'rgba(255,255,255,0.92)' : '#FFFFFF';
+    ctx.lineWidth = plan.outline;
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width);
   }
 
   // 3) 잉크 외곽선(글자 살 찌우기) → 채우기
-  if (boldWidth > 0) {
-    ctx.strokeStyle = fill;
-    ctx.lineWidth = boldWidth;
-    for (const line of layout.lines) drawGlyphs(ctx, line, left, top, 'stroke', blockWidth);
+  if (plan.bold > 0) {
+    ctx.strokeStyle = plan.ink;
+    ctx.lineWidth = plan.bold;
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width);
   }
-  ctx.fillStyle = fill;
-  for (const line of layout.lines) drawGlyphs(ctx, line, left, top, 'fill', blockWidth);
+  ctx.fillStyle = plan.ink;
+  for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'fill', plan.width);
   ctx.restore();
 
   if (layer.effect !== 'none') {
-    drawEffect(ctx, layer.effect, centerX, centerY, Math.max(blockWidth, blockHeight) / 2 + fontSize * 0.5, size);
+    drawEffect(ctx, layer.effect, plan.x, plan.y, Math.max(plan.width, plan.height) / 2 + fontSize * 0.5, size);
   }
 }
 
@@ -293,7 +276,7 @@ function drawGlyphs(
   left: number,
   top: number,
   mode: 'stroke' | 'fill',
-  blockWidth = line.width,
+  blockWidth: number,
 ) {
   // 줄마다 가운데 정렬 (블록 폭 기준)
   const offset = (blockWidth - line.width) / 2;
@@ -307,6 +290,7 @@ function drawGlyphs(
     ctx.restore();
   }
 }
+
 
 function drawBubble(
   ctx: CanvasRenderingContext2D,
