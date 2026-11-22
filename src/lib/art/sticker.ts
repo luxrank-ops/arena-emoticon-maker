@@ -7,6 +7,15 @@ import type {
   StickerSpec,
   Tone,
 } from '@/lib/types';
+import {
+  CAPTION_BOLD,
+  CAPTION_FONT_FAMILIES,
+  CAPTION_OUTLINE,
+  charAdvance,
+  inkFor,
+  layoutCaption,
+  type CaptionFace,
+} from '@/lib/studio/caption';
 
 // ─────────────────────────────────────────────────────────────
 // 이모티학 · Sticker Renderer
@@ -67,8 +76,6 @@ export const PROPS: { key: PropKey; label: string }[] = [
 
 const INK = '#191512';
 const FONT = "'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif";
-// UI와 분리된 콘텐츠 레터링. 플랫폼의 둥근 굵은 서체를 우선하고 한국어는 시스템 고딕으로 대체한다.
-const CAPTION_FONT = "'Arial Rounded MT Bold', 'Pretendard Variable', Pretendard, 'Apple SD Gothic Neo', 'Malgun Gothic', system-ui, sans-serif";
 
 export const DEFAULT_PALETTE: Palette = {
   skin: '#F6D3B3',
@@ -172,7 +179,16 @@ const EMOTION_FX: Record<
 };
 
 // ── 렌더러 ────────────────────────────────────────────────────
-export function renderSticker(spec: StickerSpec): string {
+export interface RenderOptions {
+  /**
+   * 캘리그라피 폰트를 SVG 안에 심는 @font-face CSS.
+   * 이 SVG 를 <img>·resvg 처럼 "문서 밖"에서 래스터화할 때 필요하다.
+   * (인라인 DOM 미리보기는 페이지 CSS 가 폰트를 공급하므로 비워 둔다.)
+   */
+  fontCss?: string;
+}
+
+export function renderSticker(spec: StickerSpec, opts: RenderOptions = {}): string {
   const tone = spec.tone;
   const t = TONE_STYLE[tone];
   const p = normalizePalette(spec.palette, tone);
@@ -191,7 +207,8 @@ export function renderSticker(spec: StickerSpec): string {
   const lash = p.hair;
 
   const parts: string[] = [];
-  parts.push(`<defs>${defs(tone, p)}</defs>`);
+  const hasLine = spec.line.trim().length > 0;
+  parts.push(`<defs>${defs(tone, p)}${hasLine ? captionDefs(opts.fontCss) : ''}</defs>`);
 
   // 배경
   const bg = BACKGROUNDS[spec.background];
@@ -338,7 +355,7 @@ export function renderSticker(spec: StickerSpec): string {
   parts.push('</g>');
 
   // 대사 (필터 밖 → 텍스트 선명도 유지)
-  if (spec.line.trim()) parts.push(renderLine(spec, t));
+  if (hasLine) parts.push(renderLine(spec));
 
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="${escapeAttr(EMOTIONS[spec.emotion].label)} 이모티콘">` +
@@ -751,105 +768,67 @@ function renderProp(prop: PropKey, cx: number, cy: number, rx: number, ry: numbe
   }
 }
 
-/** 글자 폭 추정치 (한글·이모지 = 1em, 그 외 = 0.5em). 웹픈트가 아니라 보수적 추정. */
-function estimatedTextWidth(text: string, size: number) {
-  let em = 0;
-  for (const ch of text) {
-    em += /[\u1100-\u11FF\u2E80-\uA4CF\uA960-\uA97F\uAC00-\uD7FF\uF900-\uFAFF\uFF00-\uFF60]/.test(ch) || /[\u{1F000}-\u{1FAFF}]/u.test(ch)
-      ? 1
-      : 0.52;
-  }
-  return em * size;
+/** 캘리그라피 대사 defs — 임베드 폰트 + 부드러운 그림자 */
+export function captionDefs(fontCss?: string) {
+  const style = fontCss ? `<style>${fontCss}</style>` : '';
+  return (
+    style +
+    `<filter id="captionShadow" x="-25%" y="-25%" width="150%" height="150%">` +
+    `<feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#191512" flood-opacity="0.28"/>` +
+    `</filter>`
+  );
 }
 
-type CaptionShape = 'pill' | 'burst' | 'block' | 'brush';
-
-function captionStyle(spec: StickerSpec, t: ToneStyle) {
-  const lively = ['joy', 'laugh', 'love', 'surprised', 'smug'].includes(spec.emotion);
-  const impact = spec.emotion === 'angry' || spec.emotion === 'king';
-  const soft = spec.emotion === 'sad' || spec.emotion === 'cry' || spec.emotion === 'tired';
-  const flat = spec.emotion === 'blank' || spec.emotion === 'sulk';
-  let shape: CaptionShape = impact ? 'burst' : flat ? 'block' : 'pill';
-  if (spec.tone === 'watercolor') shape = 'brush';
-  if (spec.tone === 'pixel-art') shape = 'block';
-  const seedTilt = ((spec.seed % 7) - 3) * 0.75;
-  const energy = 0.45 + (spec.intensity / 100) * 0.75;
-  const angle = soft || flat || spec.tone === 'pixel-art' ? 0 : seedTilt * energy * (impact ? 0.55 : 1);
-  const accent = spec.tone === 'mono' ? '#A39B91' : soft ? '#8FD3F4' : spec.palette.accent;
-  const fill = impact && shape === 'burst' ? '#FFCF4D' : soft ? '#E3F2FE' : '#FFFDFA';
-  const extrude = shape !== 'brush' && !soft && !flat && (lively || impact || spec.tone === 'pixel-art');
-  const textFill = extrude ? '#FFFDFA' : soft ? '#24354D' : t.ink;
-  return { shape, lively, accent, fill, extrude, textFill, angle };
-}
-
-function burstPath(cx: number, cy: number, rx: number, ry: number) {
-  const points: string[] = [];
-  const count = 40;
-  for (let i = 0; i < count; i++) {
-    const angle = -Math.PI / 2 + (i / count) * Math.PI * 2;
-    const radius = i % 2 === 0 ? 1.04 : 0.93;
-    points.push(`${i === 0 ? 'M' : 'L'}${(cx + Math.cos(angle) * rx * radius).toFixed(1)} ${(cy + Math.sin(angle) * ry * radius).toFixed(1)}`);
-  }
-  return points.join(' ') + ' Z';
-}
-
-function sparklePath(cx: number, cy: number, radius: number) {
-  const inner = radius * 0.28;
-  return `M${cx} ${cy - radius} L${cx + inner} ${cy - inner} L${cx + radius} ${cy} L${cx + inner} ${cy + inner} L${cx} ${cy + radius} L${cx - inner} ${cy + inner} L${cx - radius} ${cy} L${cx - inner} ${cy - inner} Z`;
-}
-
-/** Emotion- and tone-aware lettering. Static SVG keeps PNG/GIF exports deterministic. */
-function renderLine(spec: StickerSpec, t: ToneStyle) {
+/**
+ * 생동감 있는 캘리그라피 대사.
+ *  · 네모 말풍선 박스 없이 글자 자체가 스티커가 된다(두꺼운 흰 외곽선 + 그림자 + 감정 컬러).
+ *  · 글자마다 살짝 기울인다(SVG rotate 속성 = 글자별 각도). 캔버스 렌더러와 같은 계산(caption.ts).
+ *  · 2줄까지 접고, 짧은 마지막 줄은 키워 강조한다. 얼굴을 가리지 않게 하단/상단 여백에 앉힌다.
+ */
+function renderLine(spec: StickerSpec) {
   const text = spec.line.trim().slice(0, 34);
-  const chars = [...text].length;
-  const size = chars <= 7 ? 66 : chars <= 11 ? 58 : chars <= 16 ? 48 : chars <= 22 ? 40 : 34;
-  const textW = estimatedTextWidth(text, size);
-  const bandW = Math.min(940, Math.max(280, textW + 96));
-  const fittedSize = textW > bandW - 56 ? Math.floor((size * (bandW - 56)) / Math.max(1, textW)) : size;
-  const y = spec.linePosition === 'top' ? 40 : 866;
-  const h = fittedSize + 56;
-  const x = 512 - bandW / 2;
-  const cy = y + h / 2;
-  const baseline = cy + fittedSize * 0.36;
-  const avail = bandW - 56;
-  const fittedW = estimatedTextWidth(text, fittedSize);
-  const lenAttr = fittedW >= avail ? ` textLength="${Math.round(avail)}" lengthAdjust="spacingAndGlyphs"` : '';
-  const style = captionStyle(spec, t);
-  const strokeWidth = Math.max(4, Math.min(9, t.sw * 0.68));
-  const radius = style.shape === 'block' ? (spec.tone === 'pixel-art' ? 0 : 18) : h / 2.6;
-  const rect = (offsetX = 0, offsetY = 0, fill = style.fill, stroke = t.ink) =>
-    `<rect x="${x + offsetX}" y="${y + offsetY}" width="${bandW}" height="${h}" rx="${radius}" fill="${fill}" stroke="${stroke}" stroke-width="${style.shape === 'brush' ? 2 : strokeWidth}" opacity="${style.shape === 'brush' ? 0.93 : 0.98}"/>`;
-  const burst = (offsetY = 0, fill = style.fill) =>
-    `<path d="${burstPath(512, cy + offsetY, bandW / 2, h / 2 + 7)}" fill="${fill}" stroke="${t.ink}" stroke-width="${strokeWidth}" stroke-linejoin="round"/>`;
+  if (!text) return '';
+  const face: CaptionFace = 'calli';
+  const em = [...text].reduce((sum, ch) => sum + charAdvance(ch, 1, face), 0);
+  const wanted = Math.max(34, Math.min(196, 800 / Math.max(1, em)));
+  const layout = layoutCaption(text, {
+    size: wanted,
+    maxWidth: 902,
+    face,
+    seed: spec.seed,
+    tilt: 3.6,
+  });
+  const ink = inkFor(spec.emotion, undefined);
+  const outline = layout.size * CAPTION_OUTLINE.calli;
+  const tilt = ((spec.seed % 5) - 2) * 1.3;
+  // 기울어진 블록의 아래 모서리가 잘리지 않게 회전 여유를 뺀다.
+  const slant = Math.abs(tilt) * (Math.PI / 180) * (layout.width / 2);
+  const top = spec.linePosition === 'top' ? 26 + slant : Math.max(24, 1024 - 40 - slant - layout.height);
 
-  let backdrop = '';
-  if (style.shape === 'burst') {
-    backdrop = burst(9, style.accent) + burst();
-  } else if (style.shape === 'brush') {
-    backdrop = rect(-5, 7, style.accent, 'none') + rect();
-  } else {
-    backdrop = style.extrude || style.shape === 'block' ? rect(7, 9, style.accent) + rect() : rect();
-  }
+  const rows = layout.lines
+    .map((line) => {
+      const rotate = line.glyphs.map((glyph) => glyph.angle).join(' ');
+      const glyphs = escapeXml(line.glyphs.map((g) => g.ch).join(''));
+      return (
+        `<text x="512" y="${(top + line.baseline).toFixed(1)}" text-anchor="middle" ` +
+        `font-family="${escapeAttr(CAPTION_FONT_FAMILIES.calli)}" font-size="${line.size.toFixed(1)}" font-weight="400" ` +
+        `rotate="${rotate}" fill="${ink}" stroke="#FFFDFA" stroke-width="${outline.toFixed(1)}" ` +
+        `stroke-linejoin="round" paint-order="stroke fill">${glyphs}</text>` +
+        // 같은 색으로 한 번 더 발라 획을 두툼하게(붓글씨 서체의 얇은 획 보정)
+        `<text x="512" y="${(top + line.baseline).toFixed(1)}" text-anchor="middle" ` +
+        `font-family="${escapeAttr(CAPTION_FONT_FAMILIES.calli)}" font-size="${line.size.toFixed(1)}" font-weight="400" ` +
+        `rotate="${rotate}" fill="${ink}" stroke="${ink}" stroke-width="${(line.size * CAPTION_BOLD.calli).toFixed(1)}" ` +
+        `stroke-linejoin="round" paint-order="stroke fill">${glyphs}</text>`
+      );
+    })
+    .join('');
 
-  const underlineW = Math.min(bandW - 84, Math.max(100, fittedW + 20));
-  const underline = style.lively || style.shape === 'brush'
-    ? `<path d="M${512 - underlineW / 2} ${baseline + 15} Q512 ${baseline + 23} ${512 + underlineW / 2} ${baseline + 13}" fill="none" stroke="${style.accent}" stroke-width="${style.shape === 'brush' ? 10 : 5}" stroke-linecap="round" opacity="${style.shape === 'brush' ? 0.65 : 0.9}"/>`
-    : '';
-  const sparkles = style.lively && bandW >= 360
-    ? `<path d="${sparklePath(x + 30, y + 20, 9)}" fill="${style.accent}" stroke="${t.ink}" stroke-width="2"/><path d="${sparklePath(x + bandW - 30, y + h - 20, 8)}" fill="${style.accent}" stroke="${t.ink}" stroke-width="2"/>`
-    : '';
-
-  const fontFamily = spec.tone === 'pixel-art' ? "'Courier New', monospace" : CAPTION_FONT;
-  const attrs = `x="512" y="${baseline}" text-anchor="middle" font-family="${fontFamily}" font-size="${fittedSize}" font-weight="900" letter-spacing="${spec.tone === 'pixel-art' ? 0 : -0.7}"${lenAttr}`;
-  const outline = Math.max(2.5, Math.min(8, fittedSize * 0.13));
-  const backText = style.extrude
-    ? `<text ${attrs} transform="translate(4 5)" fill="${style.accent}" stroke="${t.ink}" stroke-width="${outline + 2}" stroke-linejoin="round" paint-order="stroke fill">${escapeXml(text)}</text>`
-    : '';
-  const frontStroke = style.textFill === '#FFFDFA' ? t.ink : '#FFFDFA';
-  const frontStrokeWidth = style.extrude ? outline : Math.max(1.5, outline * 0.45);
-  const frontText = `<text ${attrs} fill="${style.textFill}" stroke="${frontStroke}" stroke-width="${frontStrokeWidth}" stroke-linejoin="round" paint-order="stroke fill">${escapeXml(text)}</text>`;
-  return `<g data-caption-effect="${style.shape}" transform="rotate(${style.angle.toFixed(2)} 512 ${cy})">${backdrop}${underline}${sparkles}${backText}${frontText}</g>`;
+  return (
+    `<g data-caption-effect="calligraphy" filter="url(#captionShadow)" ` +
+    `transform="rotate(${tilt.toFixed(2)} 512 ${(top + layout.height / 2).toFixed(1)})">${rows}</g>`
+  );
 }
+
 
 function escapeXml(s: string) {
   return s

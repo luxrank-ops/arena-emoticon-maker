@@ -54,7 +54,8 @@ try {
   check('감정 축이 12종 안', data.EMOTICON_PRESETS_150.every((preset) => EMOTIONS.includes(preset.emotion)));
   check('레이어 이펙트가 7종 안', data.EMOTICON_PRESETS_150.every((preset) => EFFECT_KINDS.includes(preset.effectKind)));
   check('대사는 원본 첫 문구', data.EMOTICON_PRESETS_150.every((preset) => preset.line === preset.dialogue.split('/')[0]!.trim()));
-  check('강한 감정은 삐죽 말풍선', data.presetById(21)!.bubble === 'shout' && data.presetById(1)!.bubble === 'round');
+  check('기본 레터링은 말풍선 없는 캘리그라피', data.presetById(21)!.bubble === 'none' && data.presetById(1)!.bubble === 'none');
+  check('기본 글꼴은 캘리그라피', data.presetById(1)!.style === 'calli' && data.presetById(21)!.style === 'calli');
   check('원본 문구는 그대로 보존', data.presetById(1)!.keyword === '환호 / 신남' && data.presetById(150)!.dialogue === '이만총총 / 다음에봐!');
 
   // ── 4. 검색 ──────────────────────────────────────────

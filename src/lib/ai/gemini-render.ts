@@ -32,10 +32,11 @@ export const EMOTION_PROMPTS: Record<Emotion, string> = {
 
 /** Emotion-specific lettering that stays legible at messaging-sticker size. */
 export function letteringDirection(emotion: Emotion): string {
-  if (emotion === 'angry' || emotion === 'king') return 'punchy impact lettering with a thick contrasting outline, a small offset accent shadow and an energetic slant';
-  if (emotion === 'sad' || emotion === 'cry' || emotion === 'tired') return 'soft rounded lettering with a gentle baseline and a calm contrasting outline';
-  if (emotion === 'blank' || emotion === 'sulk') return 'clean deadpan lettering with a restrained block-caption treatment';
-  return 'bouncy expressive lettering with a subtle tilt, thick contrasting outline, offset accent shadow and one or two tiny sparkle accents';
+  // 손글씨·붓글씨 캘리그라피 방향 (앱이 같은 스타일로 대사를 합성한다 — 박스형 말풍선 금지)
+  if (emotion === 'angry' || emotion === 'king') return 'bold brush calligraphy hand-lettering, thick white outline, a warm red-orange ink, a slight dynamic slant and no box behind it';
+  if (emotion === 'sad' || emotion === 'cry' || emotion === 'tired') return 'soft hand-written calligraphy lettering in a muted blue ink, thick white outline and a gentle swaying baseline, no box behind it';
+  if (emotion === 'blank' || emotion === 'sulk') return 'deadpan hand-written calligraphy lettering in a deep navy ink, thick white outline, almost no tilt, no box behind it';
+  return 'lively hand-written calligraphy lettering in a warm coral ink, thick white outline, a playful per-letter tilt and a soft drop shadow, no box behind it';
 }
 
 /** 화풍 지시. 얼굴 신원 규칙과 구도 규칙은 별도로 항상 붙는다. */
@@ -134,7 +135,7 @@ export function buildPetRenderPrompt(input: RenderInput): string {
   if (input.formatDirectives?.scene) parts.push(`Format direction: ${input.formatDirectives.scene}.`);
   if (input.formatDirectives?.layout) parts.push(`Format layout: ${input.formatDirectives.layout}.`);
   if (input.textMode === 'layer') parts.push('No lettering at all: do not draw any text, letters, speech bubble, sign or watermark; the app adds legible Korean lettering separately.');
-  else if (input.line) parts.push(`Include the caption text ${JSON.stringify(input.line)} exactly as given, preserving its language, spelling and punctuation, in one clear speech bubble with ${letteringDirection(input.emotion)}. Keep the complete text on one line and clearly legible. Do not translate it. No other text.`);
+  else if (input.line) parts.push(`Include the caption text ${JSON.stringify(input.line)} exactly as given, preserving its language, spelling and punctuation, drawn directly on the sticker with ${letteringDirection(input.emotion)}. Keep the complete text clearly legible on one or two lines at the lower part of the frame, never covering the face. Do not translate it. No other text.`);
   if (input.accessoryPrompts?.length) parts.push(`Add appropriate accessories/props: ${input.accessoryPrompts.join(', ')}.`);
   if (input.variantNote) parts.push(`Variant note: ${input.variantNote}.`);
   return parts.join(' ');

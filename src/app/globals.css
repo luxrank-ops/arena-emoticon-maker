@@ -2,6 +2,25 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ── 이모티콘 대사(레터링) 번들 캘리그라피 폰트 ─────────────────
+   public/fonts 의 실제 폰트 파일. 캔버스 내보내기와 SVG 미리보기가 같은 서체를 쓴다.
+   라이선스: SIL Open Font License 1.1 (public/fonts/OFL-*.txt) */
+@font-face {
+  font-family: 'EmotiHak Calli';
+  src: url('/fonts/EmotiHakCalli.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'EmotiHak Hand';
+  src: url('/fonts/EmotiHakHand.woff2') format('woff2');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --ink: #212121;
   --cream: #f8f9fa;
