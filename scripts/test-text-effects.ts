@@ -55,9 +55,10 @@ assert.equal(emphasised.lines.length, 2, 'long captions wrap to two lines');
 assert.ok(emphasised.lines[1].size > emphasised.lines[0].size, 'short second line is emphasised');
 assert.ok(emphasised.width <= 300, 'layout stays inside the band');
 
-// 같은 계산을 쓰므로 SVG·캔버스가 같은 폭을 본다 (한글 = 0.805em, 공백은 더 좁다)
+// 같은 계산을 쓰므로 SVG·캔버스가 같은 폭을 본다 (한글 = 0.871em, 공백은 더 좁다)
 assert.ok(charAdvance('가', 100, 'calli') > charAdvance('a', 100, 'calli'));
-assert.equal(Math.round(charAdvance('가', 100, 'calli')), 81);
+assert.equal(Math.round(charAdvance('가', 100, 'calli')), 87);
+assert.ok(charAdvance('가', 100, 'brush') > 0);
 assert.equal(Math.round(charAdvance('가', 100, 'hand')), 82);
 
 const escaped = renderSticker(spec({ line: '<tag>&' }));
@@ -73,6 +74,7 @@ assert.ok(!renderSticker(spec({ line: '월요병' })).includes('@font-face'), 'i
 // 캔버스 렌더러도 같은 레이아웃·잉크를 쓴다 (가짜 2D 컨텍스트로 호출 경로 검증)
 type Call = { op: string; args: unknown[]; fill?: string; font?: string };
 const calls: Call[] = [];
+const gradients: string[][] = [];
 const fake = {
   save() { calls.push({ op: 'save', args: [] }); },
   restore() { calls.push({ op: 'restore', args: [] }); },
@@ -108,6 +110,11 @@ const fake = {
   textBaseline: '',
   font: '',
   measureText(text: string) { return { width: [...text].length * 10 }; },
+  createLinearGradient() {
+    const stops: string[] = [];
+    gradients.push(stops);
+    return { addColorStop(_offset: number, color: string) { stops.push(color); } };
+  },
 } as unknown as CanvasRenderingContext2D;
 
 calls.length = 0;
@@ -115,8 +122,10 @@ drawLayer(fake, normalizeLayer({ text: '커피 수혈 중', style: 'calli', bubb
 const strokes = calls.filter((c) => c.op === 'strokeText');
 const fills = calls.filter((c) => c.op === 'fillText');
 assert.ok(strokes.length >= 5 && fills.length >= 5, 'every glyph is stroked and filled (no box)');
-assert.equal(strokes.length, fills.length * 3, 'shadow + clean white outline + ink bold before the fill');
-assert.ok(fills.some((c) => (c.fill ?? '').toLowerCase() === inkFor('tired').toLowerCase()), 'canvas uses the tired ink');
+assert.equal(strokes.length, fills.length * 5, 'shadow + double white outline + tone ring + ink bold before the fill');
+// 채움은 세로 그라데이션 — 위쪽 하이라이트에서 감정 잉크로 내려간다.
+const inkStops = gradients.filter((stops) => stops.some((c) => c.toLowerCase() === inkFor('tired').toLowerCase()));
+assert.ok(inkStops.length >= 1 && inkStops[0].length >= 3, 'canvas fills with the tired ink gradient');
 assert.ok(!calls.some((c) => c.op === 'fillRect'), 'no bubble rectangle for bubble=none');
 
 // 예전에 저장된 말풍선 레이어(bubble: 'round')도 다운로드에는 박스를 그리지 않는다.

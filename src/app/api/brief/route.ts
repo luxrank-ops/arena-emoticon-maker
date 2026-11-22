@@ -60,7 +60,7 @@ export async function GET() {
           emotion,
           line,
           intensity: 74,
-          background: 'cream',
+          background: 'transparent',
           seed: seeds + i * 31,
           templateId: it.templateId,
         });

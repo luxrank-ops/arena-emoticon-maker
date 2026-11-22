@@ -686,7 +686,7 @@ export function PackViewer({
               onClick={() => { setSelectedId(f.id); setSheetNotice(null); setShareLink(null); }}
               className="group flex h-full w-full flex-col text-left disabled:cursor-wait"
             >
-              <div className="relative w-full bg-cream p-2">
+              <div className={clsx('relative w-full p-2', f.spec.background === 'transparent' ? 'checker' : 'bg-cream')}>
                 {f.ready ? (
                   <div className="relative">
                     <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
@@ -763,7 +763,7 @@ export function PackViewer({
           ) : null}
           {kakao.packaging && !kakao.validation.ok ? (
             <span className="text-[11px] leading-relaxed text-sub">
-              32종 구성이 아니어도 360px·150KB 기준을 지키면 내 대화방용 ZIP은 받을 수 있어요. 규격 미충족 항목은 validation.json에 남습니다.
+              카카오 제안 규격(멈춘 32컷 · 움직이는 24컷)과 컷 수가 달라도 360px·용량 기준을 지키면 내 대화방용 ZIP은 받을 수 있어요. 규격 미충족 항목은 validation.json에 남습니다.
             </span>
           ) : null}
         </div>
@@ -784,7 +784,7 @@ export function PackViewer({
       <div className="rounded-2xl border-2 border-dashed border-line p-4 text-center text-xs leading-relaxed text-sub">
         {locale === 'en' ? <>Share the exported PNG or GIF in chats just like a photo.<br />Every caption remains editable before you download and share.</> : <>
         카톡에서는 내보낸 PNG/GIF를 사진처럼 보내면 됩니다. <br />
-        <strong className="text-ink">Studio 플랜</strong>은 카카오 제안 규격(32종·360×360, 개당 150KB) 자동 압축·검증·패키징까지
+        <strong className="text-ink">Studio 플랜</strong>은 카카오 제안 규격(멈춘 32컷·움직이는 24컷, 360×360, 개당 150KB) 자동 압축·검증·패키징까지
         자동으로 해드려요.
         </>}
       </div>

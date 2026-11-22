@@ -9,7 +9,7 @@ import type { Emotion } from '@/lib/types';
 import { CAPTION_FONT_FAMILIES, CAPTION_OUTLINE, type CaptionLine } from '@/lib/studio/caption';
 import { planCaption } from '@/lib/studio/caption-plan';
 
-export type TextLayerStyle = 'calli' | 'hand' | 'gothic' | 'bold' | 'stamp';
+export type TextLayerStyle = 'calli' | 'brush' | 'hand' | 'gothic' | 'bold' | 'stamp';
 export type BubbleStyle = 'none' | 'round' | 'shout' | 'caption' | 'tape';
 export type EffectKind = 'none' | 'sweat' | 'heart' | 'sparkle' | 'anger' | 'money' | 'flame';
 
@@ -49,6 +49,15 @@ export const TEXT_STYLES: {
     font: CAPTION_FONT_FAMILIES.calli,
     weight: 400,
     outline: CAPTION_OUTLINE.calli,
+    letterSpacing: 0,
+  },
+  {
+    id: 'brush',
+    label: '붓글씨',
+    labelEn: 'Brush',
+    font: CAPTION_FONT_FAMILIES.brush,
+    weight: 400,
+    outline: CAPTION_OUTLINE.brush,
     letterSpacing: 0,
   },
   {
@@ -223,33 +232,71 @@ export function drawLayer(
   const top = -plan.height / 2;
   const left = -plan.width / 2;
 
-  // 1) 그림자 — 외곽선 패스에만 얹어 스티커가 살짝 떠 보이게 한다.
+  // 1) 그림자 — 가장 바깥 테두리에만 얹어 스티커가 살짝 떠 보이게 한다.
   if (plan.outline > 0) {
     ctx.save();
     ctx.shadowColor = plan.shadow.color;
     ctx.shadowBlur = plan.shadow.blur;
     ctx.shadowOffsetY = plan.shadow.offsetY;
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = plan.outline;
-    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width);
+    ctx.lineWidth = plan.outline * 1.24;
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
     ctx.restore();
   }
 
-  // 2) 흰색 외곽선 (그림자 없이 한 번 더 → 지저분한 이중 테두리 방지)
+  // 2) 두툼한 화이트/크림 스티커 테두리 (지저분한 이중 테두리 방지용으로 한 번 더)
   if (plan.outline > 0) {
+    ctx.strokeStyle = '#FFFDFA';
+    ctx.lineWidth = plan.outline * 1.24;
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
     ctx.strokeStyle = '#FFFFFF';
     ctx.lineWidth = plan.outline;
-    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width);
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
   }
 
-  // 3) 잉크 외곽선(글자 살 찌우기) → 채우기
+  // 3) 얇은 톤 링 — 흰 테두리 안쪽에 은은한 컬러 테를 둘러 고급스럽게 마감한다.
+  if (plan.outline > 0) {
+    ctx.save();
+    ctx.globalAlpha = 0.45;
+    ctx.strokeStyle = plan.ring;
+    ctx.lineWidth = Math.max(1, plan.outline * 0.42);
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
+    ctx.restore();
+  }
+
+  // 4) 잉크 외곽선(글자 살 찌우기) → 세로 그라데이션 채우기
   if (plan.bold > 0) {
     ctx.strokeStyle = plan.ink;
     ctx.lineWidth = plan.bold;
-    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width);
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
   }
-  ctx.fillStyle = plan.ink;
-  for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'fill', plan.width);
+  const fillGradient = ctx.createLinearGradient(0, top, 0, top + plan.height);
+  fillGradient.addColorStop(0, plan.inkLight);
+  fillGradient.addColorStop(0.5, plan.ink);
+  fillGradient.addColorStop(1, plan.ink);
+  ctx.fillStyle = fillGradient;
+  for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'fill', plan.width, style);
+
+  // 5) 붓 밑줄 포인트 — 좌우로 옅어지는 한 획
+  if (plan.underline) {
+    const u = plan.underline;
+    const half = u.width / 2;
+    const brush = ctx.createLinearGradient(-half, 0, half, 0);
+    brush.addColorStop(0, 'rgba(255,255,255,0)');
+    brush.addColorStop(0.18, u.color);
+    brush.addColorStop(0.82, u.color);
+    brush.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.save();
+    ctx.globalAlpha = 0.55;
+    ctx.strokeStyle = brush;
+    ctx.lineCap = 'round';
+    ctx.lineWidth = u.thickness;
+    ctx.beginPath();
+    ctx.moveTo(-half, u.y);
+    ctx.quadraticCurveTo(0, u.y + u.curve, half, u.y - u.curve * 0.6);
+    ctx.stroke();
+    ctx.restore();
+  }
   ctx.restore();
 
   if (layer.effect !== 'none') {
@@ -264,6 +311,7 @@ function drawGlyphs(
   top: number,
   mode: 'stroke' | 'fill',
   blockWidth: number,
+  style: { weight: number; font: string },
 ) {
   // 줄마다 가운데 정렬 (블록 폭 기준)
   const offset = (blockWidth - line.width) / 2;
@@ -272,8 +320,14 @@ function drawGlyphs(
     ctx.save();
     ctx.translate(left + offset + glyph.x, top + line.baseline + glyph.dy);
     if (glyph.angle) ctx.rotate((glyph.angle * Math.PI) / 180);
+    const glyphSize = glyph.size ?? line.size;
+    if (glyphSize !== line.size) {
+      // 강조 단어만 크기를 키운다 — 기준선은 그대로 두어 리듬만 달라진다.
+      ctx.font = `${style.weight} ${glyphSize}px ${style.font}`;
+    }
     if (mode === 'stroke') ctx.strokeText(glyph.ch, 0, 0);
     else ctx.fillText(glyph.ch, 0, 0);
+    if (glyphSize !== line.size) ctx.font = `${style.weight} ${line.size}px ${style.font}`;
     ctx.restore();
   }
 }

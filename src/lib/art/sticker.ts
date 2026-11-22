@@ -7,15 +7,9 @@ import type {
   StickerSpec,
   Tone,
 } from '@/lib/types';
-import {
-  CAPTION_BOLD,
-  CAPTION_FONT_FAMILIES,
-  CAPTION_OUTLINE,
-  charAdvance,
-  inkFor,
-  layoutCaption,
-  type CaptionFace,
-} from '@/lib/studio/caption';
+import { charAdvance, layoutCaption } from '@/lib/studio/caption';
+import { renderTextLayersWithDefs } from '@/lib/art/text-layers-svg';
+import type { TextLayer } from '@/lib/studio/layers';
 
 // ─────────────────────────────────────────────────────────────
 // 이모티학 · Sticker Renderer
@@ -788,47 +782,36 @@ export function captionDefs(fontCss?: string) {
 function renderLine(spec: StickerSpec) {
   const text = spec.line.trim().slice(0, 34);
   if (!text) return '';
-  const face: CaptionFace = 'calli';
-  const em = [...text].reduce((sum, ch) => sum + charAdvance(ch, 1, face), 0);
+  const em = [...text].reduce((sum, ch) => sum + charAdvance(ch, 1, 'calli'), 0);
   const wanted = Math.max(34, Math.min(196, 800 / Math.max(1, em)));
-  const layout = layoutCaption(text, {
+  const probe = layoutCaption(text, {
     size: wanted,
     maxWidth: 902,
-    face,
+    face: 'calli',
     seed: spec.seed,
     tilt: 3.6,
   });
-  const ink = inkFor(spec.emotion, undefined);
-  const outline = layout.size * CAPTION_OUTLINE.calli;
   const tilt = ((spec.seed % 5) - 2) * 1.3;
   // 기울어진 블록의 아래 모서리가 잘리지 않게 회전 여유를 뺀다.
-  const slant = Math.abs(tilt) * (Math.PI / 180) * (layout.width / 2);
-  const top = spec.linePosition === 'top' ? 26 + slant : Math.max(24, 1024 - 40 - slant - layout.height);
+  const slant = Math.abs(tilt) * (Math.PI / 180) * (probe.width / 2);
+  const top = spec.linePosition === 'top' ? 26 + slant : Math.max(24, 1024 - 40 - slant - probe.height);
 
-  const rows = layout.lines
-    .map((line) => {
-      const rotate = line.glyphs.map((glyph) => glyph.angle).join(' ');
-      const glyphs = escapeXml(line.glyphs.map((g) => g.ch).join(''));
-      return (
-        `<text x="512" y="${(top + line.baseline).toFixed(1)}" text-anchor="middle" ` +
-        `font-family="${escapeAttr(CAPTION_FONT_FAMILIES.calli)}" font-size="${line.size.toFixed(1)}" font-weight="400" ` +
-        `rotate="${rotate}" fill="${ink}" stroke="#FFFDFA" stroke-width="${outline.toFixed(1)}" ` +
-        `stroke-linejoin="round" paint-order="stroke fill">${glyphs}</text>` +
-        // 같은 색으로 한 번 더 발라 획을 두툼하게(붓글씨 서체의 얇은 획 보정)
-        `<text x="512" y="${(top + line.baseline).toFixed(1)}" text-anchor="middle" ` +
-        `font-family="${escapeAttr(CAPTION_FONT_FAMILIES.calli)}" font-size="${line.size.toFixed(1)}" font-weight="400" ` +
-        `rotate="${rotate}" fill="${ink}" stroke="${ink}" stroke-width="${(line.size * CAPTION_BOLD.calli).toFixed(1)}" ` +
-        `stroke-linejoin="round" paint-order="stroke fill">${glyphs}</text>`
-      );
-    })
-    .join('');
-
-  return (
-    `<g data-caption-effect="calligraphy" filter="url(#captionShadow)" ` +
-    `transform="rotate(${tilt.toFixed(2)} 512 ${(top + layout.height / 2).toFixed(1)})">${rows}</g>`
-  );
+  // 절차적 SVG 대사도 레이어 렌더러와 같은 스타일(테두리·그라데이션·붓 밑줄)로 그린다.
+  const layer: TextLayer = {
+    id: 'sticker-line',
+    text,
+    style: 'calli',
+    bubble: 'none',
+    effect: 'none',
+    x: 0.5,
+    y: (top + probe.height / 2) / 1024,
+    size: wanted / 1024,
+    color: '',
+    rotate: tilt,
+  };
+  const { defs, body } = renderTextLayersWithDefs([layer], spec.emotion, 'sticker');
+  return `<defs>${defs}</defs>${body}`;
 }
-
 
 function escapeXml(s: string) {
   return s

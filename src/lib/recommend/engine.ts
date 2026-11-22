@@ -201,7 +201,8 @@ export function analyzeConversation(raw: string): ReplyResult {
           : '분위기를 바꾸는 리액션 카드',
     intensity: t.emotion === 'king' ? 92 : t.emotion === 'laugh' ? 84 : 62,
     prop: t.category === 'food' ? 'coffee' : t.category === 'work' ? 'laptop' : t.emotion === 'love' ? 'heart' : 'none',
-    background: t.emotion === 'king' ? 'pink' : t.emotion === 'sad' || t.emotion === 'cry' ? 'sky' : 'cream',
+    // 새로 만들어지는 컷의 기본 배경은 투명(누끼) — 색 배경은 편집기에서 고른다.
+    background: 'transparent',
   }));
 
   // 후보가 3개 미만이면 만능 컷으로 채움
@@ -217,7 +218,7 @@ export function analyzeConversation(raw: string): ReplyResult {
         why: '어디에나 안전한 만능 컷',
         intensity: 60,
         prop: 'none',
-        background: 'cream',
+        background: 'transparent',
       });
     }
   }

@@ -10,10 +10,11 @@ import type { Emotion } from '@/lib/types';
 import type { TextLayerStyle } from '@/lib/studio/layers';
 
 /** 번들 폰트 키 — 각 키는 public/fonts 의 실제 폰트 파일과 1:1로 대응한다. */
-export type CaptionFace = 'calli' | 'hand' | 'gothic' | 'bold' | 'serif';
+export type CaptionFace = 'calli' | 'brush' | 'hand' | 'gothic' | 'bold' | 'serif';
 
 export const CAPTION_FONT_FILES: Record<CaptionFace, string> = {
   calli: '/fonts/EmotiHakCalli.woff2',
+  brush: '/fonts/EmotiHakBrush.woff2',
   hand: '/fonts/EmotiHakHand.woff2',
   gothic: '',
   bold: '',
@@ -22,7 +23,8 @@ export const CAPTION_FONT_FILES: Record<CaptionFace, string> = {
 
 /** CSS font-family 이름 (페이지 @font-face 와 SVG 임베드가 같은 이름을 쓴다) */
 export const CAPTION_FONT_FAMILIES: Record<CaptionFace, string> = {
-  calli: '"EmotiHak Calli", "Nanum Pen Script", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+  calli: '"EmotiHak Calli", "Bagel Fat One", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+  brush: '"EmotiHak Brush", "Yeon Sung", "EmotiHak Hand", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
   hand: '"EmotiHak Hand", "Gaegu", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
   gothic: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
   bold: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
@@ -44,6 +46,20 @@ const SINGLE_DAY_ASCII = [
   48, 34, 38, 45, 31, 61, 44, 39, 38, 37, 41, 36, 43, 46, 43, 59, 43, 41, 46, 40, 32, 40, 58,
 ];
 
+const BAGEL_ASCII = [
+  18, 43, 45, 81, 64, 79, 72, 27, 44, 44, 50, 66, 30, 52, 30, 42, 62, 47, 62, 60, 69, 61, 59, 60,
+  64, 59, 36, 36, 63, 54, 63, 52, 85, 71, 64, 66, 66, 61, 59, 71, 67, 28, 58, 64, 60, 83, 69, 71,
+  63, 71, 64, 64, 68, 66, 70, 93, 68, 70, 62, 40, 42, 40, 45, 54, 40, 55, 57, 52, 58, 53, 44, 55,
+  55, 24, 26, 60, 24, 80, 55, 56, 59, 57, 48, 54, 52, 55, 54, 82, 56, 55, 53, 51, 29, 51, 62,
+];
+
+const YEONSUNG_ASCII = [
+  30, 31, 39, 66, 56, 74, 62, 23, 29, 24, 46, 60, 24, 42, 25, 33, 56, 37, 49, 48, 50, 45, 49, 44,
+  45, 46, 28, 28, 49, 60, 50, 50, 80, 51, 54, 54, 59, 47, 46, 64, 54, 36, 44, 51, 49, 66, 61, 66,
+  50, 71, 56, 49, 48, 60, 52, 76, 57, 50, 48, 32, 33, 33, 49, 50, 24, 51, 53, 44, 50, 44, 39, 47,
+  51, 22, 26, 47, 25, 68, 46, 48, 53, 50, 35, 41, 35, 51, 42, 63, 45, 46, 42, 39, 22, 39, 56,
+];
+
 const GAEGU_ASCII = [
   42, 44, 44, 73, 67, 76, 75, 32, 44, 44, 55, 62, 35, 62, 34, 46, 57, 43, 52, 53, 55, 49, 48, 48,
   54, 51, 35, 35, 45, 62, 45, 54, 76, 54, 57, 55, 57, 49, 50, 62, 63, 38, 39, 54, 45, 71, 61, 57,
@@ -52,7 +68,8 @@ const GAEGU_ASCII = [
 ];
 
 const FACE_METRICS: Record<CaptionFace, FaceMetrics> = {
-  calli: { hangul: 80.5, ascii: SINGLE_DAY_ASCII, fallback: 90 },
+  calli: { hangul: 87.1, ascii: BAGEL_ASCII, fallback: 92 },
+  brush: { hangul: 67.2, ascii: YEONSUNG_ASCII, fallback: 84 },
   hand: { hangul: 82, ascii: GAEGU_ASCII, fallback: 90 },
   gothic: { hangul: 100, ascii: Array.from({ length: 95 }, () => 56), fallback: 100 },
   bold: { hangul: 100, ascii: Array.from({ length: 95 }, () => 60), fallback: 100 },
@@ -79,6 +96,8 @@ export function captionFaceOf(style: TextLayerStyle | undefined): CaptionFace {
   switch (style) {
     case 'calli':
       return 'calli';
+    case 'brush':
+      return 'brush';
     case 'hand':
       return 'hand';
     case 'gothic':
@@ -92,33 +111,90 @@ export function captionFaceOf(style: TextLayerStyle | undefined): CaptionFace {
   }
 }
 
-/** 감정별 포인트 컬러 — 흰 외곽선 위에서 읽히는 진한 톤. */
+/**
+ * 감정별 포인트 컬러 — 흰 외곽선 위에서 읽히는 **깊이 있는 딥톤**.
+ * 원색 대신 명도를 낮추고 채도를 살짝 눌러 실제 판매용 이모티콘 레터링처럼 보이게 한다.
+ */
 export const EMOTION_INK: Record<Emotion, string> = {
-  joy: '#F2564B',
-  laugh: '#F5761A',
-  love: '#F0407A',
-  sad: '#3D7BD9',
-  cry: '#2E63B8',
-  angry: '#E03123',
-  king: '#C81E17',
-  sulk: '#6B5B8E',
-  tired: '#4C5A78',
-  surprised: '#E09607',
-  smug: '#1F7A5A',
-  blank: '#2B3240',
+  joy: '#D8443C',
+  laugh: '#D2680F',
+  love: '#D42F66',
+  sad: '#2F63B4',
+  cry: '#24509A',
+  angry: '#BE2A1E',
+  king: '#9E1418',
+  sulk: '#5A4C7E',
+  tired: '#3F4E6B',
+  surprised: '#BC7A05',
+  smug: '#166B4E',
+  blank: '#232A36',
 };
+
+/** 글자 그라데이션의 위쪽(빛 받는) 톤 — 잉크에서 밝기만 올린 값. */
+export const EMOTION_INK_LIGHT: Record<Emotion, string> = {
+  joy: '#F08A6C',
+  laugh: '#F0A24A',
+  love: '#F27A9C',
+  sad: '#5E93D9',
+  cry: '#4E7EC2',
+  angry: '#DE6A4E',
+  king: '#D0413C',
+  sulk: '#8A7BB0',
+  tired: '#71809E',
+  surprised: '#E9AE3C',
+  smug: '#3F9A76',
+  blank: '#4C5766',
+};
+
+/** #rrggbb 두 색을 섞는다(t=0 → a, t=1 → b). */
+export function mixHex(a: string, b: string, t: number): string {
+  const parse = (hex: string) => {
+    const m = /^#?([0-9a-fA-F]{6})$/.exec(hex.trim());
+    const n = m ? parseInt(m[1], 16) : 0;
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255] as const;
+  };
+  const [r1, g1, b1] = parse(a);
+  const [r2, g2, b2] = parse(b);
+  const k = Math.max(0, Math.min(1, t));
+  const to = (x: number, y: number) => Math.round(x + (y - x) * k).toString(16).padStart(2, '0');
+  return `#${to(r1, r2)}${to(g1, g2)}${to(b1, b2)}`;
+}
 
 /** 저장된 레이어 색이 기본 잉크(#191512)면 감정 컬러를, 사용자가 고른 색이면 그 색을 쓴다. */
 export const LEGACY_INK = '#191512';
 
-export function inkFor(emotion: Emotion | undefined, color?: string): string {
+function customInk(color?: string): string | null {
   const custom = String(color ?? '').trim();
   if (custom && custom.toLowerCase() !== LEGACY_INK && /^#[0-9a-fA-F]{6}$/.test(custom)) return custom;
-  return EMOTION_INK[(emotion ?? 'blank') as Emotion] ?? EMOTION_INK.blank;
+  return null;
+}
+
+export function inkFor(emotion: Emotion | undefined, color?: string): string {
+  return customInk(color) ?? EMOTION_INK[(emotion ?? 'blank') as Emotion] ?? EMOTION_INK.blank;
+}
+
+/**
+ * 레터링 색 세트 — 캔버스와 SVG 가 같은 값을 쓴다.
+ *  · ink: 아래쪽(진한) 채움   · inkLight: 위쪽 하이라이트 채움
+ *  · ring: 흰 테두리와 글자 사이의 얇은 톤 링   · underline: 붓 밑줄 색
+ */
+export function inkTonesFor(emotion: Emotion | undefined, color?: string) {
+  const custom = customInk(color);
+  const key = (emotion ?? 'blank') as Emotion;
+  const ink = custom ?? EMOTION_INK[key] ?? EMOTION_INK.blank;
+  const inkLight = custom ? mixHex(custom, '#FFFFFF', 0.34) : EMOTION_INK_LIGHT[key] ?? EMOTION_INK_LIGHT.blank;
+  return {
+    ink,
+    inkLight,
+    ring: mixHex(ink, '#FFF6E8', 0.55),
+    underline: mixHex(ink, '#FFFFFF', 0.12),
+  };
 }
 
 export interface CaptionGlyph {
   ch: string;
+  /** 이 글자만의 크기(px). 없으면 줄 크기를 쓴다 — 강조 단어에서만 다르다. */
+  size?: number;
   /** 줄 시작(0)부터 글자 상자의 중심까지 거리(px) */
   x: number;
   advance: number;
@@ -300,13 +376,28 @@ export function layoutCaption(
     const glyphs: CaptionGlyph[] = [];
     let cursor = 0;
     let glyphIndex = 0;
+    // 단어 리듬: 마지막 단어(보통 결론·행동)를 살짝 키워 강약을 만든다.
+    const words = lineText.split(' ').filter((w) => w.length > 0);
+    const punch = words.length >= 2 ? words[words.length - 1] : '';
+    let wordIndex = -1;
+    let inWord = false;
     for (const ch of lineText) {
-      const advance = charAdvance(ch, lineSize, face);
       const isSpace = ch === ' ';
+      if (!isSpace && !inWord) {
+        wordIndex += 1;
+        inWord = true;
+      } else if (isSpace) {
+        inWord = false;
+      }
+      const word = wordIndex >= 0 ? words[wordIndex] : '';
+      const boost = punch && word === punch && lineSize >= 24 ? 1.07 : 1;
+      const glyphSize = lineSize * boost;
+      const advance = charAdvance(ch, glyphSize, face);
       const jitter = isSpace ? 0 : (noise(seed, lineIndex * 64 + glyphIndex) - 0.5) * 2 * tilt;
       const wave = isSpace ? 0 : (noise(seed + 977, lineIndex * 64 + glyphIndex) - 0.5) * 2 * lineSize * 0.014;
       glyphs.push({
         ch,
+        ...(boost !== 1 ? { size: Number(glyphSize.toFixed(2)) } : {}),
         x: cursor + advance / 2,
         advance,
         angle: Number(jitter.toFixed(2)),
@@ -330,7 +421,8 @@ export function layoutCaption(
 
 /** 흰 외곽선 두께 (글자 크기 대비) */
 export const CAPTION_OUTLINE: Record<CaptionFace, number> = {
-  calli: 0.18,
+  calli: 0.15,
+  brush: 0.2,
   hand: 0.18,
   gothic: 0.16,
   bold: 0.2,
@@ -343,7 +435,8 @@ export const CAPTION_OUTLINE: Record<CaptionFace, number> = {
  * 카톡 이모티콘 특유의 두툼한 레터링을 만든다.
  */
 export const CAPTION_BOLD: Record<CaptionFace, number> = {
-  calli: 0.1,
+  calli: 0.02,
+  brush: 0.08,
   hand: 0.06,
   gothic: 0,
   bold: 0,
