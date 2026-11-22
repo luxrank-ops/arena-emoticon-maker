@@ -249,7 +249,7 @@ export function effectKindOfEffectText(effectText: string): EffectKind {
 }
 
 function bubbleFor(_emotion: Emotion): BubbleStyle {
-  // 기본은 말풍선 없이 캘리그라피 글자만 — 박스형 말풍선은 편집기에서 고르는 옵션이다.
+  // 말풍선 박스는 그리지 않는다 — 화면·다운로드 모두 캘리그라피 글자만 남긴다.
   return 'none';
 }
 

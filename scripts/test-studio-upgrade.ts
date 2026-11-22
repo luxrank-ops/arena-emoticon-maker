@@ -16,7 +16,6 @@ import {
 import { applyMask, applyWhiteOutline, computeAlphaMask } from '../src/lib/studio/matte';
 import { apngFrameCount, assembleApng, crc32, isApng, parsePngChunks, readPngHeader } from '../src/lib/studio/apng';
 import {
-  LAYER_BUBBLES,
   LAYER_EFFECTS,
   MAX_LAYERS,
   TEXT_STYLES,
@@ -124,10 +123,10 @@ assert.throws(() => assembleApng([], 80), /프레임/);
 const layer = normalizeLayer({ text: '퇴근합니다', style: 'stamp', bubble: 'caption', effect: 'sparkle', x: 2, y: -1, size: 9, rotate: 900, color: 'bad' }, 0);
 check('레이어 좌표·크기·회전을 범위 안으로 자른다', layer.x === 0.92 && layer.y === 0.08 && layer.size === 0.34 && layer.rotate === 35);
 check('잘못된 색은 기본색으로', layer.color === '#191512');
-check('스타일·말풍선·이펙트 유지', layer.style === 'stamp' && layer.bubble === 'caption' && layer.effect === 'sparkle');
+check('스타일·이펙트 유지(말풍선은 항상 없음)', layer.style === 'stamp' && layer.bubble === 'none' && layer.effect === 'sparkle');
 check('빈 텍스트 레이어는 제거', normalizeLayers([{ text: '  ' }, { text: '안녕' }]).length === 1);
 check('레이어 최대 4장', normalizeLayers(Array.from({ length: 9 }, (_, i) => ({ text: `레이어${i}`, style: 'hand' }))).length === MAX_LAYERS);
-check('글꼴 5종(캘리그라피 우선) · 말풍선 5종 · 이펙트 7종', TEXT_STYLES.length === 5 && TEXT_STYLES[0].id === 'calli' && LAYER_BUBBLES.length === 5 && LAYER_EFFECTS.length === 7);
+check('글꼴 5종(캘리그라피 우선) · 이펙트 7종', TEXT_STYLES.length === 5 && TEXT_STYLES[0].id === 'calli' && LAYER_EFFECTS.length === 7);
 const fromLine = layerFromLine('확인했습니다');
 check('대사 → 기본 레이어 생성(캘리그라피, 말풍선 없음)', !!fromLine && fromLine.text === '확인했습니다' && fromLine.bubble === 'none' && fromLine.style === 'calli');
 check('빈 대사는 레이어 없음', layerFromLine('   ') === null);
@@ -157,7 +156,7 @@ check('타이포는 글자 없는 생성 + 기본 도장 레이어', packFormatB
 const combo = packFormatById('combo')!;
 check('콤보는 위/아래 짝이 서로를 가리킨다', combo.cuts.filter((c) => c.comboRole === 'top').every((c) => !!combo.cuts.find((o) => o.id === c.comboPair && o.comboRole === 'bottom')));
 check('콤보 짝 수가 짝이 아닌 컷과 일치', combo.cuts.length === combo.cuts.filter((c) => c.comboRole === 'top').length * 2);
-check('패러디 컷에 자막 바 기본 레이어', packFormatById('parody')!.cuts[0].textLayer?.bubble === 'caption');
+check('패러디 첫 컷은 앱이 합성하는 굵은체 레이어', packFormatById('parody')!.cuts[0].textLayer?.style === 'bold');
 check('알 수 없는 형태는 undefined', packFormatById('nope') === undefined);
 
 // ── 6. 고정 캐릭터 디자인 시트 ─────────────────────────────
