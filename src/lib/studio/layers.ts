@@ -8,10 +8,13 @@
 import type { Emotion } from '@/lib/types';
 import { CAPTION_FONT_FAMILIES, CAPTION_OUTLINE, type CaptionLine } from '@/lib/studio/caption';
 import { planCaption } from '@/lib/studio/caption-plan';
+import { drawDecor, planDecor } from '@/lib/studio/decor';
 
 export type TextLayerStyle = 'calli' | 'brush' | 'hand' | 'gothic' | 'bold' | 'stamp';
 export type BubbleStyle = 'none' | 'round' | 'shout' | 'caption' | 'tape';
 export type EffectKind = 'none' | 'sweat' | 'heart' | 'sparkle' | 'anger' | 'money' | 'flame';
+/** 상황별 복합 데코 — 문구·감정·이펙트에 맞춰 자동('auto') 또는 끔('off') */
+export type DecorMode = 'auto' | 'off';
 
 export interface TextLayer {
   id: string;
@@ -20,6 +23,8 @@ export interface TextLayer {
   /** 레거시 필드 — 말풍선 박스는 그리지 않는다(화면·내보내기 모두 글자만). 저장 호환용. */
   bubble: BubbleStyle;
   effect: EffectKind;
+  /** 글자 옆에 붙는 상황별 복합 데코 (기본 auto — 저장값이 없어도 켜진다) */
+  decor?: DecorMode;
   /** 캔버스 기준 중심 좌표 (0~1) */
   x: number;
   y: number;
@@ -127,6 +132,7 @@ export function normalizeLayer(input: Partial<TextLayer> | null | undefined, ind
   //  · 예전에 저장된 레이어(bubble: 'round' 등)도 다운로드에 박스가 찍히지 않도록 'none' 으로 통일한다.
   const bubble: BubbleStyle = 'none';
   const effect = effectById(input?.effect).id;
+  const decor: DecorMode = input?.decor === 'off' ? 'off' : 'auto';
   const text = String(input?.text ?? '').slice(0, 24);
   return {
     id: String(input?.id ?? `layer-${index}`).slice(0, 40),
@@ -134,6 +140,7 @@ export function normalizeLayer(input: Partial<TextLayer> | null | undefined, ind
     style,
     bubble,
     effect,
+    decor,
     x: clamp(Number.isFinite(input?.x) ? Number(input!.x) : 0.5, 0.08, 0.92),
     y: clamp(Number.isFinite(input?.y) ? Number(input!.y) : 0.86, 0.08, 0.94),
     size: clamp(Number.isFinite(input?.size) ? Number(input!.size) : 0.13, 0.05, 0.34),
@@ -207,9 +214,26 @@ export function drawLayer(
   const fontSize = Math.max(8, layer.size * size);
   const padding = fontSize * 0.42;
 
+  // 상황별 복합 데코 — 글자 블록과 같은 회전·크기로, 글자 바로 옆에 붙여 그린다.
+  //  (뒤에서 그려 글자의 흰 외곽선이 데코 위를 깔끔하게 정리한다)
+  const decor = planDecor({
+    text: layer.text,
+    emotion: opts.emotion,
+    effect: layer.effect,
+    width: plan.width,
+    height: plan.height,
+    fontSize: plan.size,
+    x: plan.x,
+    y: plan.y,
+    rotate: plan.rotate,
+    canvas: size,
+    enabled: layer.decor !== 'off',
+  });
+
   ctx.save();
   ctx.translate(plan.x, plan.y);
   ctx.rotate((plan.rotate * Math.PI) / 180);
+  if (decor.length) drawDecor(ctx, decor);
   ctx.font = `${style.weight} ${fontSize}px ${style.font}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
@@ -298,10 +322,6 @@ export function drawLayer(
     ctx.restore();
   }
   ctx.restore();
-
-  if (layer.effect !== 'none') {
-    drawEffect(ctx, layer.effect, plan.x, plan.y, Math.max(plan.width, plan.height) / 2 + fontSize * 0.5, size);
-  }
 }
 
 function drawGlyphs(
