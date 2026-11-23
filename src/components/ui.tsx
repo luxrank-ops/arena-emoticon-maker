@@ -20,8 +20,8 @@ export function Progress({ value, total, className }: { value: number; total: nu
 export function Stat({ label, value, hint }: { label: string; value: ReactNode; hint?: string }) {
   return (
     <div className="card-flat p-4">
-      <p className="text-xs font-bold text-sub">{label}</p>
-      <p className="mt-1 text-2xl font-black tracking-tight">{value}</p>
+      <p className="text-[10px] font-black uppercase tracking-[0.14em] text-sub/80">{label}</p>
+      <p className="mt-1 text-2xl font-extrabold tracking-[-0.03em]">{value}</p>
       {hint ? <p className="mt-1 text-[11px] text-sub">{hint}</p> : null}
     </div>
   );
@@ -40,11 +40,9 @@ export function SectionHead({
 }) {
   return (
     <div className={clsx('max-w-2xl', align === 'center' && 'mx-auto text-center')}>
-      {eyebrow ? (
-        <span className="chip mb-3 !border-ink/20 !bg-lemon/40 !text-ink">{eyebrow}</span>
-      ) : null}
+      {eyebrow ? <p className={clsx('eyebrow mb-2', align === 'center' && 'text-center')}>{eyebrow}</p> : null}
       <h2 className="h2">{title}</h2>
-      {desc ? <p className="mt-3 text-[15px] leading-relaxed text-sub">{desc}</p> : null}
+      {desc ? <p className="mt-2.5 text-[15px] leading-relaxed text-sub">{desc}</p> : null}
     </div>
   );
 }
@@ -59,13 +57,13 @@ export function Callout({
   children?: ReactNode;
 }) {
   const styles = {
-    info: 'border-sky/60 bg-sky/10',
-    warn: 'border-coral/50 bg-coral/10',
-    good: 'border-mint/50 bg-mint/10',
+    info: 'border-primary/20 bg-primary/[0.05]',
+    warn: 'border-hot/25 bg-hot/[0.07]',
+    good: 'border-mint/25 bg-mint/[0.07]',
   }[tone];
   return (
-    <div className={clsx('rounded-2xl border-2 p-4 text-sm leading-relaxed', styles)}>
-      <p className="font-black">{title}</p>
+    <div className={clsx('rounded-[1.15rem] border p-4 text-sm leading-relaxed', styles)}>
+      <p className="font-extrabold tracking-[-0.01em]">{title}</p>
       <div className="mt-1 text-ink/80">{children}</div>
     </div>
   );

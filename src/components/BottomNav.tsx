@@ -64,12 +64,15 @@ export function BottomNav({ locale }: { locale: Locale }) {
             role="dialog"
             aria-modal="true"
             aria-label={t('전체메뉴', 'All menus')}
-            className="absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-3xl border-t border-line bg-paper pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-18px_40px_-24px_rgba(26,35,126,0.7)]"
+            className="absolute inset-x-0 bottom-0 max-h-[86vh] overflow-y-auto rounded-t-[1.75rem] border-t border-white/70 bg-paper/95 pb-[calc(env(safe-area-inset-bottom)+1rem)] shadow-[0_-24px_60px_-28px_rgba(53,25,120,0.55)] backdrop-blur-xl"
           >
-            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-3xl border-b border-line bg-paper/95 px-4 py-3 backdrop-blur">
+            <div className="sticky top-0 z-10 flex items-center justify-between gap-2 rounded-t-[1.75rem] border-b border-line/70 bg-paper/90 px-4 py-3 backdrop-blur-xl">
               <div className="min-w-0">
-                <p className="text-base font-black leading-tight">{t('전체메뉴', 'All menus')}</p>
-                <p className="mt-0.5 text-[11px] font-semibold text-sub">{t('하고 싶은 일을 고르면 바로 이동해요', 'Pick what you want to do')}</p>
+                <p className="flex items-center gap-2 text-base font-extrabold leading-tight tracking-[-0.02em]">
+                  <span aria-hidden="true" className="h-4 w-1 rounded-full brand-gradient" />
+                  {t('전체메뉴', 'All menus')}
+                </p>
+                <p className="mt-1 text-[11px] font-semibold text-sub">{t('하고 싶은 일을 고르면 바로 이동해요', 'Pick what you want to do')}</p>
               </div>
               <button
                 type="button"
@@ -90,14 +93,19 @@ export function BottomNav({ locale }: { locale: Locale }) {
                       href={localizedPath(locale, entry.href)}
                       onClick={() => setMenuOpen(false)}
                       aria-current={active ? 'page' : undefined}
-                      className={`flex h-full items-start gap-2.5 rounded-2xl border p-3 transition active:scale-[0.99] ${
-                        active ? 'border-primary/40 bg-primary/5' : 'border-line bg-white'
+                      className={`group flex h-full items-start gap-2.5 rounded-[1.15rem] border p-3 transition active:scale-[0.99] ${
+                        active ? 'border-primary/40 bg-primary/[0.06]' : 'border-line/80 bg-white hover:border-primary/30 hover:bg-primary/[0.03]'
                       }`}
                     >
-                      <span aria-hidden="true" className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-cream text-lg">{entry.emoji}</span>
+                      <span
+                        aria-hidden="true"
+                        className="grid h-9 w-9 shrink-0 place-items-center rounded-[0.85rem] bg-gradient-to-br from-primary/[0.12] to-hot/[0.12] text-lg"
+                      >
+                        {entry.emoji}
+                      </span>
                       <span className="min-w-0">
-                        <span className="block truncate text-[13px] font-black leading-tight">{locale === 'en' ? entry.en : entry.ko}</span>
-                        <span className="mt-0.5 block text-[11px] leading-snug text-sub">{locale === 'en' ? entry.descEn : entry.descKo}</span>
+                        <span className="block break-keep text-[13px] font-black leading-tight">{locale === 'en' ? entry.en : entry.ko}</span>
+                        <span className="mt-0.5 block break-keep text-[11px] leading-snug text-sub">{locale === 'en' ? entry.descEn : entry.descKo}</span>
                       </span>
                     </Link>
                   </li>
@@ -110,7 +118,7 @@ export function BottomNav({ locale }: { locale: Locale }) {
 
       <nav
         aria-label={locale === 'en' ? 'Main sections' : '주요 화면 바로가기'}
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-paper/95 shadow-[0_-10px_28px_-22px_rgba(26,35,126,0.55)] backdrop-blur lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 border-t border-line/80 bg-white/90 shadow-[0_-14px_34px_-24px_rgba(53,25,120,0.45)] backdrop-blur-xl lg:hidden"
         style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       >
         <ul className="mx-auto grid max-w-lg grid-cols-5">
@@ -120,15 +128,19 @@ export function BottomNav({ locale }: { locale: Locale }) {
             const label = navLabel(item, locale);
             const inner = (
               <>
-                <span className={`grid h-6 w-11 place-items-center rounded-full transition ${active ? 'bg-primary/10' : ''}`}>
-                  <Icon className="h-[21px] w-[21px]" strokeWidth={active ? 2.4 : 1.9} aria-hidden="true" />
+                <span
+                  className={`grid h-6 w-11 place-items-center rounded-full transition ${
+                    active ? 'brand-gradient text-white shadow-[0_6px_14px_-8px_rgba(110,41,245,0.9)]' : ''
+                  }`}
+                >
+                  <Icon className="h-[19px] w-[19px]" strokeWidth={active ? 2.4 : 1.9} aria-hidden="true" />
                 </span>
                 <span className={`w-full truncate text-center text-[11px] leading-none ${active ? 'font-extrabold' : 'font-semibold'}`}>
                   {item.key === 'menu' ? `${label}` : label}
                 </span>
               </>
             );
-            const className = `flex h-[3.375rem] flex-col items-center justify-center gap-0.5 px-1 transition active:bg-cream ${
+            const className = `flex h-[3.375rem] flex-col items-center justify-center gap-1 px-1 transition active:bg-cream ${
               active ? 'text-primary-dark' : 'text-sub'
             }`;
 

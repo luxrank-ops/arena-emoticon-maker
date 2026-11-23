@@ -105,14 +105,14 @@ for (const href of ['/studio/photo', '/studio/upload', '/quotes', '/presets', '/
 }
 const headerSource = read('src/components/SiteHeader.tsx');
 check('상단 탭과 하단 바가 같은 목록을 공유', headerSource.includes('SiteNav') && read('src/components/SiteNav.tsx').includes('headerNav'));
-check('모바일 상단 보조 탭 줄을 감춤(데스크톱만 유지)', /nav[^>]*className="hidden border-t border-white\/10 lg:block"/.test(headerSource));
+check('모바일 상단 보조 탭 줄을 감춤(데스크톱만 유지)', /<nav[\s\S]{0,220}?className="hidden[^"]*lg:block"/.test(headerSource));
 check('상단 가로 스크롤 제거', !headerSource.includes('overflow-x-auto'));
 const createHub = read('src/app/studio/page.tsx');check('만들기 허브가 3가지 제작 방식을 안내', createHub.includes("'/studio/photo'") && createHub.includes("'/studio/upload'") && createHub.includes("'/quotes'") && createHub.includes("'/presets'"));
 check('만들기 허브에 내 사진 바로 스티커·AI 캐릭터·대사/드립 카드', createHub.includes('내 사진 바로 스티커') && createHub.includes('AI 캐릭터로 새로 그리기') && createHub.includes('대사·드립 프리셋으로 만들기'));
 check('하단 만들기 탭이 허브(/studio)로 연결', /create: \{ key: 'create', href: '\/studio'/.test(navSource));
 check('홈이 바로가기 4카드로 정리됨', home.includes('내 사진 바로 스티커') && home.includes('AI 캐릭터 이모티콘') && home.includes('오늘 쓸 톡 답장') && home.includes('내 이모티콘·굿즈'));
 check('홈 바로가기가 핵심 4개 화면으로 이동', ['/studio/photo', '/studio/upload', '/reply', '/studio/packs'].every((href) => home.includes(`href: '${href}'`) || home.includes(`"${href}"`)));
-check('서비스 워커 캐시 버전 갱신', /const CACHE = 'emotihak-static-v4'/.test(read('public/sw.js')));
+check('서비스 워커 캐시 버전 갱신', /const CACHE = 'emotihak-static-v5'/.test(read('public/sw.js')));
 const manifestSource = JSON.parse(read('public/manifest.webmanifest'));
 check('매니페스트 첫 화면(start_url)이 홈(/)', manifestSource.start_url === '/');
 check('매니페스트 바로가기에 홈·만들기·내 팩이 있음', (manifestSource.shortcuts ?? []).map((s) => s.url).join(',').includes('/studio/upload'));

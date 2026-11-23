@@ -5,21 +5,26 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        cream: '#F8F9FA',
+        cream: '#FAF8FF',
         paper: '#FFFFFF',
-        ink: '#212121',
-        sub: '#757575',
-        line: '#E0E0E0',
-        primary: '#7C4DFF',
-        'primary-dark': '#5E35B1',
-        cyber: '#1A237E',
+        ink: '#17102B',
+        sub: '#6C6580',
+        line: '#ECE6F7',
+        primary: '#6E29F5',
+        'primary-dark': '#521FCC',
+        cyber: '#150C2B',
         // Legacy semantic aliases keep existing flows consistent during the brand migration.
-        coral: '#7C4DFF',
-        coralink: '#5E35B1',
-        mint: '#16865C',
-        lilac: '#7C4DFF',
+        // (coral/lilac now resolve to the studio violet so every screen shares one accent.)
+        coral: '#6E29F5',
+        coralink: '#521FCC',
+        mint: '#0E9F6E',
+        lilac: '#A78BFA',
         lemon: '#EDE4FF',
-        sky: '#9A83FF',
+        sky: '#8B7BF7',
+        // 2026 sticker-studio accents used in gradients and stamps.
+        hot: '#FF4D8D',
+        apricot: '#FF9F5A',
+        grape: '#2A1E45',
       },
       fontFamily: {
         sans: [
@@ -35,10 +40,12 @@ const config: Config = {
         ],
       },
       boxShadow: {
-        card: '0 10px 28px -20px rgba(26,35,126,0.42)',
-        pop: '0 24px 60px -24px rgba(26,35,126,0.42)',
-        soft: '0 18px 40px -24px rgba(26,35,126,0.36)',
-        cta: '0 8px 20px -12px rgba(124,77,255,0.75)',
+        card: '0 1px 2px rgba(23,16,43,0.04), 0 14px 30px -22px rgba(53,25,120,0.28)',
+        pop: '0 2px 6px rgba(23,16,43,0.05), 0 26px 54px -26px rgba(53,25,120,0.38)',
+        soft: '0 20px 44px -26px rgba(53,25,120,0.30)',
+        cta: '0 12px 26px -12px rgba(110,41,245,0.55)',
+        glow: '0 22px 60px -28px rgba(255,77,141,0.45), 0 10px 30px -24px rgba(110,41,245,0.55)',
+        sticker: '0 3px 8px rgba(23,16,43,0.06), 0 26px 60px -30px rgba(53,25,120,0.55)',
       },
       borderRadius: { xl2: '1.25rem' },
       keyframes: {
@@ -53,6 +60,7 @@ const config: Config = {
         'sheet-up': { '0%': { transform: 'translateY(100%)' }, '100%': { transform: 'translateY(0)' } },
         'tip-fade': { '0%': { transform: 'translateY(4px)', opacity: '0' }, '100%': { transform: 'translateY(0)', opacity: '1' } },
         'scan-y': { '0%,100%': { transform: 'translateY(-18px)', opacity: '.45' }, '50%': { transform: 'translateY(24px)', opacity: '1' } },
+        'float-slow': { '0%,100%': { transform: 'translateY(0) rotate(var(--tw-rotate, 0deg))' }, '50%': { transform: 'translateY(-10px) rotate(var(--tw-rotate, 0deg))' } },
       },
       animation: {
         floaty: 'floaty 4s ease-in-out infinite',
@@ -66,6 +74,7 @@ const config: Config = {
         'sheet-up': 'sheet-up .25s cubic-bezier(0.22,1,0.36,1) both',
         'tip-fade': 'tip-fade .3s ease-out both',
         'scan-y': 'scan-y 2.2s ease-in-out infinite',
+        'float-slow': 'float-slow 7s ease-in-out infinite',
       },
     },
   },

@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { BUSINESS } from '@/lib/business';
+import { BrandMark } from '@/components/BrandMark';
 import { getLocale } from '@/lib/i18n/server';
 import { localizedPath, tr } from '@/lib/i18n/locale';
 
@@ -15,10 +16,13 @@ export async function SiteFooter() {
     { href: '/creator', ko: '작가 신청', en: 'Creator program' },
   ];
   return (
-    <footer className="mt-16 border-t-2 border-line bg-paper">
+    <footer className="mt-16 border-t border-line/70 bg-white/60 backdrop-blur">
       <div className="wrap flex flex-col gap-5 py-10 text-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
-          <p className="font-black">🙂 {tr(locale, '이모티학', 'EmotiHak')}</p>
+          <p className="flex items-center gap-2 font-extrabold tracking-[-0.03em]">
+            <BrandMark idSuffix="footer" className="h-6 w-6" />
+            {tr(locale, '이모티학', 'EmotiHak')}
+          </p>
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold text-sub">
             {links.filter((item) => locale === 'ko' || item.href !== '/creator').map((item) => <Link key={item.href} href={lp(item.href)} className="hover:text-ink">{tr(locale, item.ko, item.en)}</Link>)}
           </div>

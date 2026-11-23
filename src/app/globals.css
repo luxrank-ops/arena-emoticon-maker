@@ -31,31 +31,43 @@
 }
 
 :root {
-  --ink: #212121;
-  --cream: #f8f9fa;
-  --primary: #7c4dff;
-  --cyber: #1a237e;
+  --ink: #17102b;
+  --cream: #faf8ff;
+  --primary: #6e29f5;
+  --primary-dark: #521fcc;
+  --hot: #ff4d8d;
+  --apricot: #ff9f5a;
+  --cyber: #150c2b;
+  --brand-gradient: linear-gradient(135deg, #7c3aed 0%, #6e29f5 42%, #a855f7 72%, #ff4d8d 100%);
+  --brand-gradient-soft: linear-gradient(135deg, rgba(124, 58, 237, 0.12) 0%, rgba(255, 77, 141, 0.1) 100%);
 }
 
 html,
 body {
-  background: var(--cream);
+  background-color: var(--cream);
   color: var(--ink);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
 
+/* 화면 전체에 은은한 스튜디오 조명 — 순백 대신 라벤더·선셋 메시. */
 body {
   font-family: 'Pretendard Variable', Pretendard, -apple-system, BlinkMacSystemFont, system-ui,
     Roboto, 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
   font-size: 16px;
   line-height: 1.5;
   letter-spacing: -0.01em;
+  background-image:
+    radial-gradient(58% 38% at 8% -6%, rgba(139, 92, 246, 0.1), transparent 62%),
+    radial-gradient(46% 34% at 96% 0%, rgba(255, 77, 141, 0.09), transparent 64%),
+    radial-gradient(70% 42% at 50% 104%, rgba(255, 159, 90, 0.06), transparent 70%);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
 }
 
 ::selection {
-  background: #e4d9ff;
-  color: #1a237e;
+  background: #eee0ff;
+  color: #4c1d95;
 }
 
 @layer utilities {
@@ -63,48 +75,127 @@ body {
     @apply mx-auto w-full max-w-6xl px-4 sm:px-8;
   }
   .card {
-    @apply rounded-2xl border border-transparent bg-paper shadow-card;
+    @apply rounded-[1.4rem] border border-line/80 bg-paper shadow-card;
   }
   .card-flat {
-    @apply rounded-2xl border border-line bg-paper;
+    @apply rounded-[1.25rem] border border-line bg-paper;
   }
   .btn {
-    @apply inline-flex select-none items-center justify-center gap-2 rounded-xl border border-transparent px-5 py-3 text-sm font-semibold leading-[1.3] transition duration-200 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50;
+    @apply inline-flex select-none items-center justify-center gap-2 rounded-full border border-transparent px-5 py-3 text-sm font-semibold leading-[1.3] transition duration-200 active:translate-y-px disabled:cursor-not-allowed disabled:opacity-50;
   }
   .btn-primary {
-    @apply btn bg-primary text-white shadow-cta hover:bg-primary-dark disabled:bg-line disabled:text-sub disabled:opacity-100 disabled:shadow-none;
+    @apply btn text-white shadow-cta hover:brightness-[1.06] disabled:bg-line disabled:bg-none disabled:text-sub disabled:opacity-100 disabled:shadow-none;
+    background-image: var(--brand-gradient);
   }
   .btn-dark {
-    @apply btn bg-cyber text-white shadow-soft hover:bg-[#111850] disabled:bg-line disabled:text-sub disabled:opacity-100 disabled:shadow-none;
+    @apply btn bg-cyber text-white shadow-soft hover:bg-[#241640] disabled:bg-line disabled:text-sub disabled:opacity-100 disabled:shadow-none;
   }
   .btn-ghost {
-    @apply btn border-line bg-paper text-ink hover:border-primary hover:text-primary-dark disabled:opacity-50;
+    @apply btn border-line bg-paper text-ink hover:border-primary/45 hover:text-primary-dark disabled:opacity-50;
   }
   .chip {
-    @apply inline-flex items-center gap-1 rounded-full border border-line bg-paper px-3 py-1 text-xs font-semibold leading-[1.3] text-sub;
+    @apply inline-flex items-center gap-1 rounded-full border border-line bg-paper/90 px-3 py-1 text-[11px] font-bold leading-[1.3] text-sub backdrop-blur;
   }
   .h1 {
-    @apply text-[2rem] font-bold leading-[1.4] tracking-[-0.025em] text-cyber sm:text-[2.25rem];
+    @apply text-[2rem] font-extrabold leading-[1.3] tracking-[-0.032em] text-ink sm:text-[2.4rem];
   }
   .h2 {
-    @apply text-[1.5rem] font-bold leading-[1.4] tracking-[-0.02em] text-cyber sm:text-[2rem];
+    @apply text-[1.5rem] font-extrabold leading-[1.35] tracking-[-0.028em] text-ink sm:text-[2rem];
   }
   .muted {
     @apply text-sub;
   }
+  /* 섹션 위 작은 라벨 — 여러 화면이 공유하는 상단 킥커 */
+  .eyebrow {
+    @apply text-[10px] font-black uppercase leading-none tracking-[0.16em] text-primary-dark/80;
+  }
   /* 투명 배경(누끼) 스티커를 화면에서 구분해 주는 은은한 체크무늬 캔버스 */
   .checker {
-    background-color: #fbfaf7;
+    background-color: #fbf9ff;
     background-image:
-      linear-gradient(45deg, rgba(124, 77, 255, 0.09) 25%, transparent 25%, transparent 75%, rgba(124, 77, 255, 0.09) 75%),
-      linear-gradient(45deg, rgba(124, 77, 255, 0.09) 25%, transparent 25%, transparent 75%, rgba(124, 77, 255, 0.09) 75%);
+      linear-gradient(45deg, rgba(110, 41, 245, 0.08) 25%, transparent 25%, transparent 75%, rgba(110, 41, 245, 0.08) 75%),
+      linear-gradient(45deg, rgba(110, 41, 245, 0.08) 25%, transparent 25%, transparent 75%, rgba(110, 41, 245, 0.08) 75%);
     background-size: 16px 16px;
     background-position: 0 0, 8px 8px;
   }
   .dot-grid {
-    background-image: radial-gradient(rgba(124, 77, 255, 0.2) 1.2px, transparent 1.2px);
+    background-image: radial-gradient(rgba(110, 41, 245, 0.18) 1.2px, transparent 1.2px);
     background-size: 18px 18px;
   }
+}
+
+/* ── 2026 스튜디오 브랜드 표면 ─────────────────────────────── */
+.brand-gradient {
+  background-image: var(--brand-gradient);
+}
+
+/* '이모티학'처럼 한 단어만 강조할 때 쓰는 그라데이션 글자 */
+.text-gradient {
+  background-image: linear-gradient(112deg, #6e29f5 0%, #a855f7 44%, #ff4d8d 96%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* 상단 헤더: 반투명 유리 + 아래로 흐르는 1px 그라데이션 헤어라인 */
+.header-surface {
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(22px) saturate(180%);
+  -webkit-backdrop-filter: blur(22px) saturate(180%);
+}
+.header-hairline::after {
+  content: '';
+  position: absolute;
+  inset-inline: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(110, 41, 245, 0) 0%,
+    rgba(110, 41, 245, 0.32) 24%,
+    rgba(255, 77, 141, 0.34) 62%,
+    rgba(255, 77, 141, 0) 100%
+  );
+}
+
+/* 홈·허브 상단의 메시 그라데이션 */
+.mesh-hero {
+  background-image:
+    radial-gradient(66% 78% at 6% 2%, rgba(139, 92, 246, 0.26) 0%, rgba(139, 92, 246, 0) 62%),
+    radial-gradient(54% 66% at 98% 4%, rgba(255, 77, 141, 0.22) 0%, rgba(255, 77, 141, 0) 64%),
+    radial-gradient(52% 62% at 62% 100%, rgba(255, 159, 90, 0.16) 0%, rgba(255, 159, 90, 0) 68%);
+}
+
+/* 홈 민무늬 배경 위에 얹는 아주 옅은 그리드 */
+.hero-grid {
+  background-image:
+    linear-gradient(to right, rgba(110, 41, 245, 0.06) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(110, 41, 245, 0.06) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(70% 70% at 50% 0%, #000 0%, transparent 78%);
+  -webkit-mask-image: radial-gradient(70% 70% at 50% 0%, #000 0%, transparent 78%);
+}
+
+/* 유리 카드 (헤더 칩·오버레이) */
+.glass {
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(170%);
+  -webkit-backdrop-filter: blur(18px) saturate(170%);
+}
+
+/* 스티커 콜라주 프레임 */
+.sticker-frame {
+  background: #ffffff;
+  border-radius: 1.6rem;
+  box-shadow: 0 3px 8px rgba(23, 16, 43, 0.06), 0 26px 60px -30px rgba(53, 25, 120, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.9);
+}
+
+/* 그라데이션 테두리 카드 (요금제 강조 등) */
+.gradient-ring {
+  background-image: var(--brand-gradient);
+  padding: 1.5px;
+  border-radius: 1.55rem;
 }
 
 /* 스티커(SVG) 렌더 컨테이너 */
@@ -121,7 +212,7 @@ select {
 }
 
 *:focus-visible {
-  outline: 3px solid #7c4dff;
+  outline: 3px solid #6e29f5;
   outline-offset: 3px;
 }
 

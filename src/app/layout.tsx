@@ -44,7 +44,7 @@ export async function generateMetadata(): Promise<Metadata> {
   formatDetection: { telephone: false },
   other: {
     'mobile-web-app-capable': 'yes',
-    themeColor: '#7C4DFF',
+    themeColor: '#6E29F5',
   },
   };
 }
@@ -54,7 +54,7 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  themeColor: '#7C4DFF',
+  themeColor: '#6E29F5',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
