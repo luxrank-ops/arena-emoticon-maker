@@ -41,7 +41,7 @@ bubblewrap build --aab
 
 ## PWA · 오프라인 · 브랜드 색상
 
-- 웹 매니페스트와 TWA/Gradle 색상은 `#7C4DFF`, `#1A237E`, `#F8F9FA`를 사용한다.
+- 웹 매니페스트와 TWA/Gradle 색상은 `#6E29F5`(주요 색), `#150C2B`(다크), `#FAF8FF`(배경), `#ECE6F7`(구분선)을 사용한다.
 - 프로덕션 웹은 `/sw.js`를 등록하며 `/offline.html`과 정적 자산만 캐시한다. API·인증·공유 결과·사적 페이지는 저장하지 않는다.
 - 사진 촬영 전 사전 고지, TWA 히스토리/루트 종료, App Link와 오프라인 동작은 실기기에서 확인한다.
 - 텍스트 선택과 핀치 확대는 접근성을 위해 유지한다. 자세한 명세는 `docs/FAILSAFE-SHARING-TWA.md`를 참고한다.
