@@ -195,7 +195,7 @@ export function drawLayer(
   ctx: CanvasRenderingContext2D,
   layer: TextLayer,
   size: number,
-  opts: { emotion?: Emotion } = {},
+  opts: { emotion?: Emotion; stage?: boolean } = {},
 ) {
   const style = textStyleById(layer.style);
   const plan = planCaption(
@@ -214,8 +214,8 @@ export function drawLayer(
   const fontSize = Math.max(8, layer.size * size);
   const padding = fontSize * 0.42;
 
-  // 상황별 복합 데코 — 글자 블록과 같은 회전·크기로, 글자 바로 옆에 붙여 그린다.
-  //  (뒤에서 그려 글자의 흰 외곽선이 데코 위를 깔끔하게 정리한다)
+  // 상황별 복합 데코 — 머리 위·볼 옆·글자 모서리에 캔버스 절대 좌표로 그린다.
+  //  (글자보다 먼저 그려 글자의 흰 외곽선이 데코 위를 깔끔하게 정리한다)
   const decor = planDecor({
     text: layer.text,
     emotion: opts.emotion,
@@ -228,12 +228,13 @@ export function drawLayer(
     rotate: plan.rotate,
     canvas: size,
     enabled: layer.decor !== 'off',
+    stage: opts.stage,
   });
+  if (decor.length) drawDecor(ctx, decor);
 
   ctx.save();
   ctx.translate(plan.x, plan.y);
   ctx.rotate((plan.rotate * Math.PI) / 180);
-  if (decor.length) drawDecor(ctx, decor);
   ctx.font = `${style.weight} ${fontSize}px ${style.font}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
@@ -477,7 +478,9 @@ export function drawLayers(
   size: number,
   opts: { emotion?: Emotion } = {},
 ) {
-  for (const layer of layers) drawLayer(ctx, layer, size, opts);
+  // 머리 위·볼 옆(장면) 데코는 첫 레이어만 맡는다 — 레이어마다 머리 위에
+  // 같은 데코를 겹쳐 놓으면 캐릭터가 가려진다.
+  layers.forEach((layer, index) => drawLayer(ctx, layer, size, { ...opts, stage: index === 0 }));
 }
 
 /** 편집 UI용 기본 레이어 (새 레이어 추가) */

@@ -119,7 +119,7 @@ export function renderTextLayersWithDefs(layers: TextLayer[], emotion?: Emotion,
           })()
         : '';
 
-      // 상황별 복합 데코 — 글자와 같은 transform 으로, 글자 박스 바로 옆에 바짝 붙는다.
+      // 상황별 복합 데코 — 머리 위·볼 옆·글자 모서리에 캔버스 절대 좌표로 흩어 놓는다.
       //  · 데코는 자체 그림자(반투명 실루엣)를 쓰므로 글자 그룹의 drop-shadow 필터와 분리한다.
       const decor = planDecor({
         text: layer.text,
@@ -133,9 +133,10 @@ export function renderTextLayersWithDefs(layers: TextLayer[], emotion?: Emotion,
         rotate: plan.rotate,
         canvas: SIZE,
         enabled: layer.decor !== 'off',
+        stage: layerIndex === 0,
       });
       const decorGroup = decor.length
-        ? `<g transform="translate(${plan.x.toFixed(1)} ${plan.y.toFixed(1)}) rotate(${plan.rotate.toFixed(2)})" data-decor-layer="${id}">${renderDecorSvg(decor)}</g>`
+        ? `<g data-decor-layer="${id}">${renderDecorSvg(decor)}</g>`
         : '';
 
       return (
