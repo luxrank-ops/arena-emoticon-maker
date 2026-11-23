@@ -283,13 +283,19 @@ function swooshShapes(): DecorPrimitive[] {
 }
 
 function angerShapes(): DecorPrimitive[] {
+  // 분노 마크(💢) — 중심에서 뻗는 네 획을 조금씩 휘게 해 'X'가 아니라 핏대 모양으로 읽히게.
   const cmds: Cmd[] = [];
   for (let i = 0; i < 4; i += 1) {
     const angle = Math.PI / 4 + (Math.PI / 2) * i;
-    cmds.push(['M', Math.cos(angle) * 0.34, Math.sin(angle) * 0.34]);
-    cmds.push(['L', Math.cos(angle) * 1, Math.sin(angle) * 1]);
+    const turn = angle + 0.5; // 획이 시계방향으로 휘는 방향
+    const sx = Math.cos(angle) * 0.3;
+    const sy = Math.sin(angle) * 0.3;
+    const ex = Math.cos(angle) * 0.98;
+    const ey = Math.sin(angle) * 0.98;
+    cmds.push(['M', sx, sy]);
+    cmds.push(['Q', Math.cos(turn) * 0.86, Math.sin(turn) * 0.86, ex, ey]);
   }
-  return [{ mode: 'stroke', width: 0.26, d: cmds }];
+  return [{ mode: 'stroke', width: 0.3, d: cmds }];
 }
 
 /** 분노 스팀 — 머리 옆에서 피어오르는 세 줄기 김 */
@@ -503,8 +509,8 @@ const MOTIFS: Record<DecorMotif, MotifItem[]> = {
   // 분노 — 머리 위 분노 마크 + 양쪽 관자놀이 스팀 + 반짝이 + 모서리 느낌표
   angry: [
     { kind: 'anger', slot: 'crown', role: 'hero', scale: 0.72, rotate: -6 },
-    { kind: 'steam', slot: 'templeRight', role: 'side', scale: 0.46, rotate: 8 },
-    { kind: 'steam', slot: 'templeLeft', role: 'side', scale: 0.4, rotate: -8 },
+    { kind: 'steam', slot: 'templeRight', role: 'side', scale: 0.54, rotate: 8 },
+    { kind: 'steam', slot: 'templeLeft', role: 'side', scale: 0.48, rotate: -8 },
     { kind: 'sparkle', slot: 'crownLeft', role: 'accent', scale: 0.26, rotate: 0 },
     { kind: 'exclaim', slot: 'textTopRight', role: 'accent', scale: 0.3, rotate: 8 },
   ],
