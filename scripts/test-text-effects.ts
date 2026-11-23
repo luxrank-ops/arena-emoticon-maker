@@ -19,6 +19,7 @@ import {
   decorCoverage,
   decorVariantFor,
   decorVariantsOf,
+  decorVariantSlotsOf,
   DECOR_KINDS,
   type DecorMotif,
   type DecorKind,
@@ -317,6 +318,14 @@ assert.equal(ALL_MOTIFS.length, 18, 'eighteen situation motifs');
 for (const motif of ALL_MOTIFS) {
   assert.ok(decorVariantsOf(motif) >= 2, `${motif}: has phrase-driven variants`);
 }
+// 모든 변주가 머리 위·옆·글자 주변 세 구역을 함께 쓴다 (한 곳에 몰리지 않는다).
+for (const motif of ALL_MOTIFS) {
+  for (let i = 0; i < decorVariantsOf(motif); i += 1) {
+    const zones = new Set(decorVariantSlotsOf(motif, i).map(zone));
+    assert.equal(zones.size, 3, `${motif}#${i}: head + side + lettering`);
+  }
+}
+
 const distinctKinds = new Set(ALL_MOTIFS.flatMap((motif) => decorKindsOf(motif)));
 assert.ok(distinctKinds.size >= 28, `motifs draw on ${distinctKinds.size} different icons`);
 
@@ -343,6 +352,21 @@ assert.ok(decorKindsOf('love').includes('heartBroken') && decorKindsOf('love').i
 assert.ok(decorKindsOf('congrats').includes('crown') && decorKindsOf('sleep').includes('zzz'));
 assert.ok(decorKindsOf('tired').includes('swirl') && decorKindsOf('laugh').includes('haha'));
 assert.ok((DECOR_KINDS as DecorKind[]).includes('coinRain') && (DECOR_KINDS as DecorKind[]).includes('flower'));
+
+// 편집기에서 직접 고를 수 있는 이펙트(문양) — 기본 6종 + 문양 확대 6종이 각각 다른 모티프로 이어진다.
+import { LAYER_EFFECTS } from '../src/lib/studio/layers';
+assert.equal(LAYER_EFFECTS.length, 13, 'thirteen selectable effects');
+const effectMotifs = new Set<DecorMotif>();
+for (const effect of LAYER_EFFECTS) {
+  if (effect.id === 'none') continue;
+  const motif = decorMotifFor('오늘 하루', undefined, effect.id);
+  assert.ok(motif && motif !== 'plain', `${effect.id}: picks a situation motif`);
+  effectMotifs.add(motif);
+  const decor = planDecor({ ...decorInput('오늘 하루', 'joy'), effect: effect.id });
+  assert.ok(decor.every((item) => item.motif === motif), `${effect.id}: every piece follows the chosen effect`);
+  assert.equal(new Set(decor.map((item) => zone(item.slot))).size, 3, `${effect.id}: head + side + lettering`);
+}
+assert.ok(effectMotifs.size >= 8, `effects span ${effectMotifs.size} motifs`);
 
 // SVG 렌더러 — 흰 스티커 외곽선 + 컬러 패스 + 데코 전용 그림자
 const decorSvg = renderDecorSvg(loveDecor);

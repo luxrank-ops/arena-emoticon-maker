@@ -1166,7 +1166,7 @@ const MOTIFS: Record<DecorMotif, MotifVariant[]> = {
     v(/졸려|잠와|자야|굿나잇|잘자|꿈/, [
       ['zzz', 'crown', 'hero', 0.46, -6],
       ['cloud', 'crownLeft', 'sub', 0.26, 0],
-      ['star4', 'crownRight', 'accent', 0.22, 0],
+      ['star4', 'templeRight', 'accent', 0.22, 0],
       ['ellipsis', 'textTopLeft', 'accent', 0.18, 0],
       ['sparkle', 'textBottomRight', 'accent', 0.16, 0],
     ]),
@@ -1358,6 +1358,12 @@ const EFFECT_MOTIF: Record<EffectKind, DecorMotif | null> = {
   anger: 'angry',
   money: 'money',
   flame: 'angry',
+  star: 'cheer',
+  crown: 'praise',
+  flower: 'thanks',
+  party: 'congrats',
+  zzz: 'sleep',
+  question: 'question',
 };
 
 const TEXT_RULES: { motif: DecorMotif; pattern: RegExp }[] = [
@@ -1434,6 +1440,12 @@ export function decorSlotsOf(motif: DecorMotif): DecorSlot[] {
 /** 모티프의 변주 수 — 보고·테스트용 */
 export function decorVariantsOf(motif: DecorMotif): number {
   return MOTIFS[motif].length;
+}
+
+/** 특정 변주가 놓는 자리들 — 보고·테스트용 */
+export function decorVariantSlotsOf(motif: DecorMotif, index: number): DecorSlot[] {
+  const variant = MOTIFS[motif][index];
+  return variant ? variant.items.map((item) => item[1]) : [];
 }
 
 /** 전체 아이콘 종류 — 편집기·문서가 쓸 수 있는 카탈로그 */
