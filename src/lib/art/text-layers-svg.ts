@@ -2,7 +2,8 @@
 // 글자 레이어 → SVG (AI 컷 이미지 위에 얹는 레터링)
 //  · 캔버스 내보내기(drawLayer)와 **같은 배치 계산**(planCaption)으로 그린다.
 //  · 팩 목록·미리보기처럼 캔버스를 만들지 않는 화면에서도 같은 캘리그라피가 보인다.
-//  · 두툼한 화이트 스티커 테두리 + 얇은 톤 링 + 세로 그라데이션 채움 + 붓 밑줄.
+//  · 두툼한 화이트 스티커 테두리 + 세로 그라데이션 채움 + 얕은 그림자.
+//  · 예전의 안쪽 톤 링·이중 테두리는 작은 크기에서 글자를 뭉개서 걷어냈다(정갈한 시인성 우선).
 //  · 좌표계는 1024×1024 (StickerSpec 과 같은 viewBox).
 // ─────────────────────────────────────────────────────────────
 
@@ -51,9 +52,7 @@ export function renderTextLayersWithDefs(layers: TextLayer[], emotion?: Emotion,
       const family = escapeXml(CAPTION_FONT_FAMILIES[plan.face]);
       const left = -plan.width / 2;
       const top = -plan.height / 2;
-      const outline = plan.outline.toFixed(1);
-      const thick = (plan.outline * 1.24).toFixed(1);
-      const ringWidth = Math.max(1, plan.outline * 0.42).toFixed(1);
+      const sticker = (plan.outline * 1.15).toFixed(1);
 
       defs.push(
         `<linearGradient id="${id}-ink" x1="0" y1="${top.toFixed(1)}" x2="0" y2="${(top + plan.height).toFixed(1)}" gradientUnits="userSpaceOnUse">` +
@@ -95,9 +94,7 @@ export function renderTextLayersWithDefs(layers: TextLayer[], emotion?: Emotion,
                 `x="${run.start.toFixed(1)}" y="${y}" text-anchor="start" font-family="${family}" ` +
                 `font-size="${run.size.toFixed(1)}" font-weight="400" rotate="${rotate}" stroke-linejoin="round"`;
               return (
-                `<text ${common} fill="${plan.ink}" stroke="#FFFDFA" stroke-width="${thick}" paint-order="stroke fill">${text}</text>` +
-                `<text ${common} fill="${plan.ink}" stroke="#FFFDFA" stroke-width="${outline}" paint-order="stroke fill">${text}</text>` +
-                `<text ${common} fill="none" stroke="${plan.ring}" stroke-opacity="0.45" stroke-width="${ringWidth}">${text}</text>` +
+                `<text ${common} fill="${plan.ink}" stroke="#FFFDFA" stroke-width="${sticker}" paint-order="stroke fill">${text}</text>` +
                 (plan.bold > 0.2
                   ? `<text ${common} fill="${plan.ink}" stroke="${plan.ink}" stroke-width="${plan.bold.toFixed(1)}" paint-order="stroke fill">${text}</text>`
                   : '') +
@@ -161,7 +158,7 @@ export function renderTextLayersOverlay(layers: TextLayer[], emotion?: Emotion):
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}" width="${SIZE}" height="${SIZE}" aria-hidden="true">` +
     `<defs><filter id="captionShadow" x="-35%" y="-35%" width="170%" height="170%">` +
-    `<feDropShadow dx="0" dy="6" stdDeviation="6" flood-color="#191512" flood-opacity="0.32"/></filter>${defs}</defs>` +
+    `<feDropShadow dx="0" dy="4" stdDeviation="5" flood-color="#191512" flood-opacity="0.24"/></filter>${defs}</defs>` +
     body +
     `</svg>`
   );

@@ -144,7 +144,7 @@ assert.throws(() => assembleApng([], 80), /프레임/);
 
 // ── 4. 한글 레이어 ─────────────────────────────────────────
 const layer = normalizeLayer({ text: '퇴근합니다', style: 'stamp', bubble: 'caption', effect: 'sparkle', x: 2, y: -1, size: 9, rotate: 900, color: 'bad' }, 0);
-check('레이어 좌표·크기·회전을 범위 안으로 자른다', layer.x === 0.92 && layer.y === 0.08 && layer.size === 0.34 && layer.rotate === 35);
+check('레이어 좌표·크기·회전을 범위 안으로 자른다(회전 ±5° — 정갈한 기본값)', layer.x === 0.92 && layer.y === 0.08 && layer.size === 0.34 && layer.rotate === 5);
 check('잘못된 색은 기본색으로', layer.color === '#191512');
 check('스타일·이펙트 유지(말풍선은 항상 없음)', layer.style === 'stamp' && layer.bubble === 'none' && layer.effect === 'sparkle');
 check('빈 텍스트 레이어는 제거', normalizeLayers([{ text: '  ' }, { text: '안녕' }]).length === 1);

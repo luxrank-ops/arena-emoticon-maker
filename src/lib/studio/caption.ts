@@ -1,9 +1,11 @@
 // ─────────────────────────────────────────────────────────────
-// 캘리그라피 레터링 레이아웃 (SVG · 캔버스 공용)
+// 레터링 레이아웃 (SVG · 캔버스 공용)
 //  · 서버 SVG(renderSticker)와 브라우저 캔버스(drawLayer)가 **같은 계산**을 쓴다.
 //  · 글자 폭은 번들 폰트의 실제 advance 값을 표로 옮겨 두어 두 엔진의 줄바꿈·중앙정렬이 같다.
-//  · 네모 말풍선 박스 대신, 글자 자체에 두꺼운 흰색 외곽선 + 부드러운 그림자 + 미세한 기울기
-//    리듬 + 감정별 포인트 컬러를 준다(카톡 이모티콘 레터링).
+//  · 기본 서체는 둥글고 또렷한 'EmotiHak Round'(주아) — 카톡 채팅방 크기에서도 1초에 읽힌다.
+//  · 정갈함 우선: 글자 크기는 한 크기로 통일하고(강조 확대 없음), 글자별 기울기·흔들림은
+//    1도 안팎의 미세한 리듬만 남긴다. 네모 말풍선 박스 없이 흰 스티커 외곽선 + 얕은 그림자
+//    + 감정별 딥톤 채움으로 마감한다.
 // ─────────────────────────────────────────────────────────────
 
 import type { Emotion } from '@/lib/types';
@@ -13,7 +15,7 @@ import type { TextLayerStyle } from '@/lib/studio/layers';
 export type CaptionFace = 'calli' | 'brush' | 'hand' | 'gothic' | 'bold' | 'serif';
 
 export const CAPTION_FONT_FILES: Record<CaptionFace, string> = {
-  calli: '/fonts/EmotiHakCalli.woff2',
+  calli: '/fonts/EmotiHakRound.woff2',
   brush: '/fonts/EmotiHakBrush.woff2',
   hand: '/fonts/EmotiHakHand.woff2',
   gothic: '',
@@ -23,7 +25,7 @@ export const CAPTION_FONT_FILES: Record<CaptionFace, string> = {
 
 /** CSS font-family 이름 (페이지 @font-face 와 SVG 임베드가 같은 이름을 쓴다) */
 export const CAPTION_FONT_FAMILIES: Record<CaptionFace, string> = {
-  calli: '"EmotiHak Calli", "Bagel Fat One", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+  calli: '"EmotiHak Round", "Jua", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
   brush: '"EmotiHak Brush", "Yeon Sung", "EmotiHak Hand", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
   hand: '"EmotiHak Hand", "Gaegu", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
   gothic: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
@@ -38,6 +40,13 @@ interface FaceMetrics {
   ascii: number[];
   fallback: number;
 }
+
+const JUA_ASCII = [
+  30, 30, 44, 84, 63, 77, 77, 35, 34, 35, 57, 55, 28, 47, 20, 48, 61, 41, 58, 55, 63, 58, 62, 60,
+  58, 59, 23, 25, 55, 52, 54, 56, 88, 70, 56, 62, 61, 55, 54, 61, 61, 28, 62, 57, 54, 69, 62, 63,
+  58, 65, 60, 61, 64, 63, 67, 80, 63, 62, 61, 47, 48, 47, 47, 53, 50, 57, 48, 46, 47, 51, 40, 50,
+  47, 21, 42, 42, 22, 62, 49, 56, 49, 49, 49, 45, 51, 49, 53, 67, 52, 55, 49, 47, 36, 49, 63,
+];
 
 const SINGLE_DAY_ASCII = [
   27, 40, 40, 64, 46, 67, 59, 40, 40, 40, 40, 44, 28, 44, 28, 52, 46, 32, 43, 44, 49, 45, 44, 48,
@@ -68,7 +77,7 @@ const GAEGU_ASCII = [
 ];
 
 const FACE_METRICS: Record<CaptionFace, FaceMetrics> = {
-  calli: { hangul: 87.1, ascii: BAGEL_ASCII, fallback: 92 },
+  calli: { hangul: 83, ascii: JUA_ASCII, fallback: 90 },
   brush: { hangul: 67.2, ascii: YEONSUNG_ASCII, fallback: 84 },
   hand: { hangul: 82, ascii: GAEGU_ASCII, fallback: 90 },
   gothic: { hangul: 100, ascii: Array.from({ length: 95 }, () => 56), fallback: 100 },
@@ -175,8 +184,7 @@ export function inkFor(emotion: Emotion | undefined, color?: string): string {
 
 /**
  * 레터링 색 세트 — 캔버스와 SVG 가 같은 값을 쓴다.
- *  · ink: 아래쪽(진한) 채움   · inkLight: 위쪽 하이라이트 채움
- *  · ring: 흰 테두리와 글자 사이의 얇은 톤 링   · underline: 붓 밑줄 색
+ *  · ink: 아래쪽(진한) 채움   · inkLight: 위쪽 하이라이트 채움   · underline: 붓 밑줄 색
  */
 export function inkTonesFor(emotion: Emotion | undefined, color?: string) {
   const custom = customInk(color);
@@ -186,7 +194,6 @@ export function inkTonesFor(emotion: Emotion | undefined, color?: string) {
   return {
     ink,
     inkLight,
-    ring: mixHex(ink, '#FFF6E8', 0.55),
     underline: mixHex(ink, '#FFFFFF', 0.12),
   };
 }
@@ -286,10 +293,59 @@ function wrapAt(text: string, size: number, face: CaptionFace, maxWidth: number,
   return lines.length ? lines : [''];
 }
 
+/** 서체별 상승부·하강부(em) — 기준선과 블록 높이를 실제 글자에 맞춘다. */
+export const CAPTION_ASCENT: Record<CaptionFace, number> = {
+  calli: 0.8,
+  brush: 0.63,
+  hand: 0.85,
+  gothic: 0.86,
+  bold: 0.86,
+  serif: 0.85,
+};
+
+export const CAPTION_DESCENT: Record<CaptionFace, number> = {
+  calli: 0.1,
+  brush: 0.25,
+  hand: 0.12,
+  gothic: 0.16,
+  bold: 0.16,
+  serif: 0.2,
+};
+
+/** 글자별 기울기 상한(도) — 정갈한 기본 서체는 1도 안쪽, 붓글씨만 조금 더 준다. */
+export const CAPTION_TILT: Record<CaptionFace, number> = {
+  calli: 0.9,
+  brush: 2,
+  hand: 1.4,
+  gothic: 0,
+  bold: 0,
+  serif: 0.8,
+};
+
+/** 글자별 세로 흔들림(em) — 고딕 계열은 0(반듯하게). */
+export const CAPTION_WAVE: Record<CaptionFace, number> = {
+  calli: 0.004,
+  brush: 0.01,
+  hand: 0.006,
+  gothic: 0,
+  bold: 0,
+  serif: 0.002,
+};
+
+/** 자간(em) — 둥근 서체는 살짝 숨을 주고, 고딕 계열은 조금 조인다. */
+export const CAPTION_TRACKING: Record<CaptionFace, number> = {
+  calli: 0.004,
+  brush: 0.006,
+  hand: 0.004,
+  gothic: -0.006,
+  bold: -0.01,
+  serif: 0.02,
+};
+
 /**
- * 캘리그라피 레이아웃.
- *  · 2줄까지 접고, 짧은 마지막 줄은 살짝 키워 강조한다.
- *  · 글자마다 -tilt~+tilt 도의 기울기와 미세한 세로 흔들림을 준다(손글씨 리듬).
+ * 레터링 레이아웃.
+ *  · 2줄까지 접고, 모든 줄은 같은 크기로 그린다(정갈함 우선).
+ *  · 글자마다 ±tilt 도의 기울기와 미세한 세로 흔들림을 준다(손글씨 리듬).
  */
 export function layoutCaption(
   text: string,
@@ -299,12 +355,16 @@ export function layoutCaption(
     face?: CaptionFace;
     seed?: number;
     tilt?: number;
+    /** 글자 사이 자간(em) — 양수면 넓히고 음수면 좁힌다 */
+    tracking?: number;
     maxLines?: number;
   },
 ): CaptionLayout {
   const face = opts.face ?? 'calli';
   const maxLines = Math.max(1, Math.min(2, opts.maxLines ?? 2));
-  const tilt = Math.max(0, Math.min(8, opts.tilt ?? 3.4));
+  const tilt = Math.max(0, Math.min(8, opts.tilt ?? CAPTION_TILT[face]));
+  const waveEm = CAPTION_WAVE[face];
+  const trackingEm = opts.tracking ?? CAPTION_TRACKING[face];
   const clean = text.replace(/\s+/g, ' ').trim().slice(0, 34);
   const seed = hashText(clean, opts.seed ?? 7);
 
@@ -353,13 +413,8 @@ export function layoutCaption(
     }
   }
 
-  // 손글씨 리듬: 2줄이면 첫 줄을 살짝 작게, 마무리 단어가 짧으면 살짝 키워 강조한다.
+  // 정갈함 우선 — 모든 줄은 같은 크기로 그린다(줄마다 크기를 바꾸면 들쭉날쭉해 보인다).
   const sizes = raw.map(() => size);
-  if (raw.length === 2) {
-    const lastChars = [...raw[1].replace(/ /g, '')].length;
-    sizes[0] = size * 0.92;
-    sizes[1] = lastChars > 0 && lastChars <= 3 ? size * 1.06 : size;
-  }
   // 한 줄이 넘치면 그 줄만 줄인다(다른 줄 크기는 유지).
   sizes.forEach((lineSize, index) => {
     const lineWidth = measureLine(raw[index], lineSize, face);
@@ -368,7 +423,8 @@ export function layoutCaption(
     }
   });
 
-  const lineGap = size * 0.16;
+  // 행간 — 서체의 실제 상승부·하강부에 맞춰 두 줄이 붙지도 벌어지지도 않게.
+  const lineGap = size * (face === 'brush' ? 0.2 : 0.14);
   const lines: CaptionLine[] = [];
   let top = 0;
   raw.forEach((lineText, lineIndex) => {
@@ -376,57 +432,44 @@ export function layoutCaption(
     const glyphs: CaptionGlyph[] = [];
     let cursor = 0;
     let glyphIndex = 0;
-    // 단어 리듬: 마지막 단어(보통 결론·행동)를 살짝 키워 강약을 만든다.
-    const words = lineText.split(' ').filter((w) => w.length > 0);
-    const punch = words.length >= 2 ? words[words.length - 1] : '';
-    let wordIndex = -1;
-    let inWord = false;
     for (const ch of lineText) {
       const isSpace = ch === ' ';
-      if (!isSpace && !inWord) {
-        wordIndex += 1;
-        inWord = true;
-      } else if (isSpace) {
-        inWord = false;
-      }
-      const word = wordIndex >= 0 ? words[wordIndex] : '';
-      const boost = punch && word === punch && lineSize >= 24 ? 1.07 : 1;
-      const glyphSize = lineSize * boost;
-      const advance = charAdvance(ch, glyphSize, face);
+      const advance = charAdvance(ch, lineSize, face);
+      const tracking = isSpace ? 0 : trackingEm * lineSize;
+      // 미세한 리듬 — 1도 안팎의 기울기와 종이 위에 놓인 듯한 아주 작은 흔들림만.
       const jitter = isSpace ? 0 : (noise(seed, lineIndex * 64 + glyphIndex) - 0.5) * 2 * tilt;
-      const wave = isSpace ? 0 : (noise(seed + 977, lineIndex * 64 + glyphIndex) - 0.5) * 2 * lineSize * 0.014;
+      const waveY =
+        isSpace || waveEm === 0 ? 0 : (noise(seed + 977, lineIndex * 64 + glyphIndex) - 0.5) * 2 * lineSize * waveEm;
       glyphs.push({
         ch,
-        ...(boost !== 1 ? { size: Number(glyphSize.toFixed(2)) } : {}),
         x: cursor + advance / 2,
         advance,
         angle: Number(jitter.toFixed(2)),
-        dy: Number(wave.toFixed(2)),
+        dy: Number(waveY.toFixed(2)),
       });
-      cursor += advance;
+      cursor += advance + tracking;
       glyphIndex += 1;
     }
-    const lineHeight = lineSize * 1.04;
-    // 기준선: 글자 상자 상단 + 상승부(≈0.95em) — 손글씨 폰트의 시각 중심에 맞춘다.
-    const baseline = top + lineSize * 0.95;
+    // 기준선: 블록 상단 + 서체의 상승부(주아 0.80em) — 글자 시각 중심이 블록 중심에 온다.
+    const baseline = top + lineSize * CAPTION_ASCENT[face];
     lines.push({ glyphs, width: cursor, size: lineSize, baseline });
-    top += lineHeight + lineGap;
+    top += lineSize + lineGap;
   });
 
   const width = Math.max(0, ...lines.map((line) => line.width));
-  // 아래로 내려오는 획(디센더)까지 포함해 잘리지 않게 잡는다 (붓글씨 서체는 아래로 길게 뻗는다).
-  const height = Math.max(...lines.map((line) => line.baseline + line.size * 0.4));
+  // 아래로 내려오는 획(디센더)까지만 포함 — 빈 여백이 붙어 블록이 아래로 치우치지 않게.
+  const height = Math.max(...lines.map((line) => line.baseline + line.size * CAPTION_DESCENT[face]));
   return { lines, width, height, size, lineHeight: size * 1.04 };
 }
 
 /** 흰 외곽선 두께 (글자 크기 대비) */
 export const CAPTION_OUTLINE: Record<CaptionFace, number> = {
-  calli: 0.15,
+  calli: 0.13,
   brush: 0.2,
-  hand: 0.18,
-  gothic: 0.16,
-  bold: 0.2,
-  serif: 0.08,
+  hand: 0.17,
+  gothic: 0.15,
+  bold: 0.18,
+  serif: 0.06,
 };
 
 /**
@@ -435,9 +478,9 @@ export const CAPTION_OUTLINE: Record<CaptionFace, number> = {
  * 카톡 이모티콘 특유의 두툼한 레터링을 만든다.
  */
 export const CAPTION_BOLD: Record<CaptionFace, number> = {
-  calli: 0.02,
-  brush: 0.08,
-  hand: 0.06,
+  calli: 0,
+  brush: 0.06,
+  hand: 0.04,
   gothic: 0,
   bold: 0,
   serif: 0,

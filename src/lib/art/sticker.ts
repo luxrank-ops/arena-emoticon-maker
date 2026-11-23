@@ -789,9 +789,8 @@ function renderLine(spec: StickerSpec) {
     maxWidth: 902,
     face: 'calli',
     seed: spec.seed,
-    tilt: 3.6,
   });
-  const tilt = ((spec.seed % 5) - 2) * 1.3;
+  const tilt = ((spec.seed % 5) - 2) * 0.9;
   // 기울어진 블록의 아래 모서리가 잘리지 않게 회전 여유를 뺀다.
   const slant = Math.abs(tilt) * (Math.PI / 180) * (probe.width / 2);
   const top = spec.linePosition === 'top' ? 26 + slant : Math.max(24, 1024 - 40 - slant - probe.height);

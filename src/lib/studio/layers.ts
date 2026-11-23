@@ -64,12 +64,12 @@ export const TEXT_STYLES: {
 }[] = [
   {
     id: 'calli',
-    label: '캘리그라피',
-    labelEn: 'Calligraphy',
+    label: '라운드',
+    labelEn: 'Round',
     font: CAPTION_FONT_FAMILIES.calli,
     weight: 400,
     outline: CAPTION_OUTLINE.calli,
-    letterSpacing: 0,
+    letterSpacing: 0.004,
   },
   {
     id: 'brush',
@@ -95,8 +95,8 @@ export const TEXT_STYLES: {
     labelEn: 'Gothic',
     font: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
     weight: 800,
-    outline: 0.1,
-    letterSpacing: 0,
+    outline: 0.12,
+    letterSpacing: -0.006,
   },
   {
     id: 'bold',
@@ -166,7 +166,7 @@ export function normalizeLayer(input: Partial<TextLayer> | null | undefined, ind
     y: clamp(Number.isFinite(input?.y) ? Number(input!.y) : 0.86, 0.08, 0.94),
     size: clamp(Number.isFinite(input?.size) ? Number(input!.size) : 0.13, 0.05, 0.34),
     color: /^#[0-9a-fA-F]{6}$/.test(String(input?.color ?? '')) ? String(input!.color) : DEFAULT_COLOR,
-    rotate: clamp(Number.isFinite(input?.rotate) ? Number(input!.rotate) : 0, -35, 35),
+    rotate: clamp(Number.isFinite(input?.rotate) ? Number(input!.rotate) : 0, -5, 5),
   };
 }
 
@@ -273,33 +273,20 @@ export function drawLayer(
     ctx.shadowColor = plan.shadow.color;
     ctx.shadowBlur = plan.shadow.blur;
     ctx.shadowOffsetY = plan.shadow.offsetY;
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = plan.outline * 1.24;
+    ctx.strokeStyle = '#FFFDFA';
+    ctx.lineWidth = plan.outline * 1.15;
     for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
     ctx.restore();
   }
 
-  // 2) 두툼한 화이트/크림 스티커 테두리 (지저분한 이중 테두리 방지용으로 한 번 더)
+  // 2) 흰 스티커 외곽선 — 한 겹만. 예전의 이중 테두리·톤 링은 작은 크기에서 글자를 뭉개서 걷어냈다.
   if (plan.outline > 0) {
     ctx.strokeStyle = '#FFFDFA';
-    ctx.lineWidth = plan.outline * 1.24;
-    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
-    ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = plan.outline;
+    ctx.lineWidth = plan.outline * 1.15;
     for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
   }
 
-  // 3) 얇은 톤 링 — 흰 테두리 안쪽에 은은한 컬러 테를 둘러 고급스럽게 마감한다.
-  if (plan.outline > 0) {
-    ctx.save();
-    ctx.globalAlpha = 0.45;
-    ctx.strokeStyle = plan.ring;
-    ctx.lineWidth = Math.max(1, plan.outline * 0.42);
-    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
-    ctx.restore();
-  }
-
-  // 4) 잉크 외곽선(글자 살 찌우기) → 세로 그라데이션 채우기
+  // 3) 잉크 외곽선(얇은 서체만 살 찌우기) → 세로 그라데이션 채우기
   if (plan.bold > 0) {
     ctx.strokeStyle = plan.ink;
     ctx.lineWidth = plan.bold;
@@ -307,7 +294,7 @@ export function drawLayer(
   }
   const fillGradient = ctx.createLinearGradient(0, top, 0, top + plan.height);
   fillGradient.addColorStop(0, plan.inkLight);
-  fillGradient.addColorStop(0.5, plan.ink);
+  fillGradient.addColorStop(0.55, plan.ink);
   fillGradient.addColorStop(1, plan.ink);
   ctx.fillStyle = fillGradient;
   for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'fill', plan.width, style);
@@ -501,5 +488,5 @@ export function drawLayers(
 
 /** 편집 UI용 기본 레이어 (새 레이어 추가) */
 export function newLayer(index: number, text = '안녕!'): TextLayer {
-  return normalizeLayer({ id: `layer-${Date.now()}-${index}`, text, style: 'calli', bubble: 'none', x: 0.5, y: 0.84, size: 0.18, rotate: -2 }, index);
+  return normalizeLayer({ id: `layer-${Date.now()}-${index}`, text, style: 'calli', bubble: 'none', x: 0.5, y: 0.84, size: 0.18, rotate: 0 }, index);
 }

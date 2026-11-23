@@ -1,23 +1,22 @@
 // ─────────────────────────────────────────────────────────────
-// 상황별 복합 데코 (별·하트·물음표·^^·음표·Zzz·왕관·꽃·번개 … 34종)
-//  · 데코는 '글자 옆 큰 장식'이 아니라 **문장 곁의 작은 상황 연출**이다.
-//    문구 + 감정(emotion) + 이펙트(effect)를 읽어 5종 안팎을 고르고,
-//    - 머리 위(정수리·관자놀이)에 주 데코 1개
-//    - 머리 옆·볼·어깨·글자 모서리에 보조 데코
-//    로 흩어 놓아 데코 전체가 **문장 블록의 약 20% 분량**을 차지하게 만든다.
-//  · 18가지 모티프(사랑·고마움·인사·궁금·웃음·응원·축하·칭찬·피곤·졸림·분노·
-//    불만·슬픔·오열·놀람·돈·잘난척·무표정)마다 문구에 따라 갈리는 2~3가지 변주가
-//    있어, 같은 감정이라도 대사가 다르면 다른 문양 조합이 나온다.
-//  · 좌표는 모두 **캔버스 절대 px**(회전 전 기준 아님) — 글자를 옮겨도 머리 위
-//    데코는 머리 위에 남는다. 캔버스(drawLayer)와 SVG(renderTextLayersWithDefs)가
+// 상황별 데코 (별·하트·물음표·^^·음표·Zzz·왕관·꽃·번개 … 34종)
+//  · 데코는 '글자 옆을 채우는 장식'이 아니라 **한 컷에 2~3점만 남기는 절제된 포인트**다.
+//    - 주 데코 1점을 머리 위/옆 한쪽에,
+//    - 작은 악센트 1~2점을 머리 곁과 글자 반대편 모서리에 두어 **대각선 균형**을 만든다.
+//    - 사방에 흩뿌리지 않는다. 시선은 인물 표정과 글자에 먼저 닿아야 한다.
+//  · 컬러는 모티프마다 **한 계열의 톤온톤**(샴페인 골드·로즈 코랄·슬레이트 블루·
+//    라벤더·차콜)만 쓴다. 노랑·보라·빨강이 한 컷에 섞이던 원색 조합은 없앴다.
+//  · 도형은 부드러운 베지어 곡선의 미니멀 벡터로 다듬었다 — 날렵한 4각 스파클 ✦,
+//    깔끔한 하트, 얇고 정교한 라인 아이콘. 흰 스티커 외곽선도 크기에 맞춰 얇게.
+//  · 18가지 모티프(사랑·고마움·인사·궁금·웃음·응원·축하·칭찬·피곤·졸림·분노·불만·슬픔·
+//    오열·놀람·돈·잘난척·무표정)마다 문구에 따라 갈리는 2~3가지 변주가 있다.
+//  · 좌표는 모두 **캔버스 절대 px**. 캔버스(drawLayer)와 SVG(renderTextLayersWithDefs)가
 //    같은 planDecor 결과를 그대로 그려 100% 같은 그림이 된다.
 //  · 얼굴(눈·코·입) 한가운데는 비우고, 캔버스 밖으로는 잘리지 않게 클램프한다.
-//  · 두툼한 흰 스티커 외곽선 + 딥톤/포인트 컬러 + 은은한 그림자 + 작은 하이라이트.
 // ─────────────────────────────────────────────────────────────
 
 import type { Emotion } from '@/lib/types';
 import type { EffectKind } from '@/lib/studio/layers';
-import { mixHex } from '@/lib/studio/caption';
 
 export type DecorKind =
   // 별·반짝이
@@ -81,7 +80,7 @@ export type DecorMotif =
   | 'smug'
   | 'plain';
 
-/** 데코가 놓이는 자리 — 머리 위(정수리)·머리 옆·볼·어깨·글자 주변 */
+/** 데코가 놓이는 자리 — 머리 위(정수리·관자)·머리 옆·글자 모서리 */
 export type DecorSlot =
   | 'crown'
   | 'crownLeft'
@@ -151,8 +150,8 @@ export interface DecorPlanInput {
   /** false 면 데코를 그리지 않는다 (레이어의 decor='off') */
   enabled?: boolean;
   /**
-   * false 면 머리 위·볼·어깨(장면) 데코를 건너뛰고 글자 모서리 데코만 붙인다.
-   *  · 레이어가 여러 장이면 첫 레이어만 장면 데코를 맡는다(머리 위에 4개가 겹치지 않게).
+   * false 면 머리 위·옆(장면) 데코를 건너뛰고 글자 모서리에만 작게 붙인다.
+   *  · 레이어가 여러 장이면 첫 레이어만 장면 데코를 맡는다(머리 위에 겹치지 않게).
    */
   stage?: boolean;
 }
@@ -179,7 +178,7 @@ function norm(dx: number, dy: number) {
   return [dx / len, dy / len] as const;
 }
 
-/** 꼭짓점을 둥글게 깎은 다각형 — 별·반짝이의 뾰족함을 부드럽게 만든다. */
+/** 꼭짓점을 둥글게 깎은 다각형 — 뾰족함을 부드럽게 만든다. */
 function roundedPolygon(points: readonly (readonly [number, number])[], round: number): Cmd[] {
   const cmds: Cmd[] = [];
   const n = points.length;
@@ -200,64 +199,69 @@ function roundedPolygon(points: readonly (readonly [number, number])[], round: n
   return cmds;
 }
 
+/** 5각 별 — 카탈로그용(모티프에서는 날렵한 스파클을 쓴다) */
 function starPath(): Cmd[] {
   const points: [number, number][] = [];
   for (let i = 0; i < 10; i += 1) {
     const angle = -Math.PI / 2 + (i * Math.PI) / 5;
-    const radius = i % 2 === 0 ? 1 : 0.47;
+    const radius = i % 2 === 0 ? 1 : 0.46;
     points.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
   }
-  return roundedPolygon(points, 0.15);
+  return roundedPolygon(points, 0.12);
 }
 
+/** ✦ 네 갈래 스파클 — 허리가 잘록하고 끝이 날렵한 베지어 곡선 */
 function sparklePath(): Cmd[] {
   return [
     ['M', 0, -1],
-    ['Q', 0.16, -0.16, 1, 0],
-    ['Q', 0.16, 0.16, 0, 1],
-    ['Q', -0.16, 0.16, -1, 0],
-    ['Q', -0.16, -0.16, 0, -1],
+    ['C', 0.09, -0.34, 0.34, -0.09, 1, 0],
+    ['C', 0.34, 0.09, 0.09, 0.34, 0, 1],
+    ['C', -0.09, 0.34, -0.34, 0.09, -1, 0],
+    ['C', -0.34, -0.09, -0.09, -0.34, 0, -1],
     ['Z'],
   ];
 }
 
+/** 정갈한 하트 — 위 두 봉우리와 아래 꼭짓점의 비율을 다듬었다. */
 function heartPath(): Cmd[] {
   return [
-    ['M', 0, 0.76],
-    ['C', -1.22, -0.18, -0.52, -1.12, 0, -0.36],
-    ['C', 0.52, -1.12, 1.22, -0.18, 0, 0.76],
+    ['M', 0, 0.74],
+    ['C', -0.24, 0.46, -1.0, 0.08, -1.0, -0.36],
+    ['C', -1.0, -0.8, -0.44, -0.96, 0, -0.46],
+    ['C', 0.44, -0.96, 1.0, -0.8, 1.0, -0.36],
+    ['C', 1.0, 0.08, 0.24, 0.46, 0, 0.74],
     ['Z'],
   ];
 }
 
-/** 물음표 — 굵은 붓 획 + 점 (스트로크 도형) */
+/** 물음표 — 가는 붓 획 + 점 */
 function questionShapes(): DecorPrimitive[] {
   return [
     {
       mode: 'stroke',
-      width: 0.3,
+      width: 0.22,
       d: [
-        ['M', -0.48, -0.4],
-        ['C', -0.48, -1.02, 0.5, -1.06, 0.5, -0.5],
-        ['C', 0.5, -0.06, -0.02, -0.02, -0.02, 0.38],
+        ['M', -0.42, -0.36],
+        ['C', -0.44, -0.92, 0.44, -0.94, 0.44, -0.42],
+        ['C', 0.44, -0.04, -0.02, 0.0, -0.02, 0.34],
       ],
     },
-    { mode: 'fill', d: ellipse(0, 0.72, 0.19, 0.19) },
+    { mode: 'fill', d: ellipse(0, 0.68, 0.15, 0.15) },
   ];
 }
 
-/** 느낌표 — 굵은 세로획 + 점 */
+/** 느낌표 — 가는 세로획 + 점 */
 function exclaimShapes(): DecorPrimitive[] {
   return [
     {
       mode: 'stroke',
-      width: 0.32,
+      width: 0.24,
       d: [
-        ['M', 0, -0.95],
-        ['L', 0, 0.02],
+        ['M', 0, -0.9],
+        ['L', 0, -0.04],
       ],
     },
-    { mode: 'fill', d: ellipse(0, 0.64, 0.2, 0.2) },
+    { mode: 'fill', d: ellipse(0, 0.62, 0.16, 0.16) },
   ];
 }
 
@@ -268,10 +272,10 @@ function laughEyesShapes(): DecorPrimitive[] {
       mode: 'stroke',
       width: 0.24,
       d: [
-        ['M', -0.92, 0.2],
-        ['Q', -0.52, -0.52, -0.12, 0.2],
-        ['M', 0.12, 0.2],
-        ['Q', 0.52, -0.52, 0.92, 0.2],
+        ['M', -0.86, 0.18],
+        ['Q', -0.5, -0.44, -0.14, 0.18],
+        ['M', 0.14, 0.18],
+        ['Q', 0.5, -0.44, 0.86, 0.18],
       ],
     },
   ];
@@ -283,60 +287,61 @@ function noteShapes(): DecorPrimitive[] {
     {
       mode: 'fill',
       d: [
-        ...ellipse(-0.34, 0.6, 0.34, 0.26),
-        ['M', -0.02, 0.6],
-        ['L', -0.02, -0.86],
-        ['Q', 0.6, -0.76, 0.5, -0.18],
-        ['Q', 0.28, -0.5, -0.02, -0.42],
+        ...ellipse(-0.32, 0.58, 0.32, 0.23),
+        ['M', -0.02, 0.58],
+        ['L', -0.02, -0.8],
+        ['Q', 0.54, -0.72, 0.46, -0.16],
+        ['Q', 0.24, -0.44, -0.02, -0.38],
         ['Z'],
       ],
     },
   ];
 }
 
+/** 물방울 — 위로 좁아지고 아래가 둥근, 땀·눈물 공용 실루엣 */
 function dropShapes(): DecorPrimitive[] {
   return [
     {
       mode: 'fill',
       d: [
         ['M', 0, -1],
-        ['C', 0.5, -0.4, 0.72, 0.05, 0.5, 0.45],
-        ['C', 0.3, 0.8, -0.3, 0.8, -0.5, 0.45],
-        ['C', -0.72, 0.05, -0.5, -0.4, 0, -1],
+        ['C', 0.34, -0.46, 0.54, -0.04, 0.52, 0.3],
+        ['C', 0.5, 0.72, -0.5, 0.72, -0.52, 0.3],
+        ['C', -0.54, -0.04, -0.34, -0.46, 0, -1],
         ['Z'],
       ],
     },
   ];
 }
 
+/** 스우시 — 가볍게 지나가는 한 획(움직임 표시) */
 function swooshShapes(): DecorPrimitive[] {
   return [
     {
-      mode: 'fill',
+      mode: 'stroke',
+      width: 0.2,
       d: [
-        ['M', -1, 0.26],
-        ['Q', -0.15, -0.72, 1, -0.22],
-        ['Q', 0.05, 0.14, -1, 0.26],
-        ['Z'],
+        ['M', -0.9, 0.3],
+        ['C', -0.5, -0.36, 0.4, -0.52, 0.92, -0.18],
       ],
     },
   ];
 }
 
 function angerShapes(): DecorPrimitive[] {
-  // 분노 마크(💢) — 중심에서 뻗는 네 획을 조금씩 휘게 해 'X'가 아니라 핏대 모양으로 읽히게.
+  // 분노 마크 — 중심에서 뻗는 네 획. 가늘게 휘어 'X'가 아니라 핏대 모양으로 읽히게.
   const cmds: Cmd[] = [];
   for (let i = 0; i < 4; i += 1) {
     const angle = Math.PI / 4 + (Math.PI / 2) * i;
-    const turn = angle + 0.5; // 획이 시계방향으로 휘는 방향
-    const sx = Math.cos(angle) * 0.3;
-    const sy = Math.sin(angle) * 0.3;
-    const ex = Math.cos(angle) * 0.98;
-    const ey = Math.sin(angle) * 0.98;
+    const turn = angle + 0.5;
+    const sx = Math.cos(angle) * 0.28;
+    const sy = Math.sin(angle) * 0.28;
+    const ex = Math.cos(angle) * 0.9;
+    const ey = Math.sin(angle) * 0.9;
     cmds.push(['M', sx, sy]);
-    cmds.push(['Q', Math.cos(turn) * 0.86, Math.sin(turn) * 0.86, ex, ey]);
+    cmds.push(['Q', Math.cos(turn) * 0.8, Math.sin(turn) * 0.8, ex, ey]);
   }
-  return [{ mode: 'stroke', width: 0.3, d: cmds }];
+  return [{ mode: 'stroke', width: 0.26, d: cmds }];
 }
 
 /** 분노 스팀 — 머리 옆에서 피어오르는 세 줄기 김 */
@@ -344,47 +349,51 @@ function steamShapes(): DecorPrimitive[] {
   return [
     {
       mode: 'stroke',
-      width: 0.24,
+      width: 0.18,
       d: [
-        ['M', -0.56, 0.72],
-        ['C', -0.9, 0.2, -0.26, 0.02, -0.58, -0.6],
-        ['M', 0.06, 0.82],
-        ['C', -0.24, 0.3, 0.4, 0.1, 0.08, -0.5],
-        ['M', 0.62, 0.6],
-        ['C', 0.36, 0.16, 0.94, -0.04, 0.66, -0.72],
+        ['M', -0.52, 0.68],
+        ['C', -0.84, 0.18, -0.24, 0.0, -0.54, -0.56],
+        ['M', 0.04, 0.78],
+        ['C', -0.22, 0.28, 0.36, 0.08, 0.06, -0.46],
+        ['M', 0.58, 0.56],
+        ['C', 0.34, 0.14, 0.86, -0.04, 0.6, -0.66],
       ],
     },
   ];
 }
 
 function flameShapes(): DecorPrimitive[] {
+  // 끝이 뾰족하고 왼쪽에 한 번 물결치는 불꽃 실루엣 — 물방울과 구분되게.
   return [
     {
       mode: 'fill',
       d: [
         ['M', 0, -1],
-        ['C', 0.62, -0.34, 0.82, 0.06, 0.6, 0.44],
-        ['C', 0.38, 0.86, -0.38, 0.86, -0.6, 0.44],
-        ['C', -0.82, 0.06, -0.5, -0.38, 0, -1],
+        ['C', 0.3, -0.62, 0.58, -0.34, 0.58, 0.04],
+        ['C', 0.58, 0.44, 0.32, 0.74, 0, 0.74],
+        ['C', -0.32, 0.74, -0.58, 0.44, -0.58, 0.04],
+        ['C', -0.58, -0.26, -0.36, -0.44, -0.24, -0.66],
+        ['C', -0.08, -0.5, 0.06, -0.56, 0.06, -0.74],
+        ['C', 0.06, -0.84, 0.02, -0.94, 0, -1],
         ['Z'],
       ],
     },
   ];
 }
 
-/** 피곤·슬픔 구름 — 세 덩이 뭉게구름을 한 덩어리 실루엣으로 */
+/** 피곤·슬픔 구름 — 채우지 않고 가는 선으로 그린 미니멀 구름 */
 function cloudShapes(): DecorPrimitive[] {
   return [
     {
-      mode: 'fill',
+      mode: 'stroke',
+      width: 0.18,
       d: [
-        ['M', -0.86, 0.32],
-        ['C', -1.2, 0.32, -1.22, -0.14, -0.76, -0.2],
-        ['C', -0.88, -0.78, -0.14, -0.98, 0.12, -0.5],
-        ['C', 0.42, -0.98, 1.06, -0.72, 0.9, -0.16],
-        ['C', 1.26, -0.06, 1.22, 0.34, 0.84, 0.34],
-        ['C', 0.5, 0.44, -0.5, 0.44, -0.86, 0.32],
-        ['Z'],
+        ['M', -0.82, 0.3],
+        ['C', -1.14, 0.3, -1.16, -0.12, -0.76, -0.16],
+        ['C', -0.84, -0.72, -0.18, -0.94, 0.1, -0.5],
+        ['C', 0.36, -0.92, 0.98, -0.68, 0.86, -0.16],
+        ['C', 1.18, -0.06, 1.14, 0.3, 0.82, 0.3],
+        ['C', 0.46, 0.4, -0.46, 0.4, -0.82, 0.3],
       ],
     },
   ];
@@ -392,13 +401,13 @@ function cloudShapes(): DecorPrimitive[] {
 
 function coinShapes(): DecorPrimitive[] {
   return [
-    { mode: 'fill', d: ellipse(0, 0, 0.94, 0.94) },
-    { mode: 'stroke', width: 0.14, tone: 'light', d: ellipse(0, 0, 0.58, 0.58) },
+    { mode: 'fill', d: ellipse(0, 0, 0.9, 0.9) },
+    { mode: 'stroke', width: 0.12, tone: 'light', d: ellipse(0, 0, 0.56, 0.56) },
   ];
 }
 
 function dotShapes(): DecorPrimitive[] {
-  return [{ mode: 'fill', d: ellipse(0, 0, 0.9, 0.9) }];
+  return [{ mode: 'fill', d: ellipse(0, 0, 0.85, 0.85) }];
 }
 
 // ── 모양 변형 도우미 (평행이동·회전·확대) ──────────────────────
@@ -455,33 +464,33 @@ function ellipseAt(cx: number, cy: number, rx: number, ry: number, deg = 0): Cmd
   return spin(ellipse(cx, cy, rx, ry), deg, cx, cy);
 }
 
-/** 4각 반짝이 별 — 각이 뾰족하되 끝을 조금 둥글게 */
+/** 4각 반짝이 별 — 날렵한 각에 끝만 살짝 둥글게 */
 function star4Path(): Cmd[] {
   const points: Pt[] = [
     [0, -1],
-    [0.26, -0.26],
+    [0.24, -0.24],
     [1, 0],
-    [0.26, 0.26],
+    [0.24, 0.24],
     [0, 1],
-    [-0.26, 0.26],
+    [-0.24, 0.24],
     [-1, 0],
-    [-0.26, -0.26],
+    [-0.24, -0.24],
   ];
-  return roundedPolygon(points, 0.07);
+  return roundedPolygon(points, 0.05);
 }
 
-/** 별 + 흘러내리는 꼬리 — 유성( Shooting star ) */
+/** 별 + 흘러내리는 꼬리 — 유성 */
 function shootingStarShapes(): DecorPrimitive[] {
   return [
-    { mode: 'fill', d: moved(starPath(), 0.34, -0.36, 0.58) },
+    { mode: 'fill', d: moved(starPath(), 0.34, -0.36, 0.54) },
     {
       mode: 'stroke',
-      width: 0.15,
+      width: 0.12,
       d: [
-        ['M', -0.95, 0.72],
-        ['Q', -0.32, 0.34, 0.02, 0.1],
-        ['M', -0.55, 0.9],
-        ['Q', 0.02, 0.58, 0.3, 0.4],
+        ['M', -0.9, 0.66],
+        ['Q', -0.3, 0.3, 0.0, 0.08],
+        ['M', -0.52, 0.84],
+        ['Q', 0.02, 0.52, 0.28, 0.36],
       ],
     },
   ];
@@ -490,16 +499,16 @@ function shootingStarShapes(): DecorPrimitive[] {
 /** 두 알 하트 — 겹치지 않게 나란히 */
 function heartDoubleShapes(): DecorPrimitive[] {
   return [
-    { mode: 'fill', d: heartAt(-0.36, 0.16, 0.64) },
-    { mode: 'fill', tone: 'light', d: heartAt(0.38, -0.1, 0.7) },
+    { mode: 'fill', d: heartAt(-0.34, 0.14, 0.6) },
+    { mode: 'fill', tone: 'light', d: heartAt(0.36, -0.08, 0.66) },
   ];
 }
 
 /** 반짝하트 — 하트 + 모서리 반짝이 */
 function heartSparkleShapes(): DecorPrimitive[] {
   return [
-    { mode: 'fill', d: heartAt(-0.08, 0.1, 0.82) },
-    { mode: 'fill', tone: 'light', d: moved(sparklePath(), 0.78, -0.76, 0.34) },
+    { mode: 'fill', d: heartAt(-0.08, 0.1, 0.78) },
+    { mode: 'fill', tone: 'light', d: moved(sparklePath(), 0.74, -0.72, 0.3) },
   ];
 }
 
@@ -509,13 +518,13 @@ function heartBrokenShapes(): DecorPrimitive[] {
     { mode: 'fill', d: heartPath() },
     {
       mode: 'stroke',
-      width: 0.17,
+      width: 0.14,
       tone: 'light',
       d: [
-        ['M', 0.12, -0.66],
-        ['L', -0.12, -0.1],
-        ['L', 0.14, 0.06],
-        ['L', -0.08, 0.68],
+        ['M', 0.1, -0.62],
+        ['L', -0.1, -0.08],
+        ['L', 0.12, 0.06],
+        ['L', -0.06, 0.64],
       ],
     },
   ];
@@ -524,22 +533,22 @@ function heartBrokenShapes(): DecorPrimitive[] {
 /** ?! — 물음표와 느낌표를 나란히 */
 function questionExclaimShapes(): DecorPrimitive[] {
   return [
-    ...questionShapes().map((prim) => ({ ...prim, d: moved(prim.d, -0.36, -0.04, 0.58) })),
-    ...exclaimShapes().map((prim) => ({ ...prim, d: moved(prim.d, 0.54, 0.04, 0.6), width: (prim.width ?? 0.3) * 1.15 })),
+    ...questionShapes().map((prim) => ({ ...prim, d: moved(prim.d, -0.34, -0.02, 0.56) })),
+    ...exclaimShapes().map((prim) => ({ ...prim, d: moved(prim.d, 0.5, 0.04, 0.58) })),
   ];
 }
 
-/** ㅎㅎ — 받침 없는 ㅎ 두 글자 (윗가로획 + 가로획 + 동그라미) */
+/** ㅎㅎ — 받침 없는 ㅎ 두 글자 */
 function hahaShapes(): DecorPrimitive[] {
   const bars: Cmd[] = [];
-  for (const cx of [-0.5, 0.5]) {
-    bars.push(['M', cx - 0.22, -0.8], ['L', cx + 0.22, -0.8]);
-    bars.push(['M', cx - 0.27, -0.56], ['L', cx + 0.27, -0.56]);
+  for (const cx of [-0.48, 0.48]) {
+    bars.push(['M', cx - 0.2, -0.76], ['L', cx + 0.2, -0.76]);
+    bars.push(['M', cx - 0.25, -0.54], ['L', cx + 0.25, -0.54]);
   }
-  const rings: Cmd[] = [...ellipse(-0.5, 0.16, 0.34, 0.34), ...ellipse(0.5, 0.16, 0.34, 0.34)];
+  const rings: Cmd[] = [...ellipse(-0.48, 0.14, 0.3, 0.3), ...ellipse(0.48, 0.14, 0.3, 0.3)];
   return [
-    { mode: 'stroke', width: 0.13, d: bars },
-    { mode: 'stroke', width: 0.16, d: rings },
+    { mode: 'stroke', width: 0.12, d: bars },
+    { mode: 'stroke', width: 0.14, d: rings },
   ];
 }
 
@@ -548,14 +557,14 @@ function squintShapes(): DecorPrimitive[] {
   return [
     {
       mode: 'stroke',
-      width: 0.2,
+      width: 0.18,
       d: [
-        ['M', -0.95, -0.42],
-        ['L', -0.34, 0.02],
-        ['L', -0.95, 0.46],
-        ['M', 0.95, -0.42],
-        ['L', 0.34, 0.02],
-        ['L', 0.95, 0.46],
+        ['M', -0.88, -0.38],
+        ['L', -0.3, 0.02],
+        ['L', -0.88, 0.42],
+        ['M', 0.88, -0.38],
+        ['L', 0.3, 0.02],
+        ['L', 0.88, 0.42],
       ],
     },
   ];
@@ -566,7 +575,7 @@ function ellipsisShapes(): DecorPrimitive[] {
   return [
     {
       mode: 'fill',
-      d: [...ellipse(-0.62, 0.42, 0.2, 0.2), ...ellipse(0, 0.42, 0.2, 0.2), ...ellipse(0.62, 0.42, 0.2, 0.2)],
+      d: [...ellipse(-0.5, 0.34, 0.15, 0.15), ...ellipse(0, 0.34, 0.15, 0.15), ...ellipse(0.5, 0.34, 0.15, 0.15)],
     },
   ];
 }
@@ -574,19 +583,19 @@ function ellipsisShapes(): DecorPrimitive[] {
 /** 16분 음표 — 머리 둘 + 두 줄 기둥 */
 function note16Shapes(): DecorPrimitive[] {
   return [
-    { mode: 'fill', d: [...ellipse(-0.62, 0.6, 0.3, 0.23), ...ellipse(0.4, 0.42, 0.3, 0.23)] },
+    { mode: 'fill', d: [...ellipse(-0.58, 0.56, 0.28, 0.21), ...ellipse(0.38, 0.38, 0.28, 0.21)] },
     {
       mode: 'stroke',
-      width: 0.12,
+      width: 0.11,
       d: [
-        ['M', -0.34, 0.58],
-        ['L', -0.34, -0.74],
-        ['M', 0.68, 0.4],
-        ['L', 0.68, -0.92],
-        ['M', -0.34, -0.74],
-        ['L', 0.68, -0.92],
-        ['M', -0.34, -0.5],
-        ['L', 0.68, -0.68],
+        ['M', -0.32, 0.54],
+        ['L', -0.32, -0.7],
+        ['M', 0.64, 0.36],
+        ['L', 0.64, -0.86],
+        ['M', -0.32, -0.7],
+        ['L', 0.64, -0.86],
+        ['M', -0.32, -0.48],
+        ['L', 0.64, -0.64],
       ],
     },
   ];
@@ -595,79 +604,75 @@ function note16Shapes(): DecorPrimitive[] {
 /** 번개 — 지그재그 번개 */
 function lightningShapes(): DecorPrimitive[] {
   const points: Pt[] = [
-    [0.16, -1],
-    [-0.5, 0.08],
-    [-0.06, 0.08],
-    [-0.3, 1],
-    [0.56, -0.16],
-    [0.08, -0.16],
+    [0.14, -1],
+    [-0.46, 0.06],
+    [-0.04, 0.06],
+    [-0.28, 1],
+    [0.52, -0.14],
+    [0.06, -0.14],
   ];
-  return [{ mode: 'fill', d: roundedPolygon(points, 0.04) }];
+  return [{ mode: 'fill', d: roundedPolygon(points, 0.03) }];
 }
 
-/** 소용돌이 — 바깥으로 감기는 나선 */
+/** 소용돌이 — 바깥으로 감기는 가는 나선 */
 function swirlShapes(): DecorPrimitive[] {
   const pts: Pt[] = [];
   const steps = 64;
   for (let i = 0; i <= steps; i += 1) {
     const t = i / steps;
-    const angle = t * Math.PI * 2 * 2.1;
-    const radius = 0.1 + 0.88 * t;
+    const angle = t * Math.PI * 2 * 2.05;
+    const radius = 0.1 + 0.82 * t;
     pts.push([Math.cos(angle) * radius, Math.sin(angle) * radius]);
   }
   const d: Cmd[] = [['M', pts[0][0], pts[0][1]]];
   for (let i = 1; i < pts.length; i += 1) d.push(['L', pts[i][0], pts[i][1]]);
-  return [{ mode: 'stroke', width: 0.15, d }];
+  return [{ mode: 'stroke', width: 0.13, d }];
 }
 
 /** Zzz — 작은 Z 세 개가 위로 커지는 졸림 표시 */
 function zzzShapes(): DecorPrimitive[] {
   const d: Cmd[] = [];
   const letters: [number, number, number][] = [
-    [-0.55, 0.56, 0.3],
-    [0.04, 0.02, 0.44],
-    [0.62, -0.54, 0.58],
+    [-0.5, 0.52, 0.28],
+    [0.04, 0.0, 0.4],
+    [0.56, -0.5, 0.52],
   ];
   for (const [cx, cy, size] of letters) {
     const a = size * 0.5;
     const b = size * 0.42;
     d.push(['M', cx - a, cy - b], ['L', cx + a, cy - b], ['L', cx - a, cy + b], ['L', cx + a, cy + b]);
   }
-  return [{ mode: 'stroke', width: 0.14, d }];
+  return [{ mode: 'stroke', width: 0.12, d }];
 }
 
-/** 돈벼락 — 큰 동전 + 작은 동전들 + 내려오는 금빛 선 */
+/** 돈 — 동전 세 닢이 살짝 흩어진 모양 */
 function coinRainShapes(): DecorPrimitive[] {
   return [
     {
       mode: 'fill',
-      d: [...ellipse(0.28, -0.48, 0.52, 0.52), ...ellipse(-0.56, 0.32, 0.3, 0.3), ...ellipse(0.44, 0.64, 0.26, 0.26)],
+      d: [...ellipse(0.24, -0.44, 0.44, 0.44), ...ellipse(-0.52, 0.3, 0.26, 0.26), ...ellipse(0.4, 0.58, 0.22, 0.22)],
     },
     {
       mode: 'stroke',
-      width: 0.12,
+      width: 0.1,
       tone: 'light',
-      d: [...ellipse(0.28, -0.48, 0.3, 0.3), ...ellipse(-0.56, 0.32, 0.17, 0.17)],
+      d: [...ellipse(0.24, -0.44, 0.26, 0.26), ...ellipse(-0.52, 0.3, 0.14, 0.14)],
     },
-    { mode: 'stroke', width: 0.1, tone: 'light', d: [['M', -0.24, -0.96], ['L', 0.02, -0.7], ['M', -0.92, -0.58], ['L', -0.72, -0.32]] },
   ];
 }
 
-/** 왕관 — 세 뿔 */
+/** 왕관 — 세 뿔, 낮고 넓게 */
 function crownShapes(): DecorPrimitive[] {
   const points: Pt[] = [
-    [-1, 0.54],
-    [-1.02, -0.44],
-    [-0.5, 0.02],
-    [0, -0.86],
-    [0.5, 0.02],
-    [1.02, -0.44],
-    [1, 0.54],
+    [-0.92, 0.46],
+    [-0.96, -0.36],
+    [-0.46, 0.0],
+    [0, -0.78],
+    [0.46, 0.0],
+    [0.96, -0.36],
+    [0.92, 0.46],
   ];
-  return [
-    { mode: 'fill', d: roundedPolygon(points, 0.06) },
-    { mode: 'stroke', width: 0.12, tone: 'light', d: [['M', -0.76, 0.3], ['L', 0.76, 0.3]] },
-  ];
+  return [{ mode: 'fill', d: roundedPolygon(points, 0.05) }];
 }
 
 /** 꽃 — 꽃잎 다섯 장 + 꽃술 */
@@ -675,11 +680,11 @@ function flowerShapes(): DecorPrimitive[] {
   const petals: Cmd[] = [];
   for (let i = 0; i < 5; i += 1) {
     const angle = -Math.PI / 2 + (i * Math.PI * 2) / 5;
-    petals.push(...ellipseAt(Math.cos(angle) * 0.5, Math.sin(angle) * 0.5, 0.36, 0.52, (angle * 180) / Math.PI + 90));
+    petals.push(...ellipseAt(Math.cos(angle) * 0.44, Math.sin(angle) * 0.44, 0.3, 0.46, (angle * 180) / Math.PI + 90));
   }
   return [
     { mode: 'fill', d: petals },
-    { mode: 'fill', tone: 'light', d: ellipse(0, 0, 0.27, 0.27) },
+    { mode: 'fill', tone: 'light', d: ellipse(0, 0, 0.2, 0.2) },
   ];
 }
 
@@ -688,26 +693,25 @@ function cloverShapes(): DecorPrimitive[] {
   return [
     {
       mode: 'fill',
-      d: [...ellipse(-0.4, -0.4, 0.4, 0.4), ...ellipse(0.4, -0.4, 0.4, 0.4), ...ellipse(-0.4, 0.4, 0.4, 0.4), ...ellipse(0.4, 0.4, 0.4, 0.4)],
+      d: [...ellipse(-0.36, -0.36, 0.36, 0.36), ...ellipse(0.36, -0.36, 0.36, 0.36), ...ellipse(-0.36, 0.36, 0.36, 0.36), ...ellipse(0.36, 0.36, 0.36, 0.36)],
     },
-    { mode: 'fill', tone: 'light', d: ellipse(0, 0, 0.2, 0.2) },
+    { mode: 'fill', tone: 'light', d: ellipse(0, 0, 0.16, 0.16) },
   ];
 }
 
-/** 색종이 — 흩날리는 작은 사각 조각 */
+/** 색종이 — 흩날리는 가는 사각 조각 다섯 */
 function confettiShapes(): DecorPrimitive[] {
   const main: Cmd[] = [];
   const light: Cmd[] = [];
   const bits: [number, number, number, number][] = [
-    [-0.6, -0.56, 30, 0.9],
-    [0.14, -0.78, -24, 0.8],
-    [0.72, -0.14, 66, 0.78],
-    [-0.3, 0.44, -18, 0.72],
-    [0.44, 0.62, 26, 0.82],
-    [-0.78, 0.22, 12, 0.5],
+    [-0.52, -0.5, 26, 0.86],
+    [0.2, -0.66, -22, 0.8],
+    [0.6, -0.06, 62, 0.76],
+    [-0.26, 0.4, -16, 0.7],
+    [0.42, 0.56, 24, 0.78],
   ];
   bits.forEach(([cx, cy, deg, s], i) => {
-    const piece = moved(spin(roundedRect(-0.1 * s, -0.42 * s, 0.1 * s, 0.42 * s, 0.07 * s), deg), cx, cy);
+    const piece = moved(spin(roundedRect(-0.08 * s, -0.38 * s, 0.08 * s, 0.38 * s, 0.05 * s), deg), cx, cy);
     (i % 2 === 0 ? main : light).push(...piece);
   });
   return [
@@ -722,12 +726,12 @@ interface ShapeSpec {
 }
 
 const SHAPES: Record<DecorKind, () => ShapeSpec> = {
-  star: () => ({ shapes: [{ mode: 'fill', d: starPath() }], gloss: ellipse(-0.26, -0.34, 0.2, 0.12) }),
-  star4: () => ({ shapes: [{ mode: 'fill', d: star4Path() }], gloss: ellipse(-0.16, -0.5, 0.1, 0.16) }),
+  star: () => ({ shapes: [{ mode: 'fill', d: starPath() }], gloss: ellipse(-0.24, -0.3, 0.16, 0.1) }),
+  star4: () => ({ shapes: [{ mode: 'fill', d: star4Path() }], gloss: ellipse(-0.14, -0.44, 0.08, 0.14) }),
   shootingStar: () => ({ shapes: shootingStarShapes() }),
   sparkle: () => ({ shapes: [{ mode: 'fill', d: sparklePath() }] }),
   confetti: () => ({ shapes: confettiShapes() }),
-  heart: () => ({ shapes: [{ mode: 'fill', d: heartPath() }], gloss: ellipse(-0.36, -0.3, 0.22, 0.13) }),
+  heart: () => ({ shapes: [{ mode: 'fill', d: heartPath() }], gloss: ellipse(-0.34, -0.32, 0.2, 0.11) }),
   heartDouble: () => ({ shapes: heartDoubleShapes() }),
   heartSparkle: () => ({ shapes: heartSparkleShapes() }),
   heartBroken: () => ({ shapes: heartBrokenShapes() }),
@@ -740,12 +744,12 @@ const SHAPES: Record<DecorKind, () => ShapeSpec> = {
   ellipsis: () => ({ shapes: ellipsisShapes() }),
   note8: () => ({ shapes: noteShapes() }),
   note16: () => ({ shapes: note16Shapes() }),
-  sweat: () => ({ shapes: dropShapes(), gloss: ellipse(-0.12, 0.02, 0.12, 0.2) }),
-  tear: () => ({ shapes: dropShapes(), gloss: ellipse(-0.12, 0.02, 0.12, 0.2) }),
+  sweat: () => ({ shapes: dropShapes(), gloss: ellipse(-0.12, 0.0, 0.1, 0.17) }),
+  tear: () => ({ shapes: dropShapes(), gloss: ellipse(-0.12, 0.0, 0.1, 0.17) }),
   swoosh: () => ({ shapes: swooshShapes() }),
   anger: () => ({ shapes: angerShapes() }),
   steam: () => ({ shapes: steamShapes() }),
-  flame: () => ({ shapes: flameShapes(), gloss: ellipse(0, 0.34, 0.16, 0.22) }),
+  flame: () => ({ shapes: flameShapes(), gloss: ellipse(0, 0.32, 0.13, 0.18) }),
   lightning: () => ({ shapes: lightningShapes() }),
   swirl: () => ({ shapes: swirlShapes() }),
   cloud: () => ({ shapes: cloudShapes() }),
@@ -775,10 +779,13 @@ interface Extent {
   y: number;
 }
 
+/** 흰 스티커 외곽선 여유 (단위 반지름) */
+const OUTLINE_PAD = 0.16;
+
 /**
  * 도형이 흰 스티커 외곽선까지 포함해 실제로 차지하는 반경(반지름 r 기준 배수).
  *  · 얼굴 회피·캔버스 클램프·자리 겹침 판정에 이 값을 쓴다 —
- *    하트(±1.22r)나 ?! 처럼 가로로 넓은 도형도 눈·볼을 미리 비켜 간다.
+ *    하트(±1.0r)나 ?! 처럼 가로로 넓은 도형도 눈·볼을 미리 비켜 간다.
  */
 const EXTENT: Record<DecorKind, Extent> = (() => {
   const out = {} as Record<DecorKind, Extent>;
@@ -787,7 +794,7 @@ const EXTENT: Record<DecorKind, Extent> = (() => {
     let mx = 0;
     let my = 0;
     for (const prim of shapes) {
-      const pad = prim.mode === 'fill' ? 0.08 + 0.24 : (prim.width ?? 0.26) / 2 + 0.24;
+      const pad = prim.mode === 'fill' ? OUTLINE_PAD + 0.04 : (prim.width ?? 0.24) / 2 + OUTLINE_PAD;
       for (const cmd of prim.d) {
         const n = cmd as unknown as number[];
         for (let i = 1; i < n.length; i += 2) {
@@ -796,558 +803,283 @@ const EXTENT: Record<DecorKind, Extent> = (() => {
         }
       }
     }
-    out[kind] = { x: Math.max(1, mx * 1.04), y: Math.max(1, my * 1.04) };
+    out[kind] = { x: Math.max(1, mx * 1.02), y: Math.max(1, my * 1.02) };
   }
   return out;
 })();
 
 /** 도형이 반지름 r 인 원 안에서 실제로 칠하는 면적 비율(πr² 대비) — 데코 분량 계산용 */
 const INK_RATIO: Record<DecorKind, number> = {
-  star: 0.36,
-  star4: 0.3,
-  shootingStar: 0.24,
-  sparkle: 0.38,
-  confetti: 0.2,
-  heart: 0.72,
-  heartDouble: 0.62,
-  heartSparkle: 0.66,
-  heartBroken: 0.66,
-  question: 0.44,
-  exclaim: 0.5,
-  questionExclaim: 0.44,
-  laughEyes: 0.2,
-  haha: 0.24,
-  squint: 0.2,
-  ellipsis: 0.3,
-  note8: 0.34,
-  note16: 0.3,
-  sweat: 0.42,
-  tear: 0.42,
-  swoosh: 0.22,
-  anger: 0.19,
-  steam: 0.17,
-  flame: 0.42,
-  lightning: 0.32,
-  swirl: 0.16,
-  cloud: 0.7,
-  zzz: 0.18,
-  coin: 0.86,
-  coinRain: 0.6,
-  crown: 0.48,
-  flower: 0.6,
-  clover: 0.62,
-  dot: 0.72,
+  star: 0.34,
+  star4: 0.26,
+  shootingStar: 0.2,
+  sparkle: 0.3,
+  confetti: 0.16,
+  heart: 0.68,
+  heartDouble: 0.56,
+  heartSparkle: 0.6,
+  heartBroken: 0.62,
+  question: 0.36,
+  exclaim: 0.36,
+  questionExclaim: 0.34,
+  laughEyes: 0.14,
+  haha: 0.18,
+  squint: 0.14,
+  ellipsis: 0.2,
+  note8: 0.3,
+  note16: 0.26,
+  sweat: 0.36,
+  tear: 0.36,
+  swoosh: 0.18,
+  anger: 0.15,
+  steam: 0.12,
+  flame: 0.38,
+  lightning: 0.28,
+  swirl: 0.11,
+  cloud: 0.16,
+  zzz: 0.12,
+  coin: 0.8,
+  coinRain: 0.46,
+  crown: 0.44,
+  flower: 0.5,
+  clover: 0.56,
+  dot: 0.66,
 };
 
 /** 글자 크기 대비 반지름 상한 — 주 데코가 캔버스를 집어삼키지 않게 */
 const MAX_R: Record<DecorKind, number> = {
-  star: 0.78,
-  star4: 0.7,
-  shootingStar: 0.8,
-  sparkle: 0.72,
-  confetti: 0.8,
-  heart: 0.75,
-  heartDouble: 0.82,
-  heartSparkle: 0.8,
-  heartBroken: 0.75,
-  question: 0.75,
-  exclaim: 0.72,
-  questionExclaim: 0.8,
-  laughEyes: 0.8,
-  haha: 0.72,
-  squint: 0.8,
-  ellipsis: 0.7,
-  note8: 0.62,
-  note16: 0.68,
-  sweat: 0.55,
-  tear: 0.55,
-  swoosh: 0.5,
-  anger: 0.75,
-  steam: 0.6,
-  flame: 0.62,
-  lightning: 0.7,
-  swirl: 0.62,
-  cloud: 0.68,
-  zzz: 0.62,
-  coin: 0.6,
-  coinRain: 0.72,
-  crown: 0.7,
-  flower: 0.7,
-  clover: 0.68,
-  dot: 0.3,
+  star: 0.7,
+  star4: 0.64,
+  shootingStar: 0.72,
+  sparkle: 0.66,
+  confetti: 0.72,
+  heart: 0.68,
+  heartDouble: 0.74,
+  heartSparkle: 0.72,
+  heartBroken: 0.68,
+  question: 0.68,
+  exclaim: 0.66,
+  questionExclaim: 0.72,
+  laughEyes: 0.72,
+  haha: 0.64,
+  squint: 0.72,
+  ellipsis: 0.6,
+  note8: 0.56,
+  note16: 0.6,
+  sweat: 0.5,
+  tear: 0.5,
+  swoosh: 0.46,
+  anger: 0.66,
+  steam: 0.54,
+  flame: 0.56,
+  lightning: 0.62,
+  swirl: 0.54,
+  cloud: 0.6,
+  zzz: 0.54,
+  coin: 0.52,
+  coinRain: 0.62,
+  crown: 0.6,
+  flower: 0.6,
+  clover: 0.58,
+  dot: 0.26,
 };
 
-// ── 컬러 (카톡 스티커처럼 명도를 낮춘 딥톤 + 밝은 포인트) ──────────
+// ── 컬러 — 한 계열의 톤온톤(모던 포인트 컬러) ──────────────────
 
-const PALETTE: Record<DecorKind, { main: string; light: string }> = {
-  star: { main: '#E9A013', light: '#FFD766' },
-  star4: { main: '#E29A10', light: '#FFD36B' },
-  shootingStar: { main: '#E2A411', light: '#FFE27C' },
-  sparkle: { main: '#E9A013', light: '#FFE08A' },
-  confetti: { main: '#D2553C', light: '#F2A03D' },
-  heart: { main: '#E23A5F', light: '#FF91AA' },
-  heartDouble: { main: '#D9345A', light: '#FF8FA9' },
-  heartSparkle: { main: '#E23A5F', light: '#FFB3C6' },
-  heartBroken: { main: '#C2425F', light: '#FF9FB0' },
-  question: { main: '#4453B2', light: '#8E9BEC' },
-  exclaim: { main: '#E04A2F', light: '#FF9273' },
-  questionExclaim: { main: '#5A4BB8', light: '#A99BF2' },
-  laughEyes: { main: '#8A4A2A', light: '#C98457' },
-  haha: { main: '#8A4A2A', light: '#C98457' },
-  squint: { main: '#8A4A2A', light: '#C98457' },
-  ellipsis: { main: '#6B7280', light: '#B9C0CC' },
-  note8: { main: '#7B4BC9', light: '#B392F0' },
-  note16: { main: '#6E3FC0', light: '#AE8BEE' },
-  sweat: { main: '#3F9BD6', light: '#A6DCF7' },
-  tear: { main: '#3F9BD6', light: '#A6DCF7' },
-  swoosh: { main: '#E0573A', light: '#FF9C7E' },
-  anger: { main: '#C93A2B', light: '#F2796A' },
-  steam: { main: '#8B7A6B', light: '#CFC0B2' },
-  flame: { main: '#EE7318', light: '#FFC24D' },
-  lightning: { main: '#E8A417', light: '#FFD75E' },
-  swirl: { main: '#7E6FA8', light: '#C4B7E6' },
-  cloud: { main: '#8E9BB0', light: '#E1E7F1' },
-  zzz: { main: '#5B6B8C', light: '#AEBBD6' },
-  coin: { main: '#D9A31B', light: '#FFDC6A' },
-  coinRain: { main: '#D9A31B', light: '#FFDC6A' },
-  crown: { main: '#D9A31B', light: '#FFE08A' },
-  flower: { main: '#E2567E', light: '#FFA8BF' },
-  clover: { main: '#3E8F4E', light: '#8FD19A' },
-  dot: { main: '#E9A013', light: '#FFD766' },
+type DecorTone = 'gold' | 'coral' | 'slate' | 'lavender' | 'charcoal';
+
+/** 절제된 5가지 톤 — main(채움) + light(하이라이트). 한 컷에는 한 계열만 쓴다. */
+export const DECOR_TONES: Record<DecorTone, { main: string; light: string }> = {
+  gold: { main: '#E0B45C', light: '#F4DFAE' },
+  coral: { main: '#E46B7A', light: '#F5B7BE' },
+  slate: { main: '#6B87B0', light: '#C0CEE0' },
+  lavender: { main: '#8C7BC8', light: '#CFC6EC' },
+  charcoal: { main: '#4B5263', light: '#A6ADBB' },
+};
+
+/** 테스트·문서가 참조하는 전체 데코 컬러 목록 */
+export const DECOR_PALETTE: string[] = [...new Set(Object.values(DECOR_TONES).map((tone) => tone.main))];
+
+/**
+ * 모티프별 톤 — 한 컷 안의 모든 데코는 이 한 계열의 main/light 만 쓴다.
+ *  · 노랑·보라·빨강이 섞이던 원색 조합 대신, 컷마다 하나의 세련된 포인트 컬러.
+ */
+const MOTIF_TONE: Record<DecorMotif, DecorTone> = {
+  love: 'coral',
+  thanks: 'gold',
+  greet: 'gold',
+  question: 'slate',
+  laugh: 'gold',
+  cheer: 'gold',
+  congrats: 'gold',
+  praise: 'gold',
+  tired: 'slate',
+  sleep: 'slate',
+  angry: 'charcoal',
+  complain: 'charcoal',
+  sad: 'slate',
+  cry: 'slate',
+  surprised: 'gold',
+  money: 'gold',
+  smug: 'lavender',
+  plain: 'charcoal',
+};
+
+const KIND_TONE: Record<DecorKind, DecorTone> = {
+  star: 'gold',
+  star4: 'gold',
+  shootingStar: 'gold',
+  sparkle: 'gold',
+  confetti: 'gold',
+  heart: 'coral',
+  heartDouble: 'coral',
+  heartSparkle: 'coral',
+  heartBroken: 'coral',
+  question: 'slate',
+  exclaim: 'slate',
+  questionExclaim: 'slate',
+  laughEyes: 'charcoal',
+  haha: 'charcoal',
+  squint: 'charcoal',
+  ellipsis: 'charcoal',
+  note8: 'lavender',
+  note16: 'lavender',
+  sweat: 'slate',
+  tear: 'slate',
+  swoosh: 'coral',
+  anger: 'charcoal',
+  steam: 'charcoal',
+  flame: 'coral',
+  lightning: 'gold',
+  swirl: 'lavender',
+  cloud: 'slate',
+  zzz: 'slate',
+  coin: 'gold',
+  coinRain: 'gold',
+  crown: 'gold',
+  flower: 'coral',
+  clover: 'lavender',
+  dot: 'charcoal',
 };
 
 // ── 어떤 데코를 고를지 — 문구 → 이펙트 → 감정 ─────────────────────
 
-interface MotifItem {
-  kind: DecorKind;
-  slot: DecorSlot;
-  /** 주 데코(머리 위 큰 것) · 곁 데코 · 옆 데코 · 모서리 점 */
-  role: 'hero' | 'sub' | 'side' | 'accent';
-  /** 글자 크기 대비 반지름 */
-  scale: number;
-  rotate: number;
-}
-
-/** 한 조각: [아이콘, 자리, 역할, 크기, 기울기] */
-type ItemSpec = [DecorKind, DecorSlot, MotifItem['role'], number, number];
+/** 주 데코를 두는 곳 — 머리 위 가운데 또는 한쪽(위) */
+type HeroAnchor = 'crown' | 'side';
 
 interface MotifVariant {
   /** 이 변주를 고르는 문구 힌트 (없으면 문구 해시로 고른다) */
   when?: RegExp;
-  items: ItemSpec[];
+  /** [아이콘, 자리, 글자 크기 대비 반지름, 기울기] */
+  hero: [DecorKind, HeroAnchor, number, number];
+  /** [아이콘, 글자 크기 대비 반지름, 기울기] — 0~2점, 작고 조용하게 */
+  accents: [DecorKind, number, number][];
 }
 
-const v = (when: RegExp | null, items: ItemSpec[]): MotifVariant => ({ when: when ?? undefined, items });
-
-/** 데코 전체가 문장 블록(가로×세로)에서 차지하는 분량 — 사용자 요청 "문장의 20%" */
-const TARGET_SHARE = 0.2;
-
-/** 역할별 상한 — [MAX_R 배수, 캔버스 대비] */
-const ROLE_CAP: Record<MotifItem['role'], [number, number]> = {
-  hero: [1, 0.085],
-  sub: [0.62, 0.052],
-  side: [0.58, 0.05],
-  accent: [0.42, 0.036],
-};
+const v = (when: RegExp | null, hero: MotifVariant['hero'], accents: MotifVariant['accents']): MotifVariant => ({
+  when: when ?? undefined,
+  hero,
+  accents,
+});
 
 /**
  * 모티프별 문구 변주 — 같은 감정·테마라도 대사가 다르면 다른 문양 조합이 나온다.
- *  · 각 변주는 머리 위(주 데코) · 옆(관자·볼·어깨) · 글자 주변을 함께 쓴다.
+ *  · 한 컷 2~3점: 주 데코 1점 + 작은 악센트 1~2점. 그 이상은 붙이지 않는다.
  */
 const MOTIFS: Record<DecorMotif, MotifVariant[]> = {
   love: [
-    v(/보고|그리|안아|기다|헤어|다시/, [
-      ['heartBroken', 'crown', 'hero', 0.48, -6],
-      ['tear', 'cheekRight', 'side', 0.26, 8],
-      ['sparkle', 'crownRight', 'sub', 0.28, 0],
-      ['heart', 'textTopRight', 'accent', 0.2, 10],
-      ['ellipsis', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/설렘|심쿵|두근|반했|첫사랑/, [
-      ['heartSparkle', 'crown', 'hero', 0.48, -8],
-      ['sparkle', 'crownLeft', 'sub', 0.3, 0],
-      ['note8', 'cheekRight', 'side', 0.26, 8],
-      ['heart', 'textTopRight', 'accent', 0.2, 12],
-      ['star', 'textBottomLeft', 'accent', 0.16, -8],
-    ]),
-    v(null, [
-      ['heart', 'crown', 'hero', 0.5, -10],
-      ['sparkle', 'crownRight', 'sub', 0.3, 0],
-      ['heart', 'cheekRight', 'side', 0.3, 14],
-      ['heartSparkle', 'textTopRight', 'accent', 0.22, 8],
-      ['star', 'textBottomLeft', 'accent', 0.16, -8],
-    ]),
+    v(/보고|그리|안아|기다/, ['heart', 'side', 0.46, -4], [['sparkle', 0.2, 0]]),
+    v(/설렘|심쿵|두근|반했|첫사랑/, ['heartSparkle', 'side', 0.44, -3], [['sparkle', 0.19, 0]]),
+    v(null, ['heart', 'crown', 0.46, -3], [['sparkle', 0.19, 0]]),
   ],
   thanks: [
-    v(/생일|선물|케이크/, [
-      ['heartSparkle', 'crown', 'hero', 0.46, -8],
-      ['confetti', 'crownLeft', 'sub', 0.3, 0],
-      ['flower', 'cheekLeft', 'side', 0.28, -6],
-      ['heart', 'textTopRight', 'accent', 0.2, 10],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/도움|덕분|역시|살렸/, [
-      ['flower', 'crown', 'hero', 0.46, 6],
-      ['heartDouble', 'crownRight', 'sub', 0.28, 8],
-      ['sparkle', 'cheekLeft', 'side', 0.28, 0],
-      ['star', 'textTopRight', 'accent', 0.2, 8],
-      ['heart', 'textBottomLeft', 'accent', 0.18, -10],
-    ]),
-    v(null, [
-      ['heart', 'crown', 'hero', 0.48, -8],
-      ['flower', 'cheekRight', 'side', 0.3, 8],
-      ['sparkle', 'crownLeft', 'sub', 0.3, 0],
-      ['heartDouble', 'textTopLeft', 'accent', 0.2, -8],
-      ['flower', 'textBottomRight', 'accent', 0.18, 12],
-    ]),
+    v(/생일|선물|케이크/, ['flower', 'side', 0.44, 3], [['sparkle', 0.19, 0]]),
+    v(/도움|덕분|역시|살렸/, ['heart', 'side', 0.44, -3], [['sparkle', 0.18, 0]]),
+    v(null, ['flower', 'crown', 0.44, 4], [['heart', 0.15, -6]]),
   ],
   greet: [
-    v(/아침|굿모닝|근|모닝/, [
-      ['star4', 'crown', 'hero', 0.46, -8],
-      ['sparkle', 'crownLeft', 'sub', 0.3, 0],
-      ['note16', 'cheekRight', 'side', 0.28, 10],
-      ['star', 'textTopRight', 'accent', 0.2, 8],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/잘\s?자|굿나잇|안녕히|꿈/, [
-      ['note8', 'crown', 'hero', 0.46, -6],
-      ['star4', 'crownRight', 'sub', 0.28, 0],
-      ['cloud', 'cheekLeft', 'side', 0.26, 0],
-      ['ellipsis', 'textBottomRight', 'accent', 0.18, 0],
-      ['sparkle', 'textTopLeft', 'accent', 0.16, 0],
-    ]),
-    v(null, [
-      ['sparkle', 'crown', 'hero', 0.46, 0],
-      ['star', 'crownRight', 'sub', 0.3, 8],
-      ['heart', 'cheekRight', 'side', 0.28, 10],
-      ['note8', 'cheekLeft', 'accent', 0.22, -8],
-      ['sparkle', 'textTopLeft', 'accent', 0.16, 0],
-    ]),
+    v(/아침|굿모닝|근|모닝/, ['star4', 'side', 0.44, -3], [['sparkle', 0.19, 0]]),
+    v(/잘\s?자|굿나잇|안녕히|꿈/, ['note8', 'side', 0.42, -3], [['star4', 0.15, 0]]),
+    v(null, ['sparkle', 'crown', 0.44, 0], [['heart', 0.15, 6]]),
   ],
   question: [
-    v(/헷갈|당황|황당|어라|뭐지/, [
-      ['questionExclaim', 'crown', 'hero', 0.46, 6],
-      ['swirl', 'templeRight', 'sub', 0.28, 0],
-      ['question', 'crownLeft', 'side', 0.28, -8],
-      ['sweat', 'cheekRight', 'side', 0.26, 8],
-      ['dot', 'textTopLeft', 'accent', 0.16, 0],
-    ]),
-    v(/메모|확인|물어|알려/, [
-      ['question', 'crown', 'hero', 0.46, -6],
-      ['ellipsis', 'crownLeft', 'sub', 0.3, 0],
-      ['questionExclaim', 'textTopRight', 'accent', 0.22, 8],
-      ['sweat', 'templeRight', 'side', 0.26, 10],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(null, [
-      ['question', 'crown', 'hero', 0.48, 8],
-      ['exclaim', 'crownRight', 'sub', 0.3, 8],
-      ['sweat', 'templeLeft', 'side', 0.28, -8],
-      ['questionExclaim', 'textTopRight', 'accent', 0.22, 8],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
+    v(/헷갈|당황|황당|어라|뭐지/, ['questionExclaim', 'crown', 0.44, 3], [['sparkle', 0.17, 0]]),
+    v(/메모|확인|물어|알려/, ['question', 'side', 0.42, -3], [['ellipsis', 0.15, 0]]),
+    v(null, ['question', 'crown', 0.46, 4], [['sweat', 0.18, 6]]),
   ],
   laugh: [
-    v(/ㅋㅋ|ㅎㅎ|빵터|폭소|웃겨|재밌|낄낄/, [
-      ['laughEyes', 'crown', 'hero', 0.48, -4],
-      ['sparkle', 'crownLeft', 'sub', 0.3, 0],
-      ['note8', 'cheekRight', 'side', 0.28, 8],
-      ['star', 'textTopRight', 'accent', 0.2, 8],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/[><]|꺄|히히|깔깔/, [
-      ['squint', 'crown', 'hero', 0.46, 0],
-      ['haha', 'crownRight', 'sub', 0.26, 0],
-      ['note16', 'cheekLeft', 'side', 0.28, -10],
-      ['star', 'textTopRight', 'accent', 0.2, 8],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/썰|드립|킹받|즐거/, [
-      ['haha', 'crown', 'hero', 0.46, -6],
-      ['confetti', 'crownRight', 'sub', 0.26, 0],
-      ['sparkle', 'cheekRight', 'side', 0.28, 0],
-      ['laughEyes', 'textTopLeft', 'accent', 0.2, -6],
-      ['star', 'textBottomLeft', 'accent', 0.16, 8],
-    ]),
+    v(/ㅋㅋ|ㅎㅎ|빵터|폭소|웃겨|재밌|낄낄/, ['laughEyes', 'crown', 0.5, -2], [['sparkle', 0.19, 0]]),
+    v(/[><]|꺄|히히|깔깔/, ['squint', 'crown', 0.44, 0], [['note8', 0.17, 5]]),
+    v(/썰|드립|킹받|즐거/, ['note8', 'side', 0.42, -4], [['sparkle', 0.19, 0]]),
   ],
   cheer: [
-    v(/화이팅|파이팅|힘내|응원|가자|해보자|출발|할\s?수/, [
-      ['star', 'crown', 'hero', 0.48, -8],
-      ['sparkle', 'crownRight', 'sub', 0.3, 0],
-      ['exclaim', 'templeLeft', 'side', 0.26, -6],
-      ['confetti', 'cheekRight', 'side', 0.26, 0],
-      ['sparkle', 'textTopLeft', 'accent', 0.16, 0],
-    ]),
-    v(/[!！]|짱|성공|좋아|신나/, [
-      ['sparkle', 'crown', 'hero', 0.48, 0],
-      ['star4', 'crownLeft', 'sub', 0.3, -10],
-      ['note8', 'cheekRight', 'side', 0.28, 8],
-      ['star', 'textBottomRight', 'accent', 0.2, 8],
-      ['sparkle', 'textTopLeft', 'accent', 0.16, 0],
-    ]),
-    v(null, [
-      ['star4', 'crown', 'hero', 0.48, -8],
-      ['sparkle', 'crownRight', 'sub', 0.3, 0],
-      ['note16', 'cheekLeft', 'side', 0.26, -10],
-      ['sparkle', 'textTopRight', 'accent', 0.2, 0],
-      ['star', 'textBottomLeft', 'accent', 0.16, -8],
-    ]),
+    v(/화이팅|파이팅|힘내|응원|가자|해보자|출발|할\s?수/, ['star4', 'side', 0.46, -4], [['sparkle', 0.2, 0]]),
+    v(/[!！]|짱|성공|좋아|신나/, ['sparkle', 'crown', 0.46, 0], [['star4', 0.16, -6]]),
+    v(null, ['sparkle', 'crown', 0.44, -4], [['note8', 0.16, 5]]),
   ],
   congrats: [
-    v(/축하|합격|당첨|해냈|성공|생일/, [
-      ['crown', 'crown', 'hero', 0.46, -6],
-      ['confetti', 'crownRight', 'sub', 0.3, 0],
-      ['star4', 'cheekLeft', 'side', 0.26, -10],
-      ['sparkle', 'cheekRight', 'accent', 0.22, 0],
-      ['heart', 'textTopRight', 'accent', 0.18, 10],
-    ]),
-    v(/기념|1주년|개업|첫|시작/, [
-      ['confetti', 'crown', 'hero', 0.46, 0],
-      ['star', 'crownLeft', 'sub', 0.3, -8],
-      ['crown', 'cheekRight', 'side', 0.28, 6],
-      ['sparkle', 'textTopLeft', 'accent', 0.18, 0],
-      ['star4', 'textBottomRight', 'accent', 0.16, 8],
-    ]),
-    v(/로또|잭팟|횡재|돈/, [
-      ['crown', 'crown', 'hero', 0.46, -6],
-      ['coinRain', 'crownLeft', 'sub', 0.28, 0],
-      ['sparkle', 'cheekRight', 'side', 0.26, 0],
-      ['star', 'textTopLeft', 'accent', 0.18, -8],
-      ['confetti', 'textBottomRight', 'accent', 0.16, 0],
-    ]),
+    v(/축하|합격|당첨|해냈|성공|생일/, ['crown', 'crown', 0.44, -3], [['sparkle', 0.2, 0], ['heart', 0.13, 8]]),
+    v(/기념|1주년|개업|첫|시작/, ['sparkle', 'side', 0.44, 0], [['star4', 0.17, -6], ['heart', 0.13, 6]]),
+    v(/로또|잭팟|횡재|돈/, ['crown', 'crown', 0.42, -3], [['coin', 0.19, 0]]),
   ],
   praise: [
-    v(/최고|짱|멋지|잘했|훌륭|천재|완벽|대단/, [
-      ['star', 'crown', 'hero', 0.48, -10],
-      ['crown', 'crownRight', 'sub', 0.26, 8],
-      ['sparkle', 'cheekLeft', 'side', 0.26, 0],
-      ['star4', 'textTopRight', 'accent', 0.2, 8],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/역시|예상|그럴 줄|당연/, [
-      ['star4', 'crown', 'hero', 0.46, -8],
-      ['star', 'crownLeft', 'sub', 0.26, -10],
-      ['sparkle', 'cheekRight', 'side', 0.26, 0],
-      ['note16', 'textTopLeft', 'accent', 0.18, 0],
-      ['sparkle', 'textBottomRight', 'accent', 0.16, 0],
-    ]),
-    v(/박수|짝짝|칭찬/, [
-      ['confetti', 'crown', 'hero', 0.44, 0],
-      ['star', 'crownRight', 'sub', 0.3, 8],
-      ['sparkle', 'cheekLeft', 'side', 0.26, 0],
-      ['star4', 'textTopRight', 'accent', 0.2, 8],
-      ['heart', 'textBottomLeft', 'accent', 0.16, -10],
-    ]),
+    v(/최고|짱|멋지|잘했|훌륭|천재|완벽|대단/, ['star4', 'side', 0.46, -5], [['sparkle', 0.2, 0]]),
+    v(/역시|예상|그럴 줄|당연/, ['sparkle', 'crown', 0.44, -3], [['star4', 0.16, -5]]),
+    v(/박수|짝짝|칭찬/, ['crown', 'crown', 0.44, -3], [['sparkle', 0.19, 0]]),
   ],
   tired: [
-    v(/피곤|지쳐|힘들|야근|월요일|퇴근/, [
-      ['cloud', 'crown', 'hero', 0.46, 0],
-      ['sweat', 'templeRight', 'side', 0.28, 8],
-      ['sweat', 'templeLeft', 'accent', 0.22, -10],
-      ['star', 'crownLeft', 'sub', 0.24, -12],
-      ['sparkle', 'textTopRight', 'accent', 0.16, 0],
-    ]),
-    v(/녹초|방전|지침|쓰러/, [
-      ['swirl', 'crown', 'hero', 0.44, 0],
-      ['sweat', 'cheekRight', 'side', 0.28, 8],
-      ['cloud', 'crownLeft', 'sub', 0.26, 0],
-      ['ellipsis', 'textBottomRight', 'accent', 0.18, 0],
-      ['dot', 'textTopLeft', 'accent', 0.16, 0],
-    ]),
-    v(/한숨|숨|쉬고|쉬자/, [
-      ['steam', 'crown', 'hero', 0.44, 0],
-      ['cloud', 'crownRight', 'sub', 0.26, 0],
-      ['ellipsis', 'cheekLeft', 'side', 0.24, 0],
-      ['sweat', 'templeLeft', 'accent', 0.2, -10],
-      ['sparkle', 'textBottomRight', 'accent', 0.16, 0],
-    ]),
+    v(/피곤|지쳐|힘들|야근|월요일|퇴근/, ['cloud', 'crown', 0.44, 0], [['sweat', 0.2, 6]]),
+    v(/녹초|방전|지침|쓰러/, ['swirl', 'side', 0.4, 0], [['sweat', 0.19, 6]]),
+    v(/한숨|숨|쉬고|쉬자/, ['steam', 'crown', 0.4, 0], [['ellipsis', 0.15, 0]]),
   ],
   sleep: [
-    v(/졸려|잠와|자야|굿나잇|잘자|꿈/, [
-      ['zzz', 'crown', 'hero', 0.46, -6],
-      ['cloud', 'crownLeft', 'sub', 0.26, 0],
-      ['star4', 'templeRight', 'accent', 0.22, 0],
-      ['ellipsis', 'textTopLeft', 'accent', 0.18, 0],
-      ['sparkle', 'textBottomRight', 'accent', 0.16, 0],
-    ]),
-    v(/새벽|밤샘|불면|잠이/, [
-      ['zzz', 'crown', 'hero', 0.44, -6],
-      ['swirl', 'templeRight', 'side', 0.26, 0],
-      ['cloud', 'cheekLeft', 'side', 0.24, 0],
-      ['dot', 'textTopRight', 'accent', 0.14, 0],
-      ['ellipsis', 'textBottomLeft', 'accent', 0.18, 0],
-    ]),
+    v(/졸려|잠와|자야|굿나잇|잘자|꿈/, ['zzz', 'side', 0.42, -4], [['cloud', 0.17, 0]]),
+    v(/새벽|밤샘|불면|잠이/, ['zzz', 'crown', 0.4, -4], [['star4', 0.15, 0]]),
   ],
   angry: [
-    v(/미워|싫어|배신|손절/, [
-      ['anger', 'crown', 'hero', 0.44, -6],
-      ['lightning', 'crownRight', 'sub', 0.26, 0],
-      ['steam', 'cheekLeft', 'side', 0.26, -8],
-      ['exclaim', 'textTopRight', 'accent', 0.2, 8],
-      ['sweat', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/킹받|폭발|뿔났|빡쳐/, [
-      ['flame', 'crown', 'hero', 0.44, -6],
-      ['anger', 'crownLeft', 'sub', 0.24, 8],
-      ['steam', 'templeRight', 'side', 0.28, 8],
-      ['lightning', 'textTopRight', 'accent', 0.2, 0],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(null, [
-      ['anger', 'crown', 'hero', 0.44, -6],
-      ['steam', 'templeRight', 'side', 0.28, 8],
-      ['steam', 'templeLeft', 'side', 0.24, -8],
-      ['exclaim', 'textTopRight', 'accent', 0.2, 8],
-      ['sparkle', 'crownLeft', 'sub', 0.22, 0],
-    ]),
+    v(/미워|싫어|배신|손절/, ['anger', 'crown', 0.4, -3], [['steam', 0.18, 0]]),
+    v(/킹받|폭발|뿔났|빡쳐/, ['flame', 'side', 0.4, -3], [['anger', 0.16, 0]]),
+    v(null, ['anger', 'crown', 0.4, -3], [['steam', 0.18, 0], ['exclaim', 0.14, 0]]),
   ],
   complain: [
-    v(/뭐래|어쩌라고|또야|왜\s?또/, [
-      ['question', 'crown', 'hero', 0.44, 8],
-      ['ellipsis', 'crownLeft', 'sub', 0.26, 0],
-      ['steam', 'templeLeft', 'side', 0.24, -8],
-      ['exclaim', 'textBottomRight', 'accent', 0.18, 8],
-      ['sweat', 'textTopLeft', 'accent', 0.16, 0],
-    ]),
-    v(/답답|막막|갑갑/, [
-      ['swirl', 'crown', 'hero', 0.44, 0],
-      ['cloud', 'crownRight', 'sub', 0.26, 0],
-      ['ellipsis', 'cheekLeft', 'side', 0.24, 0],
-      ['dot', 'textTopRight', 'accent', 0.14, 0],
-      ['sweat', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(null, [
-      ['ellipsis', 'crown', 'hero', 0.44, 0],
-      ['swirl', 'crownRight', 'sub', 0.26, 0],
-      ['sweat', 'cheekRight', 'side', 0.24, 8],
-      ['dot', 'textTopLeft', 'accent', 0.14, 0],
-      ['question', 'textBottomRight', 'accent', 0.18, 6],
-    ]),
+    v(/뭐래|어쩌라고|또야|왜\s?또/, ['question', 'crown', 0.4, 3], [['ellipsis', 0.15, 0]]),
+    v(/답답|막막|갑갑/, ['swirl', 'crown', 0.38, 0], [['ellipsis', 0.15, 0]]),
+    v(null, ['ellipsis', 'crown', 0.38, 0], [['swirl', 0.17, 0]]),
   ],
   sad: [
-    v(/울|눈물|엉엉|서러|억울/, [
-      ['tear', 'crown', 'hero', 0.42, -6],
-      ['cloud', 'crownLeft', 'sub', 0.26, 0],
-      ['tear', 'cheekLeft', 'side', 0.24, -6],
-      ['ellipsis', 'textTopRight', 'accent', 0.18, 0],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/실망|아쉬|안타|속상/, [
-      ['cloud', 'crown', 'hero', 0.44, 0],
-      ['heartBroken', 'crownRight', 'sub', 0.26, 8],
-      ['tear', 'cheekRight', 'side', 0.24, 8],
-      ['dot', 'textTopLeft', 'accent', 0.14, 0],
-      ['ellipsis', 'textBottomRight', 'accent', 0.18, 0],
-    ]),
-    v(null, [
-      ['cloud', 'crown', 'hero', 0.44, 0],
-      ['tear', 'cheekRight', 'side', 0.26, 6],
-      ['tear', 'templeLeft', 'accent', 0.22, -8],
-      ['sparkle', 'crownRight', 'sub', 0.24, 0],
-      ['star', 'textTopRight', 'accent', 0.16, -10],
-    ]),
+    v(/울|눈물|엉엉|서러|억울/, ['tear', 'side', 0.4, -3], [['cloud', 0.17, 0]]),
+    v(/실망|아쉬|안타|속상/, ['cloud', 'crown', 0.4, 0], [['tear', 0.17, 5]]),
+    v(null, ['cloud', 'crown', 0.4, 0], [['tear', 0.17, 0]]),
   ],
   cry: [
-    v(/서러|억울|대성통곡|오열/, [
-      ['cloud', 'crown', 'hero', 0.44, 0],
-      ['tear', 'templeRight', 'side', 0.26, 8],
-      ['tear', 'templeLeft', 'side', 0.24, -8],
-      ['ellipsis', 'textBottomRight', 'accent', 0.18, 0],
-      ['dot', 'textTopLeft', 'accent', 0.14, 0],
-    ]),
-    v(null, [
-      ['tear', 'crown', 'hero', 0.42, -6],
-      ['cloud', 'crownLeft', 'sub', 0.26, 0],
-      ['tear', 'cheekLeft', 'side', 0.24, -6],
-      ['ellipsis', 'textTopRight', 'accent', 0.18, 0],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
+    v(/서러|억울|대성통곡|오열/, ['cloud', 'crown', 0.4, 0], [['tear', 0.19, 0]]),
+    v(null, ['tear', 'side', 0.4, -3], [['cloud', 0.17, 0]]),
   ],
   surprised: [
-    v(/진짜|실화|말도 안|누가/, [
-      ['questionExclaim', 'crown', 'hero', 0.46, 6],
-      ['sparkle', 'crownLeft', 'sub', 0.28, 0],
-      ['lightning', 'templeRight', 'side', 0.24, 0],
-      ['sweat', 'cheekLeft', 'accent', 0.22, -8],
-      ['star', 'textBottomRight', 'accent', 0.18, 8],
-    ]),
-    v(/어\?|갑자기|순간|갑작/, [
-      ['question', 'crown', 'hero', 0.44, 8],
-      ['exclaim', 'crownRight', 'sub', 0.28, 8],
-      ['sparkle', 'cheekRight', 'side', 0.26, 0],
-      ['lightning', 'textTopLeft', 'accent', 0.2, 0],
-      ['sweat', 'textBottomRight', 'accent', 0.16, 0],
-    ]),
-    v(null, [
-      ['exclaim', 'crown', 'hero', 0.46, -4],
-      ['sparkle', 'crownRight', 'sub', 0.3, 0],
-      ['sweat', 'templeLeft', 'side', 0.26, -10],
-      ['lightning', 'crownLeft', 'accent', 0.22, 0],
-      ['sparkle', 'textTopRight', 'accent', 0.16, 0],
-    ]),
+    v(/진짜|실화|말도 안|누가/, ['questionExclaim', 'crown', 0.44, 3], [['sparkle', 0.19, 0]]),
+    v(/어\?|갑자기|순간|갑작/, ['exclaim', 'side', 0.42, 3], [['sparkle', 0.17, 0]]),
+    v(null, ['exclaim', 'crown', 0.44, -2], [['sweat', 0.18, -6]]),
   ],
   money: [
-    v(/돈벼락|로또|잭팟|횡재/, [
-      ['coinRain', 'crown', 'hero', 0.44, -6],
-      ['coin', 'crownLeft', 'sub', 0.26, 0],
-      ['sparkle', 'cheekRight', 'side', 0.24, 0],
-      ['star', 'textTopRight', 'accent', 0.18, 8],
-      ['confetti', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
-    v(/월급날|급여|보너스|정산/, [
-      ['coin', 'crown', 'hero', 0.44, -8],
-      ['confetti', 'crownRight', 'sub', 0.26, 0],
-      ['star', 'cheekLeft', 'side', 0.24, -10],
-      ['coin', 'textBottomRight', 'accent', 0.18, 10],
-      ['sparkle', 'textTopLeft', 'accent', 0.16, 0],
-    ]),
-    v(null, [
-      ['coin', 'crown', 'hero', 0.44, -8],
-      ['star', 'crownRight', 'sub', 0.28, -10],
-      ['coinRain', 'cheekLeft', 'side', 0.26, 0],
-      ['sparkle', 'cheekRight', 'accent', 0.22, 0],
-      ['star', 'textTopRight', 'accent', 0.16, 0],
-    ]),
+    v(/돈벼락|로또|잭팟|횡재/, ['coinRain', 'crown', 0.4, -3], [['sparkle', 0.17, 0]]),
+    v(/월급날|급여|보너스|정산/, ['coin', 'side', 0.4, -4], [['sparkle', 0.17, 0]]),
+    v(null, ['coin', 'crown', 0.42, -4], [['sparkle', 0.17, 0]]),
   ],
   smug: [
-    v(/잘난|천재|완벽|1등|일등/, [
-      ['crown', 'crown', 'hero', 0.44, -8],
-      ['star', 'crownRight', 'sub', 0.28, -10],
-      ['sparkle', 'cheekLeft', 'side', 0.24, 0],
-      ['note16', 'textTopLeft', 'accent', 0.18, 0],
-      ['star4', 'textBottomRight', 'accent', 0.16, 8],
-    ]),
-    v(/흥|그럼 그렇지|예상|뻔하/, [
-      ['note8', 'crown', 'hero', 0.44, 10],
-      ['star', 'crownLeft', 'sub', 0.26, -8],
-      ['sparkle', 'cheekRight', 'side', 0.24, 0],
-      ['ellipsis', 'textBottomLeft', 'accent', 0.18, 0],
-      ['dot', 'textTopRight', 'accent', 0.14, 0],
-    ]),
-    v(null, [
-      ['star', 'crown', 'hero', 0.46, -12],
-      ['note8', 'crownLeft', 'sub', 0.26, 10],
-      ['sparkle', 'cheekRight', 'side', 0.26, 6],
-      ['star4', 'textTopRight', 'accent', 0.18, 8],
-      ['sparkle', 'textBottomLeft', 'accent', 0.16, 0],
-    ]),
+    v(/잘난|천재|완벽|1등|일등/, ['crown', 'crown', 0.4, -4], [['sparkle', 0.17, 0]]),
+    v(/흥|그럼 그렇지|예상|뻔하/, ['note8', 'side', 0.4, 5], [['ellipsis', 0.15, 0]]),
+    v(null, ['star4', 'side', 0.42, -6], [['sparkle', 0.17, 0]]),
   ],
   plain: [
-    v(/ㅡㅡ|무표정|심드렁|쩝/, [
-      ['ellipsis', 'crown', 'hero', 0.42, 0],
-      ['star', 'crownLeft', 'sub', 0.24, -10],
-      ['dot', 'cheekLeft', 'side', 0.2, 0],
-      ['sparkle', 'textTopRight', 'accent', 0.16, 0],
-      ['note8', 'textBottomLeft', 'accent', 0.18, -8],
-    ]),
-    v(null, [
-      ['star', 'crown', 'hero', 0.44, -10],
-      ['sparkle', 'crownRight', 'sub', 0.28, 0],
-      ['ellipsis', 'cheekLeft', 'side', 0.24, 0],
-      ['dot', 'textTopRight', 'accent', 0.14, 0],
-      ['star4', 'textBottomLeft', 'accent', 0.16, 8],
-    ]),
+    v(/ㅡㅡ|무표정|심드렁|쩝/, ['ellipsis', 'crown', 0.36, 0], []),
+    v(null, ['sparkle', 'crown', 0.4, -4], [['ellipsis', 0.14, 0]]),
   ],
+};
+
+/** 역할별 상한 — [MAX_R 배수, 캔버스 대비] */
+const ROLE_CAP: Record<'hero' | 'accent', [number, number]> = {
+  hero: [1, 0.075],
+  accent: [1, 0.032],
 };
 
 const EFFECT_MOTIF: Record<EffectKind, DecorMotif | null> = {
@@ -1366,15 +1098,16 @@ const EFFECT_MOTIF: Record<EffectKind, DecorMotif | null> = {
   question: 'question',
 };
 
+// 구체적인 상황(축하·고마움·칭찬)이 막연한 물음표보다 먼저 읽히게 순서를 잡는다.
 const TEXT_RULES: { motif: DecorMotif; pattern: RegExp }[] = [
-  { motif: 'question', pattern: /[?？]|왜|뭐|어디|누구|언제|어떻게|진짜|설마|당황|황당|헷갈|메모/ },
   { motif: 'love', pattern: /사랑|좋아|반했|설렘|심쿵|두근|하트|애정|그리|네가|너야|고백|마음/ },
+  { motif: 'congrats', pattern: /축하|합격|당첨|해냈|기념|생일|개업|1주년|로또|잭팟/ },
   { motif: 'thanks', pattern: /고마|감사|땡큐|thank|도움|덕분|살렸/i },
+  { motif: 'praise', pattern: /칭찬|박수|짝짝|멋지|잘했|훌륭|천재|완벽|대단/ },
   { motif: 'greet', pattern: /안녕|하이|반가|어서\s?와|왔어|출근|아침|모닝|잘\s?자|안녕히/ },
   { motif: 'laugh', pattern: /ㅋㅋ|ㅎㅎ|\^\^|[><]|웃|빵터|폭소|재밌|신나|즐거|웃겨|낄낄|꺄/ },
   { motif: 'cheer', pattern: /[!！]|화이팅|파이팅|힘내|최고|짱|가자|응원|해보자|할\s?수|출발/ },
-  { motif: 'congrats', pattern: /축하|합격|당첨|해냈|기념|생일|개업|1주년|로또|잭팟/ },
-  { motif: 'praise', pattern: /칭찬|박수|짝짝|멋지|잘했|훌륭|천재|완벽|대단/ },
+  { motif: 'question', pattern: /[?？]|왜|뭐|어디|누구|언제|어떻게|설마|당황|황당|헷갈|메모/ },
   { motif: 'surprised', pattern: /헉|깜짝|놀라|대박|헐|어머|실화|말도\s?안/ },
   { motif: 'tired', pattern: /피곤|지쳐|힘들|야근|월요일|쉬고|녹초|방전|한숨/ },
   { motif: 'sleep', pattern: /졸려|잠와|잠이|불면|밤샘|굿나잇/ },
@@ -1427,14 +1160,36 @@ export function decorVariantFor(text: string, motif: DecorMotif): number {
   return hash(`${clean}|${motif}`) % variants.length;
 }
 
-/** 데코 모티프에 쓰이는 아이콘 종류(중복 제거) — 보고·테스트용 */
-export function decorKindsOf(motif: DecorMotif): DecorKind[] {
-  return [...new Set(MOTIFS[motif].flatMap((variant) => variant.items.map((item) => item[0])))];
+/**
+ * 변주의 자리 — 데코는 **머리 주변 한쪽에만** 모아 둔다(글자 영역은 비워 시인성 확보).
+ *  · 주 데코: 머리 위 한쪽(또는 가운데)
+ *  · 악센트 1: 같은 쪽 머리 곁(조금 아래)
+ *  · 악센트 2: 반대쪽 정수리(작게) — 위쪽에서 대각선 균형만 잡는다
+ */
+function slotsFor(variant: MotifVariant, side: 'left' | 'right'): DecorSlot[] {
+  const centered = variant.hero[1] === 'crown';
+  const hero: DecorSlot = centered ? 'crown' : side === 'right' ? 'crownRight' : 'crownLeft';
+  const slots: DecorSlot[] = [hero];
+  if (variant.accents[0]) slots.push(side === 'right' ? 'headRight' : 'headLeft');
+  if (variant.accents[1]) {
+    // 세 점일 때는 반대쪽에 작게 하나 — 위쪽에서만 균형을 잡고 글자 영역은 비워 둔다.
+    slots.push(centered ? (side === 'right' ? 'headLeft' : 'headRight') : side === 'right' ? 'crownLeft' : 'crownRight');
+  }
+  return slots;
 }
 
-/** 모티프가 놓는 자리들 — 보고·테스트용 */
+/** 데코 모티프에 쓰이는 아이콘 종류(중복 제거) — 보고·테스트용 */
+export function decorKindsOf(motif: DecorMotif): DecorKind[] {
+  return [
+    ...new Set(
+      MOTIFS[motif].flatMap((variant) => [variant.hero[0], ...variant.accents.map((accent) => accent[0])]),
+    ),
+  ];
+}
+
+/** 모티프가 놓는 자리들(오른쪽 기준) — 보고·테스트용 */
 export function decorSlotsOf(motif: DecorMotif): DecorSlot[] {
-  return MOTIFS[motif].flatMap((variant) => variant.items.map((item) => item[1]));
+  return MOTIFS[motif].flatMap((variant) => slotsFor(variant, 'right'));
 }
 
 /** 모티프의 변주 수 — 보고·테스트용 */
@@ -1445,7 +1200,7 @@ export function decorVariantsOf(motif: DecorMotif): number {
 /** 특정 변주가 놓는 자리들 — 보고·테스트용 */
 export function decorVariantSlotsOf(motif: DecorMotif, index: number): DecorSlot[] {
   const variant = MOTIFS[motif][index];
-  return variant ? variant.items.map((item) => item[1]) : [];
+  return variant ? slotsFor(variant, 'right') : [];
 }
 
 /** 전체 아이콘 종류 — 편집기·문서가 쓸 수 있는 카탈로그 */
@@ -1474,7 +1229,7 @@ function noise(seed: number, index: number): number {
 
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
-/** 캔버스 비율 좌표 — 머리 위(정수리)·머리 옆·볼·어깨는 캐릭터 기준 고정 자리 */
+/** 캔버스 비율 좌표 — 머리 위(정수리·한쪽)·머리 옆은 캐릭터 기준 고정 자리 */
 const STAGE: Record<
   | 'crown'
   | 'crownLeft'
@@ -1494,10 +1249,10 @@ const STAGE: Record<
   [number, number]
 > = {
   crown: [0.5, 0.108],
-  crownLeft: [0.3, 0.085],
-  crownRight: [0.7, 0.085],
-  headLeft: [0.185, 0.185],
-  headRight: [0.815, 0.185],
+  crownLeft: [0.315, 0.088],
+  crownRight: [0.685, 0.088],
+  headLeft: [0.248, 0.225],
+  headRight: [0.752, 0.225],
   templeLeft: [0.242, 0.315],
   templeRight: [0.758, 0.315],
   earLeft: [0.16, 0.44],
@@ -1517,59 +1272,35 @@ function isStageSlot(slot: DecorSlot): slot is keyof typeof STAGE {
 /** 얼굴 한가운데(눈·코·입)는 비운다 — 캔버스 비율 박스 */
 const FACE = { x0: 0.33, x1: 0.67, y0: 0.275, y1: 0.63 };
 
-/** 자리가 막히면 옮겨 갈 다음 자리들 */
+/** 자리가 막히면 옮겨 갈 다음 자리들 — 가까운 정갈한 자리로만 */
 const ALTERNATES: Record<DecorSlot, DecorSlot[]> = {
-  crown: ['crownRight', 'crownLeft', 'headRight', 'headLeft', 'templeRight', 'shoulderRight', 'cheekRight', 'textBottomRight'],
-  crownLeft: ['crownRight', 'headLeft', 'shoulderFarLeft', 'templeLeft', 'cheekLeft', 'textBottomLeft'],
-  crownRight: ['crownLeft', 'headRight', 'shoulderFarRight', 'templeRight', 'cheekRight', 'textBottomRight'],
-  headLeft: ['crownLeft', 'templeLeft', 'earLeft', 'shoulderFarLeft', 'textTopLeft'],
-  headRight: ['crownRight', 'templeRight', 'earRight', 'shoulderFarRight', 'textTopRight'],
-  templeLeft: ['headLeft', 'cheekLeft', 'earLeft', 'shoulderLeft', 'textTopLeft'],
-  templeRight: ['headRight', 'cheekRight', 'earRight', 'shoulderRight', 'textTopRight'],
-  earLeft: ['templeLeft', 'cheekLeft', 'shoulderFarLeft', 'headLeft', 'textTopLeft'],
-  earRight: ['templeRight', 'cheekRight', 'shoulderFarRight', 'headRight', 'textTopRight'],
-  cheekLeft: ['earLeft', 'templeLeft', 'shoulderLeft', 'shoulderFarLeft', 'textTopLeft'],
-  cheekRight: ['earRight', 'templeRight', 'shoulderRight', 'shoulderFarRight', 'textTopRight'],
-  shoulderLeft: ['cheekLeft', 'shoulderFarLeft', 'earLeft', 'textBottomLeft'],
-  shoulderRight: ['cheekRight', 'shoulderFarRight', 'earRight', 'textBottomRight'],
-  shoulderFarLeft: ['shoulderLeft', 'cheekLeft', 'textBottomLeft'],
-  shoulderFarRight: ['shoulderRight', 'cheekRight', 'textBottomRight'],
-  textTopRight: ['textRight', 'textAbove', 'textBottomRight', 'headRight'],
-  textTopLeft: ['textLeft', 'textAbove', 'textBottomLeft', 'headLeft'],
-  textBottomLeft: ['textLeft', 'textBelow', 'shoulderFarLeft', 'textBottomRight'],
-  textBottomRight: ['textRight', 'textBelow', 'shoulderFarRight', 'textBottomLeft'],
+  crown: ['crownRight', 'crownLeft', 'headRight', 'headLeft'],
+  crownLeft: ['crownRight', 'crown', 'headLeft'],
+  crownRight: ['crownLeft', 'crown', 'headRight'],
+  headLeft: ['crownLeft', 'templeLeft', 'shoulderLeft'],
+  headRight: ['crownRight', 'templeRight', 'shoulderRight'],
+  templeLeft: ['headLeft', 'cheekLeft', 'earLeft'],
+  templeRight: ['headRight', 'cheekRight', 'earRight'],
+  earLeft: ['templeLeft', 'shoulderFarLeft', 'headLeft'],
+  earRight: ['templeRight', 'shoulderFarRight', 'headRight'],
+  cheekLeft: ['earLeft', 'templeLeft', 'shoulderLeft'],
+  cheekRight: ['earRight', 'templeRight', 'shoulderRight'],
+  shoulderLeft: ['cheekLeft', 'shoulderFarLeft', 'templeLeft'],
+  shoulderRight: ['cheekRight', 'shoulderFarRight', 'templeRight'],
+  shoulderFarLeft: ['shoulderLeft', 'earLeft', 'cheekLeft'],
+  shoulderFarRight: ['shoulderRight', 'earRight', 'cheekRight'],
+  textTopRight: ['textBottomRight', 'textRight', 'textAbove'],
+  textTopLeft: ['textBottomLeft', 'textLeft', 'textAbove'],
+  textBottomLeft: ['textTopLeft', 'textLeft', 'textBelow'],
+  textBottomRight: ['textTopRight', 'textRight', 'textBelow'],
   textRight: ['textTopRight', 'textBottomRight', 'shoulderFarRight'],
   textLeft: ['textTopLeft', 'textBottomLeft', 'shoulderFarLeft'],
   textAbove: ['textTopRight', 'textTopLeft', 'textBottomRight'],
   textBelow: ['textBottomRight', 'textBottomLeft', 'textTopRight'],
 };
 
-/** 장면 데코가 꺼진 레이어는 같은 아이콘을 글자 주변으로 옮겨 붙인다 */
-const TEXT_ONLY_SLOT: Record<DecorSlot, DecorSlot> = {
-  crown: 'textBottomRight',
-  crownLeft: 'textBottomLeft',
-  crownRight: 'textBottomRight',
-  headLeft: 'textTopLeft',
-  headRight: 'textTopRight',
-  templeLeft: 'textBottomLeft',
-  templeRight: 'textBottomRight',
-  earLeft: 'textTopLeft',
-  earRight: 'textTopRight',
-  cheekLeft: 'textBottomLeft',
-  cheekRight: 'textBottomRight',
-  shoulderLeft: 'textBottomLeft',
-  shoulderRight: 'textBottomRight',
-  shoulderFarLeft: 'textBottomLeft',
-  shoulderFarRight: 'textBottomRight',
-  textTopRight: 'textTopRight',
-  textTopLeft: 'textTopLeft',
-  textBottomLeft: 'textBottomLeft',
-  textBottomRight: 'textBottomRight',
-  textRight: 'textRight',
-  textLeft: 'textLeft',
-  textAbove: 'textAbove',
-  textBelow: 'textBelow',
-};
+/** 장면 데코를 맡지 않은 레이어가 쓰는 글자 모서리 자리 */
+const TEXT_CORNER: DecorSlot[] = ['textTopLeft', 'textTopRight', 'textBottomLeft', 'textBottomRight'];
 
 interface Rect {
   x0: number;
@@ -1578,7 +1309,7 @@ interface Rect {
   y1: number;
 }
 
-function hitsRect(rect: Rect, cx: number, cy: number, r: number, ext: Extent = { x: 1.12, y: 1.12 }) {
+function hitsRect(rect: Rect, cx: number, cy: number, r: number, ext: Extent = { x: 1.1, y: 1.1 }) {
   const reachX = r * ext.x;
   const reachY = r * ext.y;
   return cx + reachX > rect.x0 && cx - reachX < rect.x1 && cy + reachY > rect.y0 && cy - reachY < rect.y1;
@@ -1615,35 +1346,35 @@ function textAnchor(slot: DecorSlot, r: number, block: { x: number; y: number; h
   let dy = 0;
   switch (slot) {
     case 'textTopRight':
-      dx = block.hw + r * 0.8;
-      dy = -block.hh - r * 0.62;
+      dx = block.hw + r * 0.96;
+      dy = -block.hh - r * 0.78;
       break;
     case 'textTopLeft':
-      dx = -block.hw - r * 0.78;
-      dy = -block.hh - r * 0.66;
+      dx = -block.hw - r * 0.94;
+      dy = -block.hh - r * 0.8;
       break;
     case 'textBottomLeft':
-      dx = -block.hw - r * 0.7;
-      dy = block.hh + r * 0.58;
+      dx = -block.hw - r * 0.68;
+      dy = block.hh + r * 0.56;
       break;
     case 'textBottomRight':
-      dx = block.hw + r * 0.74;
-      dy = block.hh + r * 0.6;
+      dx = block.hw + r * 0.72;
+      dy = block.hh + r * 0.58;
       break;
     case 'textRight':
-      dx = block.hw + r * 0.92;
+      dx = block.hw + r * 0.9;
       dy = -block.hh * 0.2;
       break;
     case 'textAbove':
       dx = block.hw * 0.34;
-      dy = -block.hh - r * 1.15;
+      dy = -block.hh - r * 1.1;
       break;
     case 'textBelow':
       dx = -block.hw * 0.34;
-      dy = block.hh + r * 1.15;
+      dy = block.hh + r * 1.1;
       break;
     default:
-      dx = -block.hw - r * 0.92;
+      dx = -block.hw - r * 0.9;
       dy = -block.hh * 0.2;
       break;
   }
@@ -1668,10 +1399,18 @@ export function decorCoverage(items: DecorItem[], width: number, fontSize: numbe
   return decorInkArea(items) / captionInkArea(width, fontSize);
 }
 
+interface PlacedSpec {
+  kind: DecorKind;
+  slot: DecorSlot;
+  role: 'hero' | 'accent';
+  scale: number;
+  rotate: number;
+}
+
 /**
- * 대사·감정·이펙트를 읽어 캔버스 위 복합 데코를 계획한다.
+ * 대사·감정·이펙트를 읽어 캔버스 위 데코를 계획한다.
  *  · 반환 좌표는 캔버스 절대 px — 두 렌더러가 변환 없이 그대로 그린다.
- *  · 주 데코(머리 위)는 글자 높이에 버금가는 크기, 보조 데코가 곁을 채운다.
+ *  · 한 컷 2~3점: 머리 위 한쪽의 주 데코 + 머리 곁/글자 반대편 모서리의 작은 악센트.
  */
 export function planDecor(input: DecorPlanInput): DecorItem[] {
   if (input.enabled === false) return [];
@@ -1686,22 +1425,29 @@ export function planDecor(input: DecorPlanInput): DecorItem[] {
   const seed = hash(`${text}|${input.emotion ?? ''}|${motif}`);
   const stage = input.stage !== false;
   const variant = MOTIFS[motif][decorVariantFor(text, motif)];
+  const side: 'left' | 'right' = hash(`${text}|side`) % 2 === 0 ? 'right' : 'left';
+  const slots = slotsFor(variant, side);
 
-  // 장면 데코를 맡지 않은 레이어는 큰 장식 없이 글자 곁 두 점만 (앞 레이어 글자를 가리지 않게).
-  const specs: MotifItem[] = (stage ? variant.items : variant.items.slice(0, 2)).map(
-    ([kind, slot, role, scale, rotate]) => ({
-      kind,
-      role,
-      rotate,
-      slot: stage ? slot : TEXT_ONLY_SLOT[slot],
-      scale: stage ? scale : scale * 0.72,
-    }),
-  );
+  // 2~3점만 — 주 데코 1점 + 작은 악센트 1~2점. 그 이상은 붙이지 않는다.
+  const specs: PlacedSpec[] = [
+    { kind: variant.hero[0], slot: slots[0], role: 'hero', scale: variant.hero[2], rotate: variant.hero[3] },
+    ...variant.accents.map((accent, index) => ({
+      kind: accent[0] as DecorKind,
+      slot: slots[index + 1] ?? TEXT_CORNER[index % TEXT_CORNER.length],
+      role: 'accent' as const,
+      scale: accent[1],
+      rotate: accent[2],
+    })),
+  ];
 
-  // 데코 분량 — 문장 블록의 약 20%를 목표로 전체 반지름을 한 번에 맞춘다.
-  const blockArea = Math.max(1, input.width * input.height);
-  const baseArea = specs.reduce((sum, spec) => sum + INK_RATIO[spec.kind] * Math.PI * (fs * spec.scale) ** 2, 0);
-  const scale = clamp(Math.sqrt((blockArea * TARGET_SHARE) / baseArea), 0.55, 1.2);
+  // 장면 데코를 맡지 않은 레이어는 큰 장식 없이 글자 모서리에 작은 점만 (앞 레이어 글자를 가리지 않게).
+  const active: PlacedSpec[] = stage
+    ? specs
+    : (specs.length > 1 ? specs.slice(1) : specs).slice(0, 2).map((spec, index) => ({
+        ...spec,
+        slot: TEXT_CORNER[(index + (side === 'right' ? 0 : 1)) % TEXT_CORNER.length],
+        scale: spec.scale * 0.62,
+      }));
 
   const textRect: Rect = {
     x0: block.x - hw - canvas * 0.012,
@@ -1719,18 +1465,17 @@ export function planDecor(input: DecorPlanInput): DecorItem[] {
   const placed: { x: number; y: number; r: number }[] = [];
   const items: DecorItem[] = [];
 
-  specs.forEach((spec, index) => {
+  active.forEach((spec, index) => {
     const cap = ROLE_CAP[spec.role];
     const r = clamp(
-      Math.min(fs * spec.scale * scale, fs * MAX_R[spec.kind] * cap[0], canvas * cap[1]),
-      Math.max(7, canvas * 0.01),
-      canvas * 0.2,
+      Math.min(fs * spec.scale, fs * MAX_R[spec.kind] * cap[0], canvas * cap[1]),
+      Math.max(6, canvas * 0.008),
+      canvas * 0.16,
     );
     // 도형마다 실제 크기가 다르다(하트는 가로로 넓고, ㅎㅎ는 가로로 길다) —
     //  그 실측 반경으로 여백·얼굴 회피·겹침을 판정해 눈·볼을 확실히 비킨다.
-    //  (최소 반경은 예전 클램프와 같게 잡아 작은 캔버스에서도 잘리지 않는다)
     const measured = EXTENT[spec.kind];
-    const ext = { x: Math.max(1.24, measured.x), y: Math.max(1.18, measured.y) };
+    const ext = { x: Math.max(1.16, measured.x), y: Math.max(1.12, measured.y) };
     const marginX = r * ext.x + 4;
     const marginY = r * ext.y + 4;
     const restX = (value: number) => Math.max(marginX, Math.min(canvas - marginX, value));
@@ -1741,8 +1486,8 @@ export function planDecor(input: DecorPlanInput): DecorItem[] {
     for (const slot of candidates) {
       // 장면 데코를 맡지 않은 레이어는 머리 위·볼 자리로 옮겨가지 않는다.
       if (!stage && isStageSlot(slot)) continue;
-      const jitterX = (noise(seed, index * 2) - 0.5) * fs * 0.08;
-      const jitterY = (noise(seed, index * 2 + 1) - 0.5) * fs * 0.08;
+      const jitterX = (noise(seed, index * 2) - 0.5) * fs * 0.06;
+      const jitterY = (noise(seed, index * 2 + 1) - 0.5) * fs * 0.06;
       let px: number;
       let py: number;
       if (isStageSlot(slot)) {
@@ -1758,7 +1503,7 @@ export function planDecor(input: DecorPlanInput): DecorItem[] {
       // 얼굴은 절대 비운다. 글자와 겹치는 장면 데코도 피한다(글자는 읽혀야 한다).
       if (hitsRect(faceRect, px, py, r, ext)) continue;
       if (isStageSlot(slot) && hitsRect(textRect, px, py, r, ext)) continue;
-      if (placed.some((p) => Math.hypot(p.x - px, p.y - py) < (p.r + r) * 0.92)) continue;
+      if (placed.some((p) => Math.hypot(p.x - px, p.y - py) < (p.r + r) * 1.05)) continue;
       chosen = [px, py];
       break;
     }
@@ -1777,8 +1522,7 @@ export function planDecor(input: DecorPlanInput): DecorItem[] {
     const [x, y] = chosen;
     placed.push({ x, y, r });
     const shape = shapeOf(spec.kind);
-    const palette = PALETTE[spec.kind];
-    const tint = input.emotion ? mixHex(palette.main, EMOTION_TINT[input.emotion], 0.16) : palette.main;
+    const tone = DECOR_TONES[MOTIF_TONE[motif]];
     items.push({
       kind: spec.kind,
       motif,
@@ -1786,9 +1530,9 @@ export function planDecor(input: DecorPlanInput): DecorItem[] {
       x,
       y,
       r,
-      rotate: spec.rotate + (noise(seed, 90 + index) - 0.5) * 10,
-      color: tint,
-      light: mixHex(palette.light, tint, 0.2),
+      rotate: spec.rotate + (noise(seed, 90 + index) - 0.5) * 6,
+      color: tone.main,
+      light: tone.light,
       shapes: shape.shapes,
       gloss: shape.gloss,
     });
@@ -1796,22 +1540,6 @@ export function planDecor(input: DecorPlanInput): DecorItem[] {
 
   return items;
 }
-
-/** 데코를 감정 잉크 쪽으로 살짝 물들여 글자와 한 몸처럼 보이게 한다. */
-const EMOTION_TINT: Record<Emotion, string> = {
-  joy: '#D8443C',
-  laugh: '#D2680F',
-  love: '#D42F66',
-  sad: '#2F63B4',
-  cry: '#24509A',
-  angry: '#BE2A1E',
-  king: '#9E1418',
-  sulk: '#5A4C7E',
-  tired: '#3F4E6B',
-  surprised: '#BC7A05',
-  smug: '#166B4E',
-  blank: '#232A36',
-};
 
 // ── 캔버스 렌더러 ──────────────────────────────────────────────
 
@@ -1834,6 +1562,9 @@ function tracePath(ctx: CanvasRenderingContext2D, d: Cmd[], scale: number) {
   }
 }
 
+/** 흰 스티커 외곽선 두께 (단위 반지름) — 데코 크기에 비례해 얇고 정교하게 */
+const OUTLINE_INFLATE = 0.16;
+
 /** 한 겹(그림자/흰 테두리/컬러)을 그린다 */
 function paintItem(
   ctx: CanvasRenderingContext2D,
@@ -1850,11 +1581,11 @@ function paintItem(
       ctx.fillStyle = paint;
       ctx.fill();
       ctx.strokeStyle = paint;
-      ctx.lineWidth = (0.08 + inflate) * item.r;
+      ctx.lineWidth = (0.06 + inflate) * item.r;
       ctx.stroke();
     } else {
       ctx.strokeStyle = paint;
-      ctx.lineWidth = ((prim.width ?? 0.26) + inflate) * item.r;
+      ctx.lineWidth = ((prim.width ?? 0.22) + inflate) * item.r;
       ctx.stroke();
     }
   }
@@ -1870,19 +1601,19 @@ export function drawDecor(ctx: CanvasRenderingContext2D, items: DecorItem[]) {
     ctx.save();
     ctx.translate(item.x, item.y);
     ctx.rotate((item.rotate * Math.PI) / 180);
-    // 1) 은은한 그림자 (살짝 아래로)
+    // 1) 얕은 그림자 (살짝 아래로)
     ctx.save();
-    ctx.translate(0, item.r * 0.1);
-    paintItem(ctx, item, '#191512', 0.16, 0.2);
+    ctx.translate(0, item.r * 0.07);
+    paintItem(ctx, item, '#191512', 0.12, 0.14);
     ctx.restore();
-    // 2) 두툼한 흰 스티커 외곽선
-    paintItem(ctx, item, '#FFFDFA', 1, 0.24);
-    // 3) 딥톤 컬러
+    // 2) 얇고 정교한 흰 스티커 외곽선
+    paintItem(ctx, item, '#FFFDFA', 1, OUTLINE_INFLATE);
+    // 3) 톤온톤 컬러
     paintItem(ctx, item, item.color, 1, 0);
     // 4) 하이라이트
     if (item.gloss) {
       tracePath(ctx, item.gloss, item.r);
-      ctx.globalAlpha = 0.34;
+      ctx.globalAlpha = 0.26;
       ctx.fillStyle = '#FFFFFF';
       ctx.fill();
     }
@@ -1911,7 +1642,7 @@ function svgPass(item: DecorItem, color: string, inflate: number, fillAlpha = 1)
   return item.shapes
     .map((prim) => {
       const paint = prim.tone === 'light' ? item.light : color;
-      const strokeWidth = ((prim.mode === 'fill' ? 0.08 : prim.width ?? 0.26) + inflate).toFixed(3);
+      const strokeWidth = ((prim.mode === 'fill' ? 0.06 : prim.width ?? 0.22) + inflate).toFixed(3);
       if (prim.mode === 'fill') {
         return `<path d="${pathData(prim.d)}" fill="${paint}" fill-opacity="${fillAlpha}" stroke="${paint}" stroke-width="${strokeWidth}"/>`;
       }
@@ -1923,6 +1654,7 @@ function svgPass(item: DecorItem, color: string, inflate: number, fillAlpha = 1)
 /** 아이콘 한 개를 그리는 SVG (편집기 미리보기·문서용) */
 export function decorIconSvg(kind: DecorKind, size = 64): string {
   const shape = shapeOf(kind);
+  const tone = DECOR_TONES[KIND_TONE[kind]];
   const item: DecorItem = {
     kind,
     motif: 'plain',
@@ -1931,8 +1663,8 @@ export function decorIconSvg(kind: DecorKind, size = 64): string {
     y: size / 2,
     r: size * 0.32,
     rotate: 0,
-    color: PALETTE[kind].main,
-    light: PALETTE[kind].light,
+    color: tone.main,
+    light: tone.light,
     shapes: shape.shapes,
     gloss: shape.gloss,
   };
@@ -1948,12 +1680,12 @@ export function renderDecorSvg(items: DecorItem[]): string {
         `translate(${item.x.toFixed(1)} ${item.y.toFixed(1)}) ` +
         `rotate(${item.rotate.toFixed(2)}) scale(${item.r.toFixed(2)})`;
       const gloss = item.gloss
-        ? `<path d="${pathData(item.gloss)}" fill="#FFFFFF" fill-opacity="0.34"/>`
+        ? `<path d="${pathData(item.gloss)}" fill="#FFFFFF" fill-opacity="0.26"/>`
         : '';
       return (
         `<g data-decor="${item.kind}" data-slot="${item.slot}" transform="${transform}">` +
-        `<g transform="translate(0 0.1)" opacity="0.16">${svgPass(item, '#191512', 0.2)}</g>` +
-        `<g>${svgPass(item, '#FFFDFA', 0.24)}</g>` +
+        `<g transform="translate(0 0.07)" opacity="0.12">${svgPass(item, '#191512', 0.14)}</g>` +
+        `<g>${svgPass(item, '#FFFDFA', OUTLINE_INFLATE)}</g>` +
         `<g>${svgPass(item, item.color, 0)}</g>` +
         gloss +
         `</g>`
