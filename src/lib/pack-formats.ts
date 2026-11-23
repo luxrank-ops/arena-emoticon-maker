@@ -5,13 +5,14 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { Emotion } from '@/lib/types';
-import type { EffectKind, TextLayer } from '@/lib/studio/layers';
+import type { EffectKind, TextLayer, TextLayerStyle } from '@/lib/studio/layers';
 import type { Locale } from '@/lib/i18n/locale';
+import { dripLineById } from '@/data/drip-themes';
 
-export type PackFormatId = 'situation' | 'parody' | 'duo' | 'typo' | 'combo' | 'duo-chemi' | 'pet-meme';
+export type PackFormatId = 'situation' | 'parody' | 'duo' | 'typo' | 'combo' | 'duo-chemi' | 'pet-meme' | 'drip';
 
 /** API 스키마(zod)와 공유하는 런타임 목록 */
-export const PACK_FORMAT_IDS = ['situation', 'parody', 'duo', 'typo', 'combo', 'duo-chemi', 'pet-meme'] as const;
+export const PACK_FORMAT_IDS = ['situation', 'parody', 'duo', 'typo', 'combo', 'duo-chemi', 'pet-meme', 'drip'] as const;
 
 export interface FormatCut {
   id: string;
@@ -245,7 +246,95 @@ const PET_MEME: FormatCut[] = [
   C('pm-12', '출근하기 싫어', '출근하기 싫어', 'tired', 'flopped on the floor dramatically, refusing to move', "Don't wanna go", 'No work', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.11 } }),
 ];
 
+// ── 드립·반전 티키타카 24컷 (drip-themes 66줄 중 사진 팩용 24컷) ───
+//  · 문구·감정·영문은 src/data/drip-themes.ts 한 곳에서 가져온다(중복 정의 금지).
+//  · 여기에는 사진으로 그릴 장면 지시(action)와 글자 레이어 기본값만 얹는다.
+const DRIP_CUT_IDS = [
+  'dr-01', 'dr-11', 'dr-33', 'dr-43', 'dr-53', 'dr-23',
+  'dr-14', 'dr-34', 'dr-62', 'dr-07', 'dr-28', 'dr-39',
+  'dr-03', 'dr-15', 'dr-18', 'dr-22', 'dr-26', 'dr-31',
+  'dr-42', 'dr-44', 'dr-46', 'dr-54', 'dr-64', 'dr-10',
+] as const;
+
+const DRIP_ACTIONS: Record<string, string> = {
+  'dr-01': 'standing at attention with a casual two-finger salute and a small relieved smile, as if reporting back to life',
+  'dr-11': 'sitting stiffly upright with a wide mechanical smile and hollow eyes, one robotic thumbs up',
+  'dr-33': 'leaning toward the viewer with a flat skeptical stare, holding a phone loosely',
+  'dr-43': 'holding a warm rice bowl toward the viewer with a caring, cheerful look',
+  'dr-53': 'cheek-to-cheek selfie pose making a small finger heart, playful pout',
+  'dr-23': 'chin resting on one hand, eyes looking up empty and thoughtful, a coffee cup on the desk',
+  'dr-14': 'sitting at a desk completely limp with the head dropped to one side, a faint ghost-like soul drifting out',
+  'dr-34': 'staring at a phone with narrowed eyes and a dark shadow over the face',
+  'dr-62': 'walking in with both arms full of gift bags and a bright polite smile',
+  'dr-07': 'pointing at the viewer with a delighted impressed face, small sparkles around',
+  'dr-28': 'holding an iced coffee cup with both hands like a life-saving IV, drained expression',
+  'dr-39': 'laughing hard while holding the belly, head tilted back, tears of laughter',
+  'dr-03': 'bowing with hands together in thanks, one sly eye open, a single coin glinting nearby',
+  'dr-15': 'frowning furiously at a wall calendar with a clenched fist',
+  'dr-18': 'tiptoeing forward with a sly grin and a coffee cup, sneaking away from the desk',
+  'dr-22': 'striding out with a bag over one shoulder, arms wide, triumphant grin',
+  'dr-26': 'cheerfully biting into a snack with full cheeks, sparkles of joy',
+  'dr-31': 'raising a glass toward the viewer with a delighted grin',
+  'dr-42': 'squinting with a doubtful head tilt and a slightly crooked mouth',
+  'dr-44': 'holding up a small found treasure with a proud, surprised smile',
+  'dr-46': 'pointing a firm finger with a serious encouraging nod',
+  'dr-54': 'puckering lips and leaning toward the viewer, small hearts floating',
+  'dr-64': 'arms open wide under a shower of falling coins, laughing',
+  'dr-10': 'leaning back with both hands behind the head, relaxed half-smile',
+};
+
+const DRIP_STYLE: Partial<Record<Emotion, TextLayerStyle>> = {
+  love: 'calli',
+  joy: 'calli',
+  laugh: 'bold',
+  surprised: 'bold',
+  angry: 'bold',
+  smug: 'stamp',
+  blank: 'stamp',
+  tired: 'gothic',
+  sad: 'gothic',
+  sulk: 'calli',
+};
+
+const DRIP_EFFECT: Record<string, EffectKind> = {
+  'dr-18': 'money',
+  'dr-64': 'money',
+  'dr-53': 'heart',
+  'dr-54': 'heart',
+  'dr-07': 'sparkle',
+  'dr-22': 'sparkle',
+};
+
+const DRIP: FormatCut[] = DRIP_CUT_IDS.map((id) => {
+  const item = dripLineById(id);
+  if (!item) throw new Error(`drip-themes 에 ${id} 가 없습니다`);
+  const length = item.line.length;
+  const size = length <= 5 ? 0.14 : length <= 8 ? 0.125 : length <= 11 ? 0.11 : 0.1;
+  const effect = DRIP_EFFECT[id];
+  return C(id, item.label, item.line, item.emotion, DRIP_ACTIONS[id], item.lineEn, item.labelEn, {
+    textLayer: { style: DRIP_STYLE[item.emotion] ?? 'bold', bubble: 'none', x: 0.5, y: 0.85, size, rotate: 0 },
+    ...(effect ? { effect } : {}),
+  });
+});
+
 export const PACK_FORMATS: PackFormat[] = [
+  {
+    id: 'drip',
+    label: '드립·반전 티키타카',
+    labelEn: 'Deadpan drip pack',
+    emoji: '😏',
+    tagline: '킹받는 반전·드립 24컷 — 넵티콘부터 사투리까지',
+    taglineEn: '24 deadpan drip cuts, from soulless yes to Busan quips',
+    description: '사진 1장으로 만드는 드립·밈 24컷. “생존 신고합니다”, “몸만 출근했습니다”, “월급 루팡 출동”, “밥 뭇나?”처럼 단톡방에서 바로 쓰는 반전 드립 대사로 맞췄습니다. 66컷 전체는 대사 스튜디오(/quotes)에서 고를 수 있어요.',
+    descriptionEn: 'Twenty-four deadpan meme cuts from one photo: survival report, salary thief, Busan “did you eat?”. The full 66 lines live in the quote studio.',
+    needsSecondPhoto: false,
+    textMode: 'layer',
+    cuts: DRIP,
+    prompt: {
+      scene: 'a deadpan comic reaction that matches the caption: a flat or sly face doing an everyday gesture (salute, stiff thumbs up, holding a rice bowl, laughing while holding the belly, leaning back relaxed). Korean internet meme energy, natural and readable, at most one small prop',
+      layout: 'one person from the chest up, centered, expression and gesture fully visible and not cropped',
+    },
+  },
   {
     id: 'duo-chemi',
     label: '2인 케미 팩',

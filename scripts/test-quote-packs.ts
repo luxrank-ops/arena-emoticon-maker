@@ -12,13 +12,15 @@ try {
   const { purchaseQuotePack, quotePurchaseIds, QuotePurchaseError } = await import('../src/lib/quote-purchases');
   const { withDB } = await import('../src/lib/store');
 
-  assert.equal(QUOTE_PACKS.length, 5);
-  assert.equal(QUOTE_PACKS.reduce((sum, pack) => sum + pack.lines.length, 0), 38);
+  assert.equal(QUOTE_PACKS.length, 6);
+  assert.equal(QUOTE_PACKS.reduce((sum, pack) => sum + pack.lines.length, 0), 104);
+  assert.equal(QUOTE_PACKS.filter((pack) => pack.priceCredits === 0).length, 2);
+  assert.equal(QUOTE_PACKS.find((pack) => pack.id === 'drip-twist')?.lines.length, 66);
   assert.equal(new Set(QUOTE_PACKS.map((pack) => pack.id)).size, QUOTE_PACKS.length);
   const allLineIds = QUOTE_PACKS.flatMap((pack) => pack.lines.map((line) => line.id));
   assert.equal(new Set(allLineIds).size, allLineIds.length);
   for (const pack of QUOTE_PACKS) {
-    assert.equal(pack.lines.length, pack.priceCredits === 0 ? 6 : 8);
+    assert.equal(pack.lines.length, pack.priceCredits === 0 ? (pack.groups?.length ? 66 : 6) : 8);
     assert.equal(pack.rights.kind, 'ORIGINAL');
     assert.ok(pack.lines.every((line) => line.line && line.label && line.emotion));
     assert.equal(quotePackById(pack.id), pack);

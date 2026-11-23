@@ -157,8 +157,8 @@ check('빈 대사는 레이어 없음', layerFromLine('   ') === null);
 // ── 5. 표현 형태 5종 + 킬러 테마 2종 ────────────────────────
 const baseFormats = PACK_FORMATS.filter((format) => !format.killer);
 const killerFormats = PACK_FORMATS.filter((format) => format.killer);
-check('기본 표현 형태 5종 + 킬러 테마 2종', baseFormats.length === 5 && PACK_FORMATS.length === 7);
-check('형태 id 가 7개 모두 다르다', new Set(PACK_FORMATS.map((f) => f.id)).size === 7);
+check('기본 표현 형태 6종(드립 포함) + 킬러 테마 2종', baseFormats.length === 6 && PACK_FORMATS.length === 8);
+check('형태 id 가 8개 모두 다르다', new Set(PACK_FORMATS.map((f) => f.id)).size === 8);
 check('킬러 테마는 12컷 · 잠금 해제 가격 표기', killerFormats.every((format) => format.cuts.length === 12 && (format.unlockPrice ?? 0) >= 5900));
 const allTemplateIds: string[] = [];
 for (const format of baseFormats) {

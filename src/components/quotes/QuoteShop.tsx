@@ -48,6 +48,8 @@ export function QuoteShop({
   unlimited,
   watermark,
   isAuthenticated,
+  initialPackId,
+  initialGroupId,
 }: {
   initialPacks: QuotePackView[];
   initialOwnedIds: string[];
@@ -55,14 +57,23 @@ export function QuoteShop({
   unlimited: boolean;
   watermark: boolean;
   isAuthenticated: boolean;
+  /** /presets 테마 카드에서 넘어올 때 그 팩을 바로 연다 */
+  initialPackId?: string;
+  /** 그 팩 안의 세부 테마(묶음)를 미리 골라 둔다 */
+  initialGroupId?: string;
 }) {
   const [packs, setPacks] = useState(initialPacks);
   const [ownedIds, setOwnedIds] = useState(initialOwnedIds);
   const [credits, setCredits] = useState(initialCredits);
-  const [packId, setPackId] = useState(initialPacks[0]?.id ?? '');
+  const openingPack = initialPacks.find((pack) => pack.id === initialPackId) ?? initialPacks[0];
+  const [packId, setPackId] = useState(openingPack?.id ?? '');
   const currentPack = packs.find((pack) => pack.id === packId) ?? packs[0];
-  const [lineId, setLineId] = useState(currentPack?.lines[0]?.id ?? '');
-  const selectedLine = currentPack?.lines.find((line) => line.id === lineId) ?? currentPack?.lines[0];
+  const [groupId, setGroupId] = useState<string | null>(
+    initialGroupId && openingPack?.groups?.some((group) => group.id === initialGroupId) ? initialGroupId : null,
+  );
+  const visibleLines = (groupId ? currentPack?.lines.filter((line) => line.groupId === groupId) : currentPack?.lines) ?? [];
+  const [lineId, setLineId] = useState(visibleLines[0]?.id ?? '');
+  const selectedLine = visibleLines.find((line) => line.id === lineId) ?? visibleLines[0];
   const [emotion, setEmotion] = useState<Emotion>(selectedLine?.emotion ?? 'joy');
   const [background, setBackground] = useState<BackgroundKey>('transparent');
   const [busy, setBusy] = useState(false);
@@ -73,8 +84,14 @@ export function QuoteShop({
 
   useEffect(() => {
     if (!currentPack) return;
-    if (!currentPack.lines.some((line) => line.id === lineId)) setLineId(currentPack.lines[0]?.id ?? '');
-  }, [currentPack, lineId]);
+    // 팩이 바뀌면 그 팩에 없는 세부 테마는 푼다.
+    if (groupId && !currentPack.groups?.some((group) => group.id === groupId)) setGroupId(null);
+    if (!currentPack.lines.some((line) => line.id === lineId)) setLineId(visibleLines[0]?.id ?? currentPack.lines[0]?.id ?? '');
+  }, [currentPack, groupId, lineId, visibleLines]);
+
+  useEffect(() => {
+    if (visibleLines.length && !visibleLines.some((line) => line.id === lineId)) setLineId(visibleLines[0].id);
+  }, [visibleLines, lineId]);
 
   useEffect(() => {
     if (selectedLine) setEmotion(selectedLine.emotion);
@@ -161,7 +178,7 @@ export function QuoteShop({
           const packOwned = unlimited || pack.priceCredits === 0 || ownedIds.includes(pack.id);
           const selected = pack.id === currentPack.id;
           return (
-            <button key={pack.id} type="button" aria-pressed={selected} onClick={() => { setPackId(pack.id); setNotice(''); setError(''); }} className={clsx('card h-full min-h-[120px] p-3 text-left transition hover:-translate-y-0.5 sm:p-4', index === packs.length - 1 && packs.length % 2 === 1 && 'col-span-2 sm:col-span-1', selected && 'ring-4 ring-coral/30')} style={{ background: selected ? `${pack.accent}20` : undefined }}>
+            <button key={pack.id} type="button" aria-pressed={selected} onClick={() => { setPackId(pack.id); setGroupId(null); setNotice(''); setError(''); }} className={clsx('card h-full min-h-[120px] p-3 text-left transition hover:-translate-y-0.5 sm:p-4', index === packs.length - 1 && packs.length % 2 === 1 && 'col-span-2 sm:col-span-1', selected && 'ring-4 ring-coral/30')} style={{ background: selected ? `${pack.accent}20` : undefined }}>
               <div className="flex items-start justify-between gap-2"><span className="text-2xl" aria-hidden="true">{pack.emoji}</span><span className={clsx('chip !px-2 !py-0.5 !text-[10px]', packOwned ? '!bg-mint/10 !text-ink' : '!bg-cream')}>{packOwned ? pack.priceCredits === 0 ? '무료' : '보유함' : `${pack.priceCredits}크레딧`}</span></div>
               <h2 className="mt-2 text-sm font-black">{pack.title}</h2>
               <p className="mt-1 text-[11px] leading-snug text-sub">{pack.genre} · {pack.lineCount}컷</p>
@@ -214,10 +231,26 @@ export function QuoteShop({
       </section>
 
       <section>
-        <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h2 className="text-lg font-black">대사를 골라 감정 컷 만들기</h2><p className="mt-1 text-xs text-sub">각 대사의 추천 표정을 그대로 쓰거나, 위에서 다른 감정을 선택할 수 있어요.</p></div><span className="text-xs font-bold text-sub">{currentPack.lines.length} / {currentPack.lineCount}컷 공개</span></div>
+        <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h2 className="text-lg font-black">대사를 골라 감정 컷 만들기</h2><p className="mt-1 text-xs text-sub">각 대사의 추천 표정을 그대로 쓰거나, 위에서 다른 감정을 선택할 수 있어요.</p></div><span className="text-xs font-bold text-sub">{visibleLines.length} / {currentPack.lineCount}컷 공개</span></div>
+        {currentPack.groups?.length ? (
+          <div role="group" aria-label="세부 테마 선택" className="mb-3 flex flex-wrap gap-1.5">
+            <button type="button" aria-pressed={groupId === null} onClick={() => setGroupId(null)} className={clsx('rounded-full border px-3 py-1.5 text-[11px] font-black transition', groupId === null ? 'border-primary bg-primary text-white' : 'border-line bg-white text-sub hover:text-ink')}>
+              전체 {currentPack.lineCount}컷
+            </button>
+            {currentPack.groups.map((group) => {
+              const count = currentPack.lines.filter((line) => line.groupId === group.id).length;
+              const active = groupId === group.id;
+              return (
+                <button key={group.id} type="button" aria-pressed={active} onClick={() => setGroupId(active ? null : group.id)} className={clsx('rounded-full border px-3 py-1.5 text-[11px] font-black transition', active ? 'border-primary bg-primary text-white' : 'border-line bg-white text-sub hover:text-ink')}>
+                  <span aria-hidden="true">{group.emoji}</span> {group.label} {count}
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          {currentPack.lines.map((line) => <button key={line.id} type="button" aria-pressed={line.id === selectedLine.id} onClick={() => setLineId(line.id)} className={clsx('card overflow-hidden p-0 text-left transition hover:-translate-y-0.5', line.id === selectedLine.id && 'ring-4 ring-coral/30')}><div className="bg-cream p-2"><Sticker spec={quoteSpec(currentPack, line, line.emotion, 'cream')} ariaLabel={line.label} /></div><div className="border-t-2 border-line p-3"><p className="text-xs font-black">{line.label}</p><p className="mt-1 truncate text-[11px] text-sub">{line.line}</p></div></button>)}
-          {Array.from({ length: Math.max(0, currentPack.lineCount - currentPack.lines.length) }, (_, index) => <div key={`locked-${index}`} className="card grid aspect-[0.88] place-items-center border-dashed bg-cream/50 p-4 text-center opacity-75"><div><span className="text-2xl" aria-hidden="true">🔒</span><p className="mt-2 text-xs font-black">유료 컷 잠금</p><p className="mt-1 text-[11px] text-sub">팩 구매 후 대사와 이미지가 공개됩니다</p></div></div>)}
+          {visibleLines.map((line) => <button key={line.id} type="button" aria-pressed={line.id === selectedLine.id} onClick={() => setLineId(line.id)} className={clsx('card overflow-hidden p-0 text-left transition hover:-translate-y-0.5', line.id === selectedLine.id && 'ring-4 ring-coral/30')}><div className="bg-cream p-2"><Sticker spec={quoteSpec(currentPack, line, line.emotion, 'cream')} ariaLabel={line.label} /></div><div className="border-t-2 border-line p-3"><p className="text-xs font-black">{line.label}</p><p className="mt-1 truncate text-[11px] text-sub">{line.line}</p></div></button>)}
+          {Array.from({ length: groupId ? 0 : Math.max(0, currentPack.lineCount - currentPack.lines.length) }, (_, index) => <div key={`locked-${index}`} className="card grid aspect-[0.88] place-items-center border-dashed bg-cream/50 p-4 text-center opacity-75"><div><span className="text-2xl" aria-hidden="true">🔒</span><p className="mt-2 text-xs font-black">유료 컷 잠금</p><p className="mt-1 text-[11px] text-sub">팩 구매 후 대사와 이미지가 공개됩니다</p></div></div>)}
         </div>
       </section>
 

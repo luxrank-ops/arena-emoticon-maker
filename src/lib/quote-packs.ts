@@ -1,10 +1,19 @@
 import type { Emotion, Tone } from '@/lib/types';
+import { DRIP_LINES, DRIP_PACK_ID, DRIP_THEMES } from '@/data/drip-themes';
 
 export interface QuoteLine {
   id: string;
   label: string;
   line: string;
   emotion: Emotion;
+  /** 팩 안의 세부 테마(묶음) id — 없으면 단일 테마 팩 */
+  groupId?: string;
+}
+
+export interface QuoteGroup {
+  id: string;
+  label: string;
+  emoji: string;
 }
 
 export interface QuotePack {
@@ -17,6 +26,8 @@ export interface QuotePack {
   tone: Tone;
   accent: string;
   priceCredits: number;
+  /** 세부 테마 묶음 — 있으면 대사 스튜디오에서 테마별로 걸러 본다 */
+  groups?: QuoteGroup[];
   lines: QuoteLine[];
   rights: {
     kind: 'ORIGINAL';
@@ -42,6 +53,25 @@ const ORIGINAL_RIGHTS = {
  * A future licensed pack needs separate written license evidence before it is added here.
  */
 export const QUOTE_PACKS: QuotePack[] = [
+  {
+    // 드립·밈 7테마 66컷 — 문구는 src/data/drip-themes.ts 한 곳에서 관리한다.
+    id: DRIP_PACK_ID,
+    title: '킹받는 반전·드립',
+    genre: `드립·밈 대사 ${DRIP_THEMES.length}테마`,
+    tagline: '읽자마자 웃음 터지는 드립 66컷',
+    description: `반전 인사·넵티콘·먹방·단톡방 티키타카·부산 사투리·능청 주접·축하 센스까지 ${DRIP_THEMES.length}개 테마 ${DRIP_LINES.length}컷. 테마를 골라 걸러 보고, 마음에 드는 한 줄로 바로 이모티콘을 만드세요.`,
+    emoji: '😏',
+    tone: 'office-meme',
+    accent: '#FF6B4A',
+    priceCredits: 0,
+    groups: DRIP_THEMES.map((theme) => ({ id: theme.id, label: theme.title, emoji: theme.emoji })),
+    lines: DRIP_LINES.map((item) => ({ id: item.id, label: item.label, line: item.line, emotion: item.emotion, groupId: item.themeId })),
+    rights: {
+      kind: 'ORIGINAL',
+      reviewedAt: '2026-11-23',
+      note: '이모티학을 위해 새로 쓴 오리지널 드립 문구입니다. 특정 작품의 대사, 작품명, 캐릭터 또는 실존 인물의 초상을 사용하지 않습니다.',
+    },
+  },
   {
     id: 'daily-cuts',
     title: '오늘의 한 컷',
