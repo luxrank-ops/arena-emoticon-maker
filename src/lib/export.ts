@@ -560,6 +560,8 @@ export async function exportKakaoPackZip(
         maxBytes,
         generatedAt: new Date().toISOString(),
         ok: validation.ok,
+        // 개수 검사를 뺀 실제 사용 가능 판정 — 1~12컷 팩은 공식 32컷 규격이 아니어도 내 대화방용으로 쓸 수 있다
+        exportable: validation.exportable,
         summary: validation.summary,
         checks: validation.checks,
         files: rendered,
