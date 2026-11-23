@@ -12,7 +12,22 @@ import { drawDecor, planDecor } from '@/lib/studio/decor';
 
 export type TextLayerStyle = 'calli' | 'brush' | 'hand' | 'gothic' | 'bold' | 'stamp';
 export type BubbleStyle = 'none' | 'round' | 'shout' | 'caption' | 'tape';
-export type EffectKind = 'none' | 'sweat' | 'heart' | 'sparkle' | 'anger' | 'money' | 'flame';
+export type EffectKind =
+  | 'none'
+  // 기본 6종
+  | 'sweat'
+  | 'heart'
+  | 'sparkle'
+  | 'anger'
+  | 'money'
+  | 'flame'
+  // 문양 확대분 — 데코 엔진의 상황 모티프를 직접 고른다
+  | 'star'
+  | 'crown'
+  | 'flower'
+  | 'party'
+  | 'zzz'
+  | 'question';
 /** 상황별 복합 데코 — 문구·감정·이펙트에 맞춰 자동('auto') 또는 끔('off') */
 export type DecorMode = 'auto' | 'off';
 
@@ -111,6 +126,12 @@ export const LAYER_EFFECTS: { id: EffectKind; label: string; labelEn: string; em
   { id: 'anger', label: '분노마크', labelEn: 'Anger', emoji: '💢' },
   { id: 'money', label: '돈다발', labelEn: 'Money', emoji: '💸' },
   { id: 'flame', label: '불꽃', labelEn: 'Flame', emoji: '🔥' },
+  { id: 'star', label: '별·응원', labelEn: 'Star', emoji: '⭐' },
+  { id: 'crown', label: '왕관·칭찬', labelEn: 'Crown', emoji: '👑' },
+  { id: 'flower', label: '꽃·고마움', labelEn: 'Flower', emoji: '🌸' },
+  { id: 'party', label: '축하', labelEn: 'Party', emoji: '🎉' },
+  { id: 'zzz', label: '졸림', labelEn: 'Sleep', emoji: '💤' },
+  { id: 'question', label: '궁금', labelEn: 'Question', emoji: '❓' },
 ];
 
 const DEFAULT_COLOR = '#191512';
@@ -362,6 +383,12 @@ const EFFECT_COLOR: Record<Exclude<EffectKind, 'none'>, string> = {
   anger: '#D7362B',
   money: '#3FA46A',
   flame: '#FF7A1A',
+  star: '#E9A013',
+  crown: '#D9A31B',
+  flower: '#E2567E',
+  party: '#D2553C',
+  zzz: '#5B6B8C',
+  question: '#4453B2',
 };
 
 /** 이펙트 도형 — 땀방울·하트·반짝이·분노마크·돈다발·불꽃 */

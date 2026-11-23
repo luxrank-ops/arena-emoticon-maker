@@ -149,7 +149,7 @@ check('잘못된 색은 기본색으로', layer.color === '#191512');
 check('스타일·이펙트 유지(말풍선은 항상 없음)', layer.style === 'stamp' && layer.bubble === 'none' && layer.effect === 'sparkle');
 check('빈 텍스트 레이어는 제거', normalizeLayers([{ text: '  ' }, { text: '안녕' }]).length === 1);
 check('레이어 최대 4장', normalizeLayers(Array.from({ length: 9 }, (_, i) => ({ text: `레이어${i}`, style: 'hand' }))).length === MAX_LAYERS);
-check('글꼴 6종(캘리그라피·붓글씨 우선) · 이펙트 7종', TEXT_STYLES.length === 6 && TEXT_STYLES[0].id === 'calli' && TEXT_STYLES[1].id === 'brush' && LAYER_EFFECTS.length === 7);
+check('글꼴 6종(캘리그라피·붓글씨 우선) · 이펙트 13종(기본 6 + 문양 확대 6 + 없음)', TEXT_STYLES.length === 6 && TEXT_STYLES[0].id === 'calli' && TEXT_STYLES[1].id === 'brush' && LAYER_EFFECTS.length === 13 && LAYER_EFFECTS[0].id === 'none');
 const fromLine = layerFromLine('확인했습니다');
 check('대사 → 기본 레이어 생성(캘리그라피, 말풍선 없음)', !!fromLine && fromLine.text === '확인했습니다' && fromLine.bubble === 'none' && fromLine.style === 'calli');
 check('빈 대사는 레이어 없음', layerFromLine('   ') === null);
