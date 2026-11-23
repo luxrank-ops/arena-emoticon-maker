@@ -329,11 +329,13 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
       }));
       const result = await exportKakaoPackZip(items, { outline, preciseMatte: true, matteEngine: 'auto', motion: 'none' });
       downloadBlob(result.blob, CUTOUT_ZIP_NAME);
+      // 컷 수(공식 32컷)는 내 대화방용 팩에는 해당 없다 — 픽셀·용량 같은 실제 쓸모 기준으로 안내한다.
+      const usable = result.validation.exportable;
       setNotice(
-        result.validation.ok
+        usable
           ? t(
-              `${list.length}컷 카카오 규격 ZIP을 내려받았어요. 360×360 · 개당 150KB 이하 검증 통과${result.compressed > 0 ? ` (자동 압축 ${result.compressed}컷)` : ''}.`,
-              `Downloaded a ${list.length}-cut Kakao-ready ZIP (360×360, under 150KB each).`,
+              `${list.length}컷 카카오 규격 ZIP을 내려받았어요. 360×360 · 개당 150KB 이하 확인${result.compressed > 0 ? ` · 자동 압축 ${result.compressed}컷` : ''}. 카카오 공식 제안은 32컷이라 개수는 다르지만, 내 대화방에 바로 쓸 수 있어요.`,
+              `Downloaded a ${list.length}-cut ZIP (360×360, under 150KB each).`,
             )
           : t(
               `${list.length}컷 ZIP을 내려받았어요. ${result.validation.summary}`,

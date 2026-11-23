@@ -57,14 +57,14 @@ export const DEFAULT_CUTOUT_STYLE: CutoutStyle = {
   decor: 'auto',
   emotion: 'joy',
   position: 'bottom',
-  size: 0.17,
+  size: 0.15,
   color: '#191512',
 };
 
-/** 아래/위 문구 중심 y (캔버스 기준 0~1) — 얼굴을 가리지 않는 여백에 앉힌다 */
+/** 아래/위 문구 중심 y (캔버스 기준 0~1) — 얼굴을 가리지 않고 두 줄도 잘리지 않는 여백 */
 export const CUTOUT_POSITION_Y: Record<CutoutPosition, number> = {
-  bottom: 0.855,
-  top: 0.155,
+  bottom: 0.86,
+  top: 0.15,
 };
 
 /** 문구 없이 사진만 쓰는 상태인지 */
