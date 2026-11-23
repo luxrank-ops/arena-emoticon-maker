@@ -233,7 +233,6 @@ export function drawLayer(
     opts.emotion,
   );
   const fontSize = Math.max(8, layer.size * size);
-  const padding = fontSize * 0.42;
 
   // 상황별 복합 데코 — 머리 위·볼 옆·글자 모서리에 캔버스 절대 좌표로 그린다.
   //  (글자보다 먼저 그려 글자의 흰 외곽선이 데코 위를 깔끔하게 정리한다)
@@ -262,18 +261,8 @@ export function drawLayer(
   ctx.lineJoin = 'round';
   ctx.miterLimit = 2;
 
-  if (layer.style === 'stamp') {
-    const radius = Math.max(plan.width, plan.height) * 0.78 + padding * 0.6;
-    ctx.strokeStyle = '#C9342B';
-    ctx.lineWidth = Math.max(2, fontSize * 0.09);
-    ctx.beginPath();
-    ctx.arc(0, 0, radius, 0, Math.PI * 2);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(0, 0, radius * 0.9, 0, Math.PI * 2);
-    ctx.lineWidth = Math.max(1, fontSize * 0.03);
-    ctx.stroke();
-  }
+  // 도장(stamp) 스타일도 글자만 찍는다 — 예전에 글자 둘레에 그리던 빨간 이중 원은
+  //  미리보기(SVG)와 결과가 달라 얼굴/몸통을 가려서 제거했다.
 
   const top = -plan.height / 2;
   const left = -plan.width / 2;
