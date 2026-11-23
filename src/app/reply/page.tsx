@@ -16,8 +16,10 @@ export default async function ReplyPage() {
     <div className="wrap py-10">
       <div className="mb-8 grid gap-4 md:grid-cols-[1.3fr_0.7fr] md:items-end">
         <div>
-          <span className="chip !border-ink !bg-ink !text-cream">Chat-to-Sticker</span>
-          <h1 className="h2 mt-3">톡 붙여넣으면, 3초 안에 답장 3개</h1>
+          <p className="eyebrow">CHAT TO STICKER</p>
+          <h1 className="h2 mt-2 break-keep">
+            톡 붙여넣으면, 3초 안에 <span className="text-gradient">답장 3개</span>
+          </h1>
           <p className="mt-2 max-w-xl text-sm leading-relaxed text-sub">
             카톡 대화를 복사해 붙여넣으세요. 감정과 의도를 읽고 <strong className="text-ink">내가 만든 AI 컷</strong>으로
             답장 컷을 골라드립니다. 새로 그리지 않아 기다림이 없습니다.

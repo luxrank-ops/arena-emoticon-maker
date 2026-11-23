@@ -1,4 +1,14 @@
 import Link from 'next/link';
+import {
+  Camera,
+  ChevronRight,
+  FolderOpen,
+  MessageCircle,
+  MessageSquareText,
+  ShoppingBag,
+  Sparkles,
+  Sun,
+} from 'lucide-react';
 import { ACCESSORIES } from '@/lib/accessories';
 import { getCurrentUser } from '@/lib/session';
 import { aiAccess, canUseAiGeneration } from '@/lib/admin-access';
@@ -25,6 +35,7 @@ export async function generateMetadata() {
  * 만들기 허브(/studio).
  *  · 하단 '만들기' 탭이 닿는 한 곳에서 3가지 제작 방식을 카드로 고르게 한다.
  *  · 기존 직접 경로(/studio/photo · /studio/upload)는 그대로 살아 있다.
+ *  · 2026 리뉴얼: 민무늬 흰 배경 → 메시 그라데이션 히어로 + 그라데이션 아이콘 타일 카드.
  */
 export default async function StudioHubPage() {
   const locale = await getLocale();
@@ -36,7 +47,10 @@ export default async function StudioHubPage() {
 
   const routes = [
     {
-      emoji: '📸',
+      Icon: Camera,
+      tile: 'from-[#8B5CF6] to-[#6E29F5]',
+      glow: 'shadow-[0_12px_26px_-14px_rgba(110,41,245,0.9)]',
+      accent: 'text-mint',
       badge: t('무료 · AI 생성 없이', 'Free · no AI'),
       title: t('내 사진 바로 스티커', 'Photo sticker, no AI'),
       desc: t(
@@ -49,7 +63,10 @@ export default async function StudioHubPage() {
       secondary: null as null | { href: string; label: string },
     },
     {
-      emoji: '🎨',
+      Icon: Sparkles,
+      tile: 'from-[#6E29F5] via-[#A855F7] to-[#FF4D8D]',
+      glow: 'shadow-[0_12px_26px_-14px_rgba(168,85,247,0.9)]',
+      accent: 'text-primary-dark',
       badge: aiEnabled ? t(trial ? '12컷 무료 미리보기' : 'AI · 12컷', trial ? 'Free 12-cut preview' : 'AI · 12 cuts') : t('준비 중', 'Setting up'),
       title: t('AI 캐릭터로 새로 그리기', 'Redraw as an AI character'),
       desc: t(
@@ -62,7 +79,10 @@ export default async function StudioHubPage() {
       secondary: aiEnabled ? null : { href: '/studio/upload', label: t('AI 스튜디오 (준비 중)', 'AI studio (coming soon)') },
     },
     {
-      emoji: '💬',
+      Icon: MessageSquareText,
+      tile: 'from-[#FF9F5A] to-[#FF4D8D]',
+      glow: 'shadow-[0_12px_26px_-14px_rgba(255,77,141,0.85)]',
+      accent: 'text-primary-dark',
       badge: t(`프리셋 ${PRESET_COUNT}`, `${PRESET_COUNT} presets`),
       title: t('대사·드립 프리셋으로 만들기', 'Start from lines & presets'),
       desc: t(
@@ -77,81 +97,114 @@ export default async function StudioHubPage() {
   ];
 
   const quickLinks = [
-    { href: '/studio/packs', emoji: '📦', label: t('내 팩', 'My packs') },
-    { href: '/presets', emoji: '🗂️', label: t('프리셋 150', 'Presets 150') },
-    { href: '/reply', emoji: '💌', label: t('톡 답장', 'Reply') },
-    { href: '/brief', emoji: '☀️', label: t('오늘의 브리핑', 'Daily brief') },
-    { href: '/goods', emoji: '🛍️', label: t('굿즈', 'Goods') },
+    { href: '/studio/packs', Icon: FolderOpen, label: t('내 팩', 'My packs') },
+    { href: '/presets', Icon: Sparkles, label: t('프리셋 150', 'Presets 150') },
+    { href: '/reply', Icon: MessageCircle, label: t('톡 답장', 'Reply') },
+    { href: '/brief', Icon: Sun, label: t('오늘의 브리핑', 'Daily brief') },
+    { href: '/goods', Icon: ShoppingBag, label: t('굿즈', 'Goods') },
   ];
 
   return (
-    <main className="wrap pb-14 pt-6 sm:pt-10">
-      <nav className="mb-5 flex items-center gap-2 text-xs font-bold text-sub" aria-label={t('현재 위치', 'Breadcrumb')}>
-        <Link href={lp('/')} className="hover:text-ink">{t('홈', 'Home')}</Link>
-        <span aria-hidden="true">/</span>
-        <span className="text-ink">{t('만들기', 'Create')}</span>
-      </nav>
+    <main className="pb-14">
+      <section className="relative isolate overflow-hidden">
+        <div aria-hidden="true" className="mesh-hero pointer-events-none absolute inset-0 -z-10 opacity-90" />
+        <div aria-hidden="true" className="hero-grid pointer-events-none absolute inset-0 -z-10" />
+        <div className="wrap pb-8 pt-5 sm:pb-10 sm:pt-8">
+          <nav className="flex items-center gap-2 text-[11px] font-bold text-sub" aria-label={t('현재 위치', 'Breadcrumb')}>
+            <Link href={lp('/')} className="hover:text-ink">{t('홈', 'Home')}</Link>
+            <span aria-hidden="true" className="text-sub/35">/</span>
+            <span className="text-ink">{t('만들기', 'Create')}</span>
+          </nav>
 
-      <header className="max-w-2xl">
-        <h1 className="h2">{t('무엇으로 만들까요?', 'How do you want to make it?')}</h1>
-        <p className="mt-2 text-sm leading-relaxed text-sub">
-          {t(
-            '세 가지 방법 중 하나만 고르면 돼요. 사진이 없어도 대사·프리셋으로 바로 만들 수 있어요.',
-            'Pick one of three ways. You can create right away with lines and presets even without a photo.',
-          )}
-        </p>
-      </header>
-
-      <ul className="mt-6 grid gap-3 md:grid-cols-3">
-        {routes.map((route) => (
-          <li key={route.title} className="min-w-0">
-            <article className="card flex h-full flex-col border border-line p-4 sm:p-5">
-              <div className="flex items-start justify-between gap-2">
-                <span aria-hidden="true" className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-lemon/40 text-2xl">{route.emoji}</span>
-                <span className="chip !bg-cream !text-[11px]">{route.badge}</span>
-              </div>
-              <h2 className="mt-3 text-lg font-black leading-snug tracking-tight">{route.title}</h2>
-              <p className="mt-1.5 flex-1 text-sm leading-relaxed text-sub">{route.desc}</p>
-              <p className="mt-3 text-[11px] font-bold leading-relaxed text-sub">{route.meta}</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Link href={lp(route.href)} className="btn-primary !py-2.5 text-sm">{route.cta} <span aria-hidden="true">→</span></Link>
-                {route.secondary ? (
-                  <Link href={lp(route.secondary.href)} className="btn-ghost !py-2.5 text-sm">{route.secondary.label}</Link>
-                ) : null}
-              </div>
-            </article>
-          </li>
-        ))}
-      </ul>
-
-      <section className="mt-8" aria-labelledby="quick-title">
-        <h2 id="quick-title" className="text-sm font-black text-sub">{t('바로 가기', 'Shortcuts')}</h2>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {quickLinks.map((link) => (
-            <Link key={link.href} href={lp(link.href)} className="chip !bg-paper !py-2 hover:border-primary hover:text-primary-dark">
-              <span aria-hidden="true">{link.emoji}</span> {link.label}
-            </Link>
-          ))}
+          <header className="mt-4 max-w-2xl">
+            <p className="eyebrow">CREATE HUB</p>
+            <h1 className="mt-2 break-keep text-[1.75rem] font-extrabold leading-[1.22] tracking-[-0.035em] text-ink sm:text-[2.15rem]">
+              {t('무엇으로 만들까요?', 'How do you want to make it?')}
+            </h1>
+            <p className="mt-2 break-keep text-[13.5px] leading-relaxed text-sub sm:text-sm">
+              {t(
+                '세 가지 방법 중 하나만 고르면 돼요. 사진이 없어도 대사·프리셋으로 바로 만들 수 있어요.',
+                'Pick one of three ways. You can create right away with lines and presets even without a photo.',
+              )}
+            </p>
+          </header>
         </div>
       </section>
 
-      <section className="mt-8 rounded-2xl border border-line bg-paper p-4 sm:p-5" aria-labelledby="tip-title">
-        <h2 id="tip-title" className="text-base font-black">{t('만든 뒤에는', 'After you make it')}</h2>
-        <p className="mt-1.5 text-sm leading-relaxed text-sub">
-          {t(
-            '내 팩에서 컷을 편집하고 PNG·ZIP으로 내려받을 수 있어요. 표정·문구·악세사리는 최대 3개까지 바꿀 수 있어요.',
-            'Edit cuts and download PNG or ZIP from My packs. Expressions, lines and up to 3 accessories can be changed.',
-          )}
-        </p>
-        <div className="mt-3 flex flex-wrap gap-2" aria-label={t('악세사리 예시', 'Accessory examples')}>
-          {ACCESSORIES.slice(0, 4).map((item) => (
-            <span key={item.id} className="chip !bg-cream"><span aria-hidden="true">{item.emoji}</span> {item.name}</span>
-          ))}
-        </div>
-        <Link href={lp('/studio/packs')} className="mt-4 inline-block text-sm font-black text-coralink underline underline-offset-4">
-          {t('내 팩 열기 →', 'Open my packs →')}
-        </Link>
-      </section>
+      <div className="wrap">
+        <ul className="-mt-4 grid gap-3 sm:-mt-5 md:grid-cols-3">
+          {routes.map((route) => {
+            const Icon = route.Icon;
+            return (
+              <li key={route.title} className="min-w-0">
+                <article className="group relative flex h-full flex-col overflow-hidden rounded-[1.5rem] border border-line/80 bg-white p-4 shadow-card transition duration-300 hover:-translate-y-1 hover:border-primary/25 hover:shadow-pop sm:p-5">
+                  <span aria-hidden="true" className="pointer-events-none absolute -right-10 -top-12 h-28 w-28 rounded-full bg-primary/[0.05] blur-2xl transition group-hover:bg-hot/[0.1]" />
+                  <div className="relative flex items-start justify-between gap-2">
+                    <span className={`grid h-11 w-11 shrink-0 place-items-center rounded-[1rem] bg-gradient-to-br text-white ${route.tile} ${route.glow}`}>
+                      <Icon className="h-5 w-5" strokeWidth={2.2} aria-hidden="true" />
+                    </span>
+                    <span className={`rounded-full border border-line/80 bg-cream/80 px-2.5 py-1 text-[10px] font-black ${route.accent}`}>{route.badge}</span>
+                  </div>
+                  <h2 className="mt-3.5 break-keep text-[17px] font-extrabold leading-snug tracking-[-0.025em]">{route.title}</h2>
+                  <p className="mt-1.5 flex-1 break-keep text-[13px] leading-relaxed text-sub">{route.desc}</p>
+                  <p className="mt-3 text-[10.5px] font-bold leading-relaxed text-sub/90">{route.meta}</p>
+                  <div className="mt-4 flex flex-wrap gap-2">
+                    <Link href={lp(route.href)} className="btn-primary !px-4 !py-2.5 text-[13px]">
+                      {route.cta} <span aria-hidden="true">→</span>
+                    </Link>
+                    {route.secondary ? (
+                      <Link href={lp(route.secondary.href)} className="btn-ghost !px-4 !py-2.5 text-[12px]">{route.secondary.label}</Link>
+                    ) : null}
+                  </div>
+                </article>
+              </li>
+            );
+          })}
+        </ul>
+
+        <section className="mt-8" aria-labelledby="quick-title">
+          <h2 id="quick-title" className="text-[10.5px] font-black uppercase tracking-[0.16em] text-sub/80">{t('바로 가기', 'Shortcuts')}</h2>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {quickLinks.map((link) => {
+              const Icon = link.Icon;
+              return (
+                <Link
+                  key={link.href}
+                  href={lp(link.href)}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-line/80 bg-white px-3 py-1.5 text-[11.5px] font-bold text-sub shadow-card transition hover:-translate-y-0.5 hover:border-primary/30 hover:text-primary-dark"
+                >
+                  <Icon className="h-3.5 w-3.5" aria-hidden="true" /> {link.label}
+                </Link>
+              );
+            })}
+          </div>
+        </section>
+
+        <section className="relative mt-8 overflow-hidden rounded-[1.5rem] border border-line/80 bg-white p-4 shadow-card sm:p-5" aria-labelledby="tip-title">
+          <span aria-hidden="true" className="pointer-events-none absolute -right-12 -top-16 h-36 w-36 rounded-full bg-primary/[0.07] blur-2xl" />
+          <h2 id="tip-title" className="flex items-center gap-2 text-base font-extrabold tracking-[-0.02em]">
+            <span aria-hidden="true" className="h-4 w-1 rounded-full brand-gradient" />
+            {t('만든 뒤에는', 'After you make it')}
+          </h2>
+          <p className="mt-2 break-keep text-[13px] leading-relaxed text-sub">
+            {t(
+              '내 팩에서 컷을 편집하고 PNG·ZIP으로 내려받을 수 있어요. 표정·문구·악세사리는 최대 3개까지 바꿀 수 있어요.',
+              'Edit cuts and download PNG or ZIP from My packs. Expressions, lines and up to 3 accessories can be changed.',
+            )}
+          </p>
+          <div className="mt-3 flex flex-wrap gap-1.5" aria-label={t('악세사리 예시', 'Accessory examples')}>
+            {ACCESSORIES.slice(0, 4).map((item) => (
+              <span key={item.id} className="inline-flex items-center gap-1 rounded-full border border-line/80 bg-cream/70 px-2.5 py-1 text-[10.5px] font-bold text-sub">
+                <span aria-hidden="true">{item.emoji}</span> {item.name}
+              </span>
+            ))}
+          </div>
+          <Link href={lp('/studio/packs')} className="group mt-4 inline-flex items-center gap-1 text-sm font-black text-primary-dark">
+            {t('내 팩 열기', 'Open my packs')}
+            <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden="true" />
+          </Link>
+        </section>
+      </div>
     </main>
   );
 }
