@@ -61,5 +61,28 @@
 
 ## 검증
 
-- `npm run typecheck` · `npm test`(14개 스위트) · `npm run build` — CI 통과
-- 실제 브라우저(emotihak.com) 검증 결과는 아래에 기록한다.
+- `npm run typecheck` · `npm test`(스위트 14개, AI 누끼 34개 검사 포함) · `npm run build` — CI 통과
+- PR **#104** 스쿼시 머지 → `b629559` → Workers Builds(production) 성공 → emotihak.com 배포
+
+### 실제 브라우저 검증 (2026-11-23 23:40 KST · emotihak.com 라이브)
+
+1. **실사 사진 AI 누끼 (기기 안)** — 라이브 사이트에 실제 인물 사진(마블 복도 배경, 1080×1533)을 업로드하고,
+   같은 오리진에서 `selfie_segmenter`(250KB)로 피사체를 뗐다.
+   - 모델 로딩 779ms(얼굴 분석이 같은 WASM 을 이미 받아 둔 상태) · 인식 **121ms** · 마스크 360×360
+   - 피사체 45.9% · 위 두 모서리 알파 `0` · 아래 두 모서리는 셔츠가 화면 끝까지 닿아 `255`(피사체 보존 확인)
+   - 투명 PNG(360×360, 130,324B)를 실제로 내려받아 확인: 완전 투명 68,930px / 불투명 57,800px / 경계 반투명 2,870px
+   - 결과 파일: `downloads/emotihak-ai-cutout-360.png`, 비교 이미지 `downloads/emotihak-ai-matte-before-after.png`,
+     화면 캡처 `downloads/emotihak-ai-matte-live.png`
+2. **엔진 선택 규칙(실사진)** — 같은 사진의 외곽 1px 링을 `sampleBackgroundColor` 규칙으로 계산하니
+   서로 다른 색 묶음 88개, 최다 묶음 비중 6.5%(<30%) → 배경색 `null` → `planMatteEngine` 은 `ai`(complex-background).
+   즉 이 사진은 기존 색상 기반으로는 아무것도 못 지우고, AI 누끼 경로를 탄다.
+3. **기존 경로 회귀** — 라이브 `/quotes` 에서 대사 스티커 PNG 다운로드 → 360×360, 네 모서리 알파 0,
+   피사체 47% 유지(이미 잘린 컷은 재처리하지 않는 가드 동작). `downloads/drip-twist-dr-01-8.png`
+4. **남은 확인** — 결제 전 미리보기 팩은 내려받기가 잠기고, Gemini 컷은 프롬프트상 단색 배경으로 나오므로
+   “복잡한 배경 컷을 앱 UI 로 내보내는” 경로는 이번 검증에서 재현하지 못했다(아래 후속 제안).
+
+### 후속 제안
+
+- 업로드한 실사 사진을 **AI 컷을 거치지 않고 바로 스티커로** 만드는 경로가 아직 없다.
+  지금은 Gemini 컷만 내보내기 파이프라인을 타므로, “집안·공원 배경 셀카 → 바로 누끼 스티커”는
+  새 흐름을 붙여야 실제 사용자가 쓸 수 있다(이번 엔진이 그 재료).
