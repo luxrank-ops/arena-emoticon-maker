@@ -7,6 +7,7 @@ import { charAdvance, inkFor, layoutCaption } from '../src/lib/studio/caption';
 import { planCaption } from '../src/lib/studio/caption-plan';
 import { fontCssFromBytes } from '../src/lib/svg-fonts';
 import { drawLayer, normalizeLayer } from '../src/lib/studio/layers';
+import { renderTextLayersSvg } from '../src/lib/art/text-layers-svg';
 import {
   planDecor,
   planDecor as planDecorCheck,
@@ -90,7 +91,7 @@ assert.ok(embedded.includes('EmotiHak Calli'));
 assert.ok(!renderSticker(spec({ line: '월요병' })).includes('@font-face'), 'inline preview skips the embedded copy');
 
 // 캔버스 렌더러도 같은 레이아웃·잉크를 쓴다 (가짜 2D 컨텍스트로 호출 경로 검증)
-type Call = { op: string; args: unknown[]; fill?: string; font?: string };
+type Call = { op: string; args: unknown[]; fill?: string; stroke?: string; font?: string };
 const calls: Call[] = [];
 const gradients: string[][] = [];
 const fake = {
@@ -99,11 +100,10 @@ const fake = {
   translate(...a: number[]) { calls.push({ op: 'translate', args: a }); },
   rotate(...a: number[]) { calls.push({ op: 'rotate', args: a }); },
   beginPath() { calls.push({ op: 'beginPath', args: [] }); },
-  arc() { calls.push({ op: 'arc', args: [] }); },
+  arc(...a: number[]) { calls.push({ op: 'arc', args: a }); },
   ellipse() { calls.push({ op: 'ellipse', args: [] }); },
   closePath() { calls.push({ op: 'closePath', args: [] }); },
   fill() { calls.push({ op: 'fill', args: [] }); },
-  stroke() { calls.push({ op: 'stroke', args: [] }); },
   fillRect() { calls.push({ op: 'fillRect', args: [] }); },
   rect() { calls.push({ op: 'rect', args: [] }); },
   moveTo() { calls.push({ op: 'moveTo', args: [] }); },
@@ -116,6 +116,7 @@ const fake = {
   fillText(text: string, x: number, y: number) {
     calls.push({ op: 'fillText', args: [text, x, y], fill: String((this as { fillStyle?: string }).fillStyle ?? '') });
   },
+  stroke() { calls.push({ op: 'stroke', args: [], stroke: String((this as { strokeStyle?: string }).strokeStyle ?? '') }); },
   fillStyle: '',
   strokeStyle: '',
   lineWidth: 0,
@@ -156,6 +157,20 @@ assert.ok(
   'legacy round bubble draws no box — calligraphy text only',
 );
 assert.ok(calls.some((c) => c.op === 'fillText'), 'the caption text is still drawn');
+
+// 도장(stamp) 스타일 — 다운로드에도 글자만 찍는다. 예전에 글자 둘레에 그리던 빨간 이중 원(#C9342B)은 없다.
+for (const style of ['stamp'] as const) {
+  calls.length = 0;
+  drawLayer(fake, normalizeLayer({ text: '생존 신고합니다', style, bubble: 'none', effect: 'none', decor: 'off', x: 0.5, y: 0.5, size: 0.2, rotate: -8 }), 360, { emotion: 'smug' });
+  assert.ok(!calls.some((c) => c.op === 'arc'), `${style}: no circle/arc is drawn`);
+  assert.ok(
+    !calls.some((c) => c.op === 'stroke' && (c.stroke ?? '').toUpperCase() === '#C9342B'),
+    `${style}: no red (#C9342B) stroke ring`,
+  );
+  assert.ok(calls.some((c) => c.op === 'fillText'), `${style}: the caption text is still drawn`);
+  const stampSvg = renderTextLayersSvg([normalizeLayer({ text: '생존 신고합니다', style, bubble: 'none', effect: 'none', decor: 'off', x: 0.5, y: 0.5, size: 0.2, rotate: -8 })], 'smug');
+  assert.ok(!/<circle/i.test(stampSvg), `${style}: the SVG preview draws no circle either`);
+}
 
 for (const item of [spec(), spec({ emotion: 'angry' }), spec({ tone: 'watercolor' }), spec({ tone: 'pixel-art', linePosition: 'top' })]) {
   const png = await sharp(Buffer.from(renderSticker(item))).resize(360, 360).png().toBuffer();
