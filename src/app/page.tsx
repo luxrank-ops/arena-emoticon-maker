@@ -95,6 +95,22 @@ export default async function LandingPage() {
         </div>
       </section>
 
+      {/* 내 사진 바로 누끼 — AI 생성 게이트와 무관하게 누구나 지금 쓸 수 있는 무료 경로 */}
+      <section className="border-b border-line bg-lemon/25 py-8 sm:py-10" aria-labelledby="cutout-title">
+        <div className="wrap flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <span className="chip !border-primary/25 !bg-white !text-primary-dark">NEW · 무료 · AI 생성 없이</span>
+            <h2 id="cutout-title" className="mt-2 break-keep text-xl font-black tracking-tight sm:text-2xl">📸 내 사진 바로 누끼 스티커</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">
+              올린 사진 그대로 배경만 떼고, 캘리그라피 한 줄과 심플 데코를 얹어 <strong className="text-ink">360×360 투명 PNG</strong>로 바로 저장해요.
+              AI가 새로 그리지 않아 결과가 사진과 똑같고, 사진은 서버로 보내지 않으며 크레딧도 쓰지 않아요.
+            </p>
+            <p className="mt-2 text-[11px] font-bold text-sub">사진 1장이면 바로 · 최대 12장을 팩처럼 한 번에 · 카카오 규격 ZIP까지</p>
+          </div>
+          <Link href="/studio/photo" className="btn-primary shrink-0 !py-4 text-base">사진 올리고 바로 만들기 <span aria-hidden="true">→</span></Link>
+        </div>
+      </section>
+
       <section className="wrap py-12 sm:py-16" aria-labelledby="how-title">
         <span className="chip !bg-lemon/40 !text-ink">처음이신가요?</span>
         <h2 id="how-title" className="h2 mt-3">이렇게 만들어요</h2>
