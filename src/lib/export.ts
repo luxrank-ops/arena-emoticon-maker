@@ -4,6 +4,8 @@ import type { StickerSpec } from '@/lib/types';
 import { renderSticker } from '@/lib/art/sticker';
 import { KAKAO_RULES, KAKAO_ANIMATED_RULES, validateKakaoFiles, type PackValidation } from '@/lib/packager';
 import { applyMask, applyWhiteOutline, computeAlphaMask, outlineSilhouette } from '@/lib/studio/matte';
+import { aiSubjectAlpha, type AiMatteModel } from '@/lib/studio/ai-matte';
+import { applyAlphaToPixels, planMatteEngine, type MatteReason } from '@/lib/studio/ai-matte-core';
 import { assembleApng } from '@/lib/studio/apng';
 import { drawLayers, normalizeLayers, type TextLayer } from '@/lib/studio/layers';
 import { captionFontCss, ensureCaptionFonts } from '@/lib/svg-fonts';
@@ -25,9 +27,28 @@ import {
 
 const SIZE: number = KAKAO_RULES.size;
 
+export interface MatteInfo {
+  /** 실제로 적용된 누끼 엔진 (실패 시 자동으로 'color') */
+  engine: 'color' | 'ai';
+  reason: MatteReason;
+  /** AI 누끼에 쓴 모델 (초상 / 일반) */
+  model?: AiMatteModel;
+  /** AI 누끼가 남긴 피사체 비율 */
+  coverage?: number;
+}
+
 export interface ExportOptions {
   size?: number;
   watermark?: boolean;
+  /**
+   * 누끼 엔진 선택
+   *  · 'auto'(기본) — 단색 배경은 색상 기반 고속, 복잡한 배경은 AI 피사체 누끼
+   *  · 'color' — 항상 색상 기반(옛 동작)
+   *  · 'ai' — 항상 AI 피사체 누끼(실패하면 색상 기반으로 폴백)
+   */
+  matteEngine?: 'auto' | 'color' | 'ai';
+  /** 누끼 결과 안내 — 화면에 'AI 정밀 누끼 적용' 상태를 표시할 때 쓴다 */
+  onMatte?: (info: MatteInfo) => void;
   /** 워터마크 문구 (기본 '이모티학') — 무료 미리보기는 '이모티학으로 내 얼굴 짤 만들기' */
   watermarkText?: string;
   /** 흰색 스티커 외곽선 두께 (px, 기본 0 = 끔) */
@@ -154,10 +175,35 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
     const photo = await loadUrlImage(spec.imageUrl);
     fctx.drawImage(photo, 0, 0, size, size);
     if (spec.background === 'transparent' && opts.preciseMatte !== false) {
+      const feather = Math.max(1, Math.round(size / 180));
       const image = fctx.getImageData(0, 0, size, size);
-      const mask = computeAlphaMask(image.data, size, size, { feather: Math.max(1, Math.round(size / 180)) });
-      applyMask(image.data, mask, { feather: Math.max(1, Math.round(size / 180)) });
-      fctx.putImageData(image, 0, 0);
+      // 이미 투명하게 잘려 있는 컷(샘플·기존 누끼 결과)은 건드리지 않는다 — AI 오판으로 피사체를 잃지 않게.
+      const corners = [0, size - 1, size * (size - 1), size * size - 1];
+      const alreadyCut = corners.every((index) => image.data[index * 4 + 3] < 8);
+      if (!alreadyCut) {
+        // 1) 색상 기반 누끼는 항상 먼저 계산한다 — 단색 배경이면 이걸로 끝나고(AI 로딩 없음)
+        //    AI 가 실패했을 때의 폴백이기도 하다.
+        const colorMask = computeAlphaMask(image.data, size, size, { feather });
+        const decision =
+          opts.matteEngine === 'color'
+            ? { engine: 'color' as const, reason: 'forced' as const }
+            : opts.matteEngine === 'ai'
+              ? { engine: 'ai' as const, reason: 'forced' as const }
+              : planMatteEngine({
+                  backgroundColor: colorMask.backgroundColor,
+                  removedRatio: size > 0 ? colorMask.removed / (size * size) : 0,
+                });
+        // 2) 복잡한 배경이면 기기 안에서 AI 피사체 누끼를 먼저 시도한다
+        const ai = decision.engine === 'ai' ? await aiSubjectAlpha(figure, `${spec.imageUrl}|${size}`) : null;
+        if (ai) {
+          applyAlphaToPixels(image.data, ai.alpha, size);
+          opts.onMatte?.({ engine: 'ai', reason: decision.reason, model: ai.model, coverage: ai.coverage });
+        } else {
+          applyMask(image.data, colorMask, { feather });
+          opts.onMatte?.({ engine: 'color', reason: decision.engine === 'ai' ? 'color-fallback' : decision.reason });
+        }
+        fctx.putImageData(image, 0, 0);
+      }
     }
   } else {
     // 글자 레이어가 있으면 그쪽이 대사다 — 절차적 SVG 대사와 겹쳐 찍지 않는다.

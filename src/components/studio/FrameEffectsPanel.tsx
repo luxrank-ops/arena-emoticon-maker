@@ -8,6 +8,7 @@ import {
   renderAnimatedApngBlob,
   renderFrameCanvas,
   renderPngBlob,
+  type MatteInfo,
 } from '@/lib/export';
 import {
   LAYER_EFFECTS,
@@ -47,6 +48,7 @@ export function FrameEffectsPanel({
   const [selected, setSelected] = useState(0);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [matte, setMatte] = useState<MatteInfo | null>(null);
   const [saving, setSaving] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const baseRef = useRef<HTMLCanvasElement | null>(null);
@@ -57,9 +59,18 @@ export function FrameEffectsPanel({
   // 레이어·외곽선이 바뀌면 합성 베이스를 다시 만든다.
   useEffect(() => {
     let cancelled = false;
+    setMatte(null);
     void (async () => {
       try {
-        const composed = await renderFrameCanvas(spec, { size: 360, outline, watermark, layers });
+        const composed = await renderFrameCanvas(spec, {
+          size: 360,
+          outline,
+          watermark,
+          layers,
+          onMatte: (info) => {
+            if (!cancelled) setMatte(info);
+          },
+        });
         if (!cancelled) baseRef.current = composed;
       } catch {
         if (!cancelled) baseRef.current = null;
@@ -198,6 +209,9 @@ export function FrameEffectsPanel({
         <div className="mx-auto w-[150px] rounded-xl border-2 border-line bg-cream p-1.5">
           <canvas ref={canvasRef} width={previewSize} height={previewSize} className="aspect-square w-full" aria-label={t('움직이는 미리보기', 'Animated preview')} />
         </div>
+        <p className="mx-auto -mt-1 w-[150px] text-center text-[10px] font-bold leading-snug text-sub">
+          {matte ? matteLabel(matte, t) : t('누끼 없이 원본 그대로', 'Original image, no cutout')}
+        </p>
 
         <div className="space-y-3">
           <div>
@@ -395,6 +409,18 @@ export function FrameEffectsPanel({
       {message ? <p role="status" className="mt-2 text-[11px] font-bold text-primary-dark">{message}</p> : null}
     </section>
   );
+}
+
+function matteLabel(matte: MatteInfo, t: (ko: string, en: string) => string): string {
+  if (matte.engine === 'ai') {
+    return matte.model === 'person'
+      ? t('✨ AI 정밀 누끼 — 인물만 남겼어요', '✨ AI cutout — person only')
+      : t('✨ AI 정밀 누끼 — 피사체만 남겼어요', '✨ AI cutout — subject only');
+  }
+  if (matte.reason === 'color-fallback') {
+    return t('빠른 누끼 — 이 기기에서는 AI 누끼를 못 써서 단색 기준으로 지웠어요', 'Quick cutout by color (AI unavailable on this device)');
+  }
+  return t('빠른 누끼 — 단색 배경이라 바로 지웠어요', 'Quick cutout — plain background');
 }
 
 function MotionTemplatesLabel(t: (ko: string, en: string) => string, motion: MotionId | 'none') {
