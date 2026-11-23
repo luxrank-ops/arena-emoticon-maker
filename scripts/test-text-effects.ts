@@ -7,7 +7,18 @@ import { charAdvance, inkFor, layoutCaption } from '../src/lib/studio/caption';
 import { planCaption } from '../src/lib/studio/caption-plan';
 import { fontCssFromBytes } from '../src/lib/svg-fonts';
 import { drawLayer, normalizeLayer } from '../src/lib/studio/layers';
-import { planDecor, planDecor as planDecorCheck, decorMotifFor, renderDecorSvg, pathData } from '../src/lib/studio/decor';
+import {
+  planDecor,
+  planDecor as planDecorCheck,
+  decorMotifFor,
+  decorKindsOf,
+  decorSlotsOf,
+  renderDecorSvg,
+  pathData,
+  decorInkArea,
+  decorCoverage,
+  type DecorMotif,
+} from '../src/lib/studio/decor';
 import type { Emotion, StickerSpec, Tone } from '../src/lib/types';
 
 function spec(overrides: Partial<StickerSpec> = {}): StickerSpec {
@@ -181,52 +192,128 @@ assert.equal(decorMotifFor('피곤 졸려 퇴근', 'blank'), 'tired');
 assert.equal(decorMotifFor('월급 루팡', 'smug'), 'money');
 assert.equal(decorMotifFor('오늘도 수고', 'tired'), 'tired', 'the emotion fills in when the words are neutral');
 
-// 2~3종 복합 배치 + 글자 박스 바로 옆(오른쪽 위 1~2개 · 왼쪽 아래)에 붙는다.
-const loveDecor = planDecor(decorInput('내 하루에 네가 들어왔어', 'love'));
-assert.ok(loveDecor.length >= 2 && loveDecor.length <= 3, 'decor composes 2–3 pieces');
+// 4~5종 복합 배치 — 주 데코는 머리 위, 나머지는 볼·관자·글자 모서리에 흩어진다.
+const loveInput = decorInput('내 하루에 네가 들어왔어', 'love');
+const loveDecor = planDecor(loveInput);
+assert.ok(loveDecor.length >= 4 && loveDecor.length <= 5, 'decor composes 4–5 pieces');
 const kinds = new Set(loveDecor.map((item) => item.kind));
 assert.ok(kinds.has('heart'), 'love decor carries a heart');
 assert.ok(kinds.size >= 2, 'love decor mixes at least two icon kinds');
-const hw = decorInput('내 하루에 네가 들어왔어', 'love').width / 2;
-const rightTop = loveDecor.filter((item) => item.x > 0);
-const leftBottom = loveDecor.filter((item) => item.x < 0 && item.y > 0);
-assert.ok(rightTop.length >= 1 && rightTop.every((item) => item.x <= hw + 200), 'right-side decor hugs the block edge');
-assert.ok(leftBottom.length >= 1, 'one piece sits under the left edge — the cluster wraps the lettering');
+
+// 주 데코 = 가장 큰 한 점. 머리 위(y 6~22% 구간)에 있고 글자 높이에 버금간다.
+const hero = loveDecor.reduce((a, b) => (b.r > a.r ? b : a));
+assert.ok(hero.y < loveInput.canvas * 0.22, 'the hero decor sits above the head');
+assert.ok(hero.y > loveInput.canvas * 0.03, 'the hero is not cut off at the top edge');
+assert.ok(Math.abs(hero.x - loveInput.canvas / 2) < loveInput.canvas * 0.16, 'the hero is over the head, not in a corner');
+assert.ok(hero.r * 2 >= loveInput.fontSize * 0.95, 'the hero is as tall as the letters');
+assert.ok(loveDecor.every((item) => item === hero || hero.r >= item.r * 1.3), 'the hero stands out from the accents');
+
+// 위치 다양성 — 머리 위 · 옆(관자/볼) · 글자 모서리 세 구역이 모두 쓰인다.
+const zone = (slot: string) => (slot.startsWith('text') ? 'text' : slot.startsWith('crown') ? 'crown' : 'side');
+assert.equal(new Set(loveDecor.map((item) => zone(item.slot))).size, 3, 'decor spreads over the head, the sides and the lettering');
+
+// 모든 모티프가 머리 위·옆·글자 모서리를 함께 쓴다 (데코가 한 곳에 몰리지 않는다).
+for (const motif of ['love', 'question', 'laugh', 'cheer', 'tired', 'angry', 'sad', 'surprised', 'money', 'smug', 'plain'] as DecorMotif[]) {
+  assert.ok(decorKindsOf(motif).length >= 2, `${motif}: mixes icon kinds`);
+  assert.equal(new Set(decorSlotsOf(motif).map(zone)).size, 3, `${motif}: head + side + lettering`);
+}
+
+// 얼굴(눈·코·입) 한가운데는 절대 가리지 않는다.
+const FACE = { x0: 0.33, x1: 0.67, y0: 0.275, y1: 0.63 };
+for (const text of ['사랑해', '진짜? 왜요?', '오늘도 수고했어', 'ㅋㅋㅋ 빵터짐']) {
+  for (const emotion of ['love', 'surprised', 'joy', 'angry'] as Emotion[]) {
+    const input = decorInput(text, emotion);
+    for (const item of planDecor(input)) {
+      const reach = item.r * 1.12;
+      const hitsFace =
+        item.x + reach > FACE.x0 * input.canvas &&
+        item.x - reach < FACE.x1 * input.canvas &&
+        item.y + reach > FACE.y0 * input.canvas &&
+        item.y - reach < FACE.y1 * input.canvas;
+      assert.ok(!hitsFace, `${text}/${emotion}: ${item.kind} stays off the face`);
+    }
+  }
+}
+
+// 데코 분량 — 문장 블록(글자 전체 면적)의 20~40%를 차지하고, 짧은 문장일수록 무겁다.
+const blockShare = (text: string, emotion: Emotion) => {
+  const input = decorInput(text, emotion);
+  const decor = planDecor(input);
+  return decorInkArea(decor) / (input.width * input.height);
+};
+assert.ok(blockShare('사랑해', 'love') > 0.35, 'short captions get a bold cluster');
+assert.ok(blockShare('최고!', 'joy') > 0.3, 'short cheer caption fills up the frame');
+assert.ok(blockShare('내 하루에 네가 들어왔어', 'love') > 0.15, 'two-line captions still carry a full cluster');
+assert.ok(blockShare('오늘도 수고했어', 'tired') > 0.15);
+assert.ok(
+  blockShare('사랑해', 'love') > blockShare('내 하루에 네가 들어왔어', 'love'),
+  'the shorter the caption, the heavier the decor reads',
+);
+
+// 데코는 캔버스 세로·가로로 넓게 흩어진다 (머리 위 → 볼 옆 → 글자 모서리)
+const spread = planDecor(decorInput('내 하루에 네가 들어왔어', 'love'));
+const xs = spread.map((item) => item.x);
+const ys = spread.map((item) => item.y);
+assert.ok(Math.max(...ys) - Math.min(...ys) > 1024 * 0.55, 'decor runs from the head down to the lettering');
+assert.ok(Math.max(...xs) - Math.min(...xs) > 1024 * 0.55, 'decor reaches both sides of the frame');
+
+// 주 데코가 글자를 압도하지는 않는다 (글자 높이의 1.1~1.7배).
+for (const [text, emotion] of [['사랑해', 'love'], ['내 하루에 네가 들어왔어', 'love'], ['ㅋㅋㅋ 빵터짐', 'laugh']] as const) {
+  const input = decorInput(text, emotion as Emotion);
+  const heroR = Math.max(...planDecor(input).map((item) => item.r));
+  assert.ok(heroR * 2 > input.fontSize * 1.05 && heroR * 2 < input.fontSize * 1.75, `${text}: hero is letter-height scale`);
+}
 
 // 결정적 — 같은 입력은 같은 배치(미리보기=다운로드 100% 일치)
 const again = planDecor(decorInput('내 하루에 네가 들어왔어', 'love'));
 assert.deepEqual(again, loveDecor, 'decor planning is deterministic');
 
-// 캔버스 밖으로 나가지 않는다
-for (const text of ['사랑해', '진짜?', 'ㅋㅋㅋ']) {
-  for (const item of planDecor(decorInput(text, 'love', 360))) {
-    assert.ok(item.x - item.x >= 0, 'noop');
+// 캔버스 밖으로 나가지 않는다 (작은 캔버스·모서리로 몰린 글자도)
+for (const canvas of [360, 1024]) {
+  for (const text of ['사랑해', '진짜?', 'ㅋㅋㅋ']) {
+    const input = decorInput(text, 'love', canvas);
+    for (const item of planDecor(input)) {
+      assert.ok(item.x - item.r * 1.22 > 0 && item.x + item.r * 1.22 < canvas, `${text}@${canvas}: inside horizontally`);
+      assert.ok(item.y - item.r * 1.12 > 0 && item.y + item.r * 1.12 < canvas, `${text}@${canvas}: inside vertically`);
+    }
   }
 }
 const edgeDecor = planDecor({ ...decorInput('사랑해', 'love', 360), y: 4, x: 4 });
 for (const item of edgeDecor) {
-  const plan = planCaption({ text: '사랑해', x: 4 / 360, y: 4 / 360, size: 0.105, rotate: -2 }, 360, 'love');
-  const absX = plan.x + item.x;
-  const absY = plan.y + item.y;
-  assert.ok(absX > 0 && absX < 360 && absY > 0 && absY < 360, 'decor is clamped inside the canvas');
+  assert.ok(item.x > 0 && item.x < 360 && item.y > 0 && item.y < 360, 'decor is clamped inside the canvas');
 }
 
 // decor='off' 는 데코를 없앤다 (편집기 끄기 호환)
 assert.equal(planDecor({ ...decorInput('사랑해', 'love'), enabled: false }).length, 0);
 
+// 레이어가 여러 장이면 첫 레이어만 장면(머리 위) 데코를 맡는다 — 나머지는 글자 모서리에만.
+assert.ok(planDecor({ ...decorInput('사랑해', 'love'), stage: true }).some((item) => zone(item.slot) !== 'text'), 'stage layer owns the head');
+assert.ok(planDecor({ ...decorInput('사랑해', 'love'), stage: false }).every((item) => zone(item.slot) === 'text'), 'later layers keep the decor on the lettering');
+
 // SVG 렌더러 — 흰 스티커 외곽선 + 컬러 패스 + 데코 전용 그림자
 const decorSvg = renderDecorSvg(loveDecor);
 assert.ok(decorSvg.includes('data-decor="heart"'));
+assert.ok(decorSvg.includes('data-slot="crown"'), 'svg marks where each piece sits');
+assert.ok(decorSvg.includes(`translate(${hero.x.toFixed(1)} ${hero.y.toFixed(1)})`), 'svg paints the hero at the same canvas spot as the planner');
 assert.ok(decorSvg.includes('stroke="#FFFDFA"'), 'decor carries the thick white sticker outline');
 assert.ok(decorSvg.includes('opacity="0.16"'), 'decor casts its own soft shadow');
 assert.ok(!decorSvg.includes('NaN') && !decorSvg.includes('undefined'));
 assert.ok(pathData([['M', 0, 0], ['Q', 1, 2, 3, 4], ['C', 1, 2, 3, 4, 5, 6], ['Z']]).startsWith('M 0.000 0.000 Q 1.000 2.000 3.000 4.000 C 1.000 2.000 3.000 4.000 5.000 6.000 Z'));
+
+// 동전은 밝은 링을 옅은 톤으로 그린다(같은 색으로 칠해지면 그냥 원반이 된다)
+const coinSvg = renderDecorSvg(planDecor(decorInput('월급 루팡', 'smug')));
+assert.ok(coinSvg.includes('data-decor="coin"'));
+assert.ok(/stroke="#[0-9A-F]{6}"/i.test(coinSvg), 'coin ink ring uses a colour');
 
 // 캔버스 렌더러 — 같은 plan 으로 실제 그리기 호출이 늘어난다
 calls.length = 0;
 drawLayer(fake, normalizeLayer({ text: '사랑해', style: 'calli', x: 0.5, y: 0.86, size: 0.14 }), 360, { emotion: 'love' });
 const withDecor = calls.filter((c) => c.op === 'fill' || c.op === 'stroke').length;
 assert.ok(withDecor > 10, 'canvas paints the decor cluster (fill/stroke per pass)');
+// 데코는 글자 변환 바깥(캔버스 절대 좌표)에서 먼저 그려진다 — 글자 translate 는 그 뒤에 한 번.
+const firstRotate = calls.findIndex((c) => c.op === 'rotate');
+const firstStrokeText = calls.findIndex((c) => c.op === 'strokeText');
+assert.ok(firstRotate >= 0 && firstRotate < firstStrokeText, 'decor is painted before the lettering');
 calls.length = 0;
 drawLayer(fake, normalizeLayer({ text: '사랑해', style: 'calli', x: 0.5, y: 0.86, size: 0.14, decor: 'off' }), 360, { emotion: 'love' });
 const withoutDecor = calls.filter((c) => c.op === 'fill' || c.op === 'stroke').length;
@@ -235,5 +322,6 @@ assert.ok(withoutDecor > 0 && withoutDecor < withDecor, 'decor=off keeps the let
 // SVG 레이어에도 같은 데코가 붙는다 (미리보기 = 다운로드)
 const svgWithDecor = renderSticker(spec({ line: '사랑해', emotion: 'love' }));
 assert.ok(svgWithDecor.includes('data-decor="heart"'), 'procedural sticker captions carry the decor too');
-assert.ok(planDecorCheck(decorInput('사랑해', 'love')).length === 3, 'short captions still get the full cluster');
-console.log('Context decor: motif pick, 2–3 piece cluster placement, determinism, clamp, on/off and SVG/canvas parity passed');
+assert.ok(planDecorCheck(decorInput('사랑해', 'love')).length === 5, 'short captions get the full five-piece cluster');
+assert.equal(decorMotifFor('또 야근이야?', 'angry'), 'angry', 'a chosen emotion beats a bare question mark');
+console.log('Context decor: motif pick, 4–5 piece head/corner composition, face clearance, coverage, clamp, on/off and SVG/canvas parity passed');
