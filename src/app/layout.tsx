@@ -62,8 +62,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale}>
       <head>
-        {/* 이모티콘 대사 캘리그라피 폰트 — 첫 미리보기부터 같은 서체로 그린다 */}
-        <link rel="preload" href="/fonts/EmotiHakCalli.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        {/* 이모티콘 대사 레터링 폰트 — 첫 미리보기부터 같은 서체(주아)로 그린다 */}
+        <link rel="preload" href="/fonts/EmotiHakRound.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/EmotiHakBrush.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       {/* 본문 하단 여백 = 하단 고정 바 높이(3.375rem) + 안전 영역. 바가 콘텐츠를 가리지 않게 한다. */}

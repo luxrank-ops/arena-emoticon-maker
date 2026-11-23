@@ -379,7 +379,7 @@ export function FrameEffectsPanel({
                   </label>
                   <label>
                     {t('회전', 'Rotate')}
-                    <input type="range" min={-35} max={35} value={active.rotate} onChange={(event) => patchLayer({ rotate: Number(event.target.value) })} className="w-full accent-primary" />
+                    <input type="range" min={-5} max={5} value={active.rotate} onChange={(event) => patchLayer({ rotate: Number(event.target.value) })} className="w-full accent-primary" />
                   </label>
                   <label className="flex items-center gap-2">
                     {t('색', 'Color')}

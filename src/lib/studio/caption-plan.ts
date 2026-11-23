@@ -10,6 +10,7 @@ import type { TextLayerStyle } from '@/lib/studio/layers';
 import {
   CAPTION_BOLD,
   CAPTION_OUTLINE,
+  CAPTION_TRACKING,
   captionFaceOf,
   inkTonesFor,
   layoutCaption,
@@ -41,8 +42,6 @@ export interface CaptionPlan {
   ink: string;
   /** 위쪽 하이라이트 채움색 (세로 그라데이션) */
   inkLight: string;
-  /** 흰 테두리와 글자 사이의 얇은 톤 링 */
-  ring: string;
   /** 흰 외곽선 두께(px) */
   outline: number;
   /** 잉크 살찌우기 두께(px) */
@@ -62,6 +61,7 @@ export function planCaption(input: CaptionPlanInput, canvas: number, emotion?: E
     maxWidth: canvas * 0.86,
     face,
     seed: hash(input.text),
+    tracking: CAPTION_TRACKING[face],
   });
   const rotate = Number.isFinite(input.rotate) ? Number(input.rotate) : 0;
   const rad = Math.abs(rotate) * (Math.PI / 180);
@@ -72,10 +72,10 @@ export function planCaption(input: CaptionPlanInput, canvas: number, emotion?: E
   const y = Math.min(Math.max(input.y * canvas, halfH + pad), canvas - halfH - pad);
   const stamp = input.style === 'stamp';
   const tones = stamp
-    ? { ink: '#C9342B', inkLight: '#E0665C', ring: '#F4C7BD', underline: '#C9342B' }
+    ? { ink: '#C9342B', inkLight: '#E0665C', underline: '#C9342B' }
     : inkTonesFor(emotion, input.color);
-  // 붓 밑줄: 손글씨 계열만, 글자가 어느 정도 있을 때만 — 절제된 포인트 데코.
-  const hand = face === 'calli' || face === 'brush' || face === 'hand';
+  // 붓 밑줄: 붓·손글씨 계열만, 글자가 어느 정도 있을 때만 — 반듯한 라운드 서체에는 두지 않는다.
+  const hand = face === 'brush' || face === 'hand';
   const underlineWidth = Math.min(layout.width * 0.74, canvas * 0.46);
   const underline = hand && layout.width > fontSize * 1.4
     ? {
@@ -98,10 +98,9 @@ export function planCaption(input: CaptionPlanInput, canvas: number, emotion?: E
     face,
     ink: tones.ink,
     inkLight: tones.inkLight,
-    ring: tones.ring,
     outline: Math.max(0, fontSize * CAPTION_OUTLINE[face]),
     bold: Math.max(0, fontSize * CAPTION_BOLD[face]),
-    shadow: { color: 'rgba(25,21,18,0.32)', blur: fontSize * 0.22, offsetY: fontSize * 0.075 },
+    shadow: { color: 'rgba(25,21,18,0.22)', blur: fontSize * 0.16, offsetY: fontSize * 0.05 },
     underline,
   };
 }

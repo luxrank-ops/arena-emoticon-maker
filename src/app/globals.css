@@ -2,12 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ── 이모티콘 대사(레터링) 번들 캘리그라피 폰트 ─────────────────
+/* ── 이모티콘 대사(레터링) 번들 폰트 ─────────────────
    public/fonts 의 실제 폰트 파일. 캔버스 내보내기와 SVG 미리보기가 같은 서체를 쓴다.
+   기본 'EmotiHak Round'(주아) 는 작은 카톡 크기에서도 또렷하게 읽히는 라운드 고딕.
    라이선스: SIL Open Font License 1.1 (public/fonts/OFL-*.txt) */
 @font-face {
-  font-family: 'EmotiHak Calli';
-  src: url('/fonts/EmotiHakCalli.woff2') format('woff2');
+  font-family: 'EmotiHak Round';
+  src: url('/fonts/EmotiHakRound.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
