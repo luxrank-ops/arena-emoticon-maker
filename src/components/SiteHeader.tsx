@@ -18,13 +18,14 @@ export async function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-cyber bg-cyber text-white shadow-soft">
       {/* Fixed rows and tracks keep every action visible without irregular wrapping. */}
-      <div className="wrap grid grid-cols-1 items-center gap-2 py-3 min-[360px]:gap-1 min-[360px]:py-2 lg:min-h-16 lg:grid-cols-[minmax(190px,1fr)_minmax(560px,1.6fr)] lg:gap-4 lg:py-0">
+      <div className="wrap grid grid-cols-1 items-center gap-2 py-2 min-[360px]:gap-1.5 lg:min-h-16 lg:grid-cols-[minmax(190px,1fr)_minmax(560px,1.6fr)] lg:gap-4 lg:py-0">
         <Link href={lp('/')} className="flex min-w-max items-center gap-2 whitespace-nowrap">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-white/25 bg-primary text-lg text-white">🙂</span>
+          <span className="grid h-8 w-8 shrink-0 place-items-center rounded-xl border border-white/25 bg-primary text-base text-white min-[360px]:h-9 min-[360px]:w-9 min-[360px]:text-lg">🙂</span>
           <span className="whitespace-nowrap text-base font-bold tracking-[-0.025em] min-[360px]:text-lg">{tr(locale, '이모티학', 'EmotiHak')}</span>
         </Link>
 
-        <div className={`grid grid-cols-2 gap-2 ${locale === 'ko' ? 'min-[360px]:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]' : ''} sm:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]`}>
+        {/* 모바일에서는 하단 고정 바가 주요 위치를 맡으므로 상단은 언어·크레딧·로그인만 남긴다. */}
+        <div className="grid grid-cols-[0.7fr_1.15fr_1.15fr] gap-2 lg:grid-cols-[0.72fr_1.2fr_1.3fr_1fr]">
           <LanguageLink locale={locale} />
           <Link
             href={lp(locale === 'en' ? '/studio/packs' : '/billing')}
@@ -48,13 +49,18 @@ export async function SiteHeader() {
           ) : (
             <Link href={lp('/login')} className="btn-primary h-10 min-w-0 w-full whitespace-nowrap !px-2 !py-0 text-xs shadow-none">{tr(locale, '로그인', 'Sign in')}</Link>
           )}
-          <Link href={lp('/studio/upload')} className="btn-primary h-10 min-w-0 w-full whitespace-nowrap !px-2 !py-0 text-xs shadow-none">{tr(locale, '만들기', 'Create')}</Link>
+          {/* 만들기 CTA는 데스크톱에만 — 모바일은 하단 고정 바의 '만들기'가 맡아 상단을 비운다.
+              (.btn-primary 안에 display:inline-flex 가 있어 hidden 유틸리티가 먹지 않도록 바깥 span으로 감싼다.) */}
+          <span className="hidden lg:block">
+            <Link href={lp('/studio')} className="btn-primary h-10 min-w-0 w-full whitespace-nowrap !px-2 !py-0 text-xs shadow-none">{tr(locale, '만들기', 'Create')}</Link>
+          </span>
         </div>
       </div>
 
-      {/* Equal-width items share desktop space; on mobile the primary destinations move to the bottom bar. */}
-      <nav aria-label={tr(locale, '주요 메뉴', 'Main navigation')} className="border-t border-white/10">
-        <div className="wrap flex gap-1 overflow-x-auto py-2">
+      {/* 모바일 상단의 가로 스크롤 탭 줄은 없앴다 — 보조 메뉴는 하단 '전체메뉴(≡)' 시트가 맡는다.
+          데스크톱(lg 이상)에서는 기존 전체 메뉴를 한 줄로 그대로 유지한다. */}
+      <nav aria-label={tr(locale, '주요 메뉴', 'Main navigation')} className="hidden border-t border-white/10 lg:block">
+        <div className="wrap flex gap-1 py-2">
           <SiteNav locale={locale} />
         </div>
       </nav>
