@@ -17,7 +17,11 @@ import {
   pathData,
   decorInkArea,
   decorCoverage,
+  decorVariantFor,
+  decorVariantsOf,
+  DECOR_KINDS,
   type DecorMotif,
+  type DecorKind,
 } from '../src/lib/studio/decor';
 import type { Emotion, StickerSpec, Tone } from '../src/lib/types';
 
@@ -205,7 +209,7 @@ const hero = loveDecor.reduce((a, b) => (b.r > a.r ? b : a));
 assert.ok(hero.y < loveInput.canvas * 0.22, 'the hero decor sits above the head');
 assert.ok(hero.y > loveInput.canvas * 0.03, 'the hero is not cut off at the top edge');
 assert.ok(Math.abs(hero.x - loveInput.canvas / 2) < loveInput.canvas * 0.16, 'the hero is over the head, not in a corner');
-assert.ok(hero.r * 2 >= loveInput.fontSize * 0.95, 'the hero is as tall as the letters');
+assert.ok(hero.r * 2 >= loveInput.fontSize * 0.75, 'the hero stays about letter height');
 assert.ok(loveDecor.every((item) => item === hero || hero.r >= item.r * 1.3), 'the hero stands out from the accents');
 
 // 위치 다양성 — 머리 위 · 옆(관자/볼) · 글자 모서리 세 구역이 모두 쓰인다.
@@ -235,20 +239,27 @@ for (const text of ['사랑해', '진짜? 왜요?', '오늘도 수고했어', '�
   }
 }
 
-// 데코 분량 — 문장 블록(글자 전체 면적)의 20~40%를 차지하고, 짧은 문장일수록 무겁다.
+// 데코 분량 — 사용자 요청대로 문장 블록(가로×세로)의 약 20%. 짧은 문장은 20%에 맞고,
+// 긴 문장은 글자 크기 기준으로 더 커지지 않으므로 분량비는 조금 낮아진다(과하지 않게).
 const blockShare = (text: string, emotion: Emotion) => {
   const input = decorInput(text, emotion);
   const decor = planDecor(input);
   return decorInkArea(decor) / (input.width * input.height);
 };
-assert.ok(blockShare('사랑해', 'love') > 0.35, 'short captions get a bold cluster');
-assert.ok(blockShare('최고!', 'joy') > 0.3, 'short cheer caption fills up the frame');
-assert.ok(blockShare('내 하루에 네가 들어왔어', 'love') > 0.15, 'two-line captions still carry a full cluster');
-assert.ok(blockShare('오늘도 수고했어', 'tired') > 0.15);
+for (const [text, emotion] of [['사랑해', 'love'], ['최고!', 'joy'], ['좋아', 'love'], ['ㅇㅋ', 'smug']] as const) {
+  const share = blockShare(text, emotion as Emotion);
+  assert.ok(share > 0.14 && share < 0.26, `${text}: decor stays near a fifth of the caption (${share.toFixed(3)})`);
+}
+for (const [text, emotion] of [['내 하루에 네가 들어왔어', 'love'], ['오늘도 수고했어', 'tired'], ['귀찮아 아무것도 하기 싫어', 'sulk']] as const) {
+  const share = blockShare(text, emotion as Emotion);
+  assert.ok(share > 0.03 && share < 0.2, `${text}: long captions keep the decor light (${share.toFixed(3)})`);
+}
 assert.ok(
   blockShare('사랑해', 'love') > blockShare('내 하루에 네가 들어왔어', 'love'),
   'the shorter the caption, the heavier the decor reads',
 );
+// 예전(30~40%)보다 확실히 작아졌다 — 주 데코 지름이 글자 높이 언저리다.
+assert.ok(blockShare('내 하루에 네가 들어왔어', 'love') < 0.2, 'decor no longer fills the frame');
 
 // 데코는 캔버스 세로·가로로 넓게 흩어진다 (머리 위 → 볼 옆 → 글자 모서리)
 const spread = planDecor(decorInput('내 하루에 네가 들어왔어', 'love'));
@@ -257,11 +268,17 @@ const ys = spread.map((item) => item.y);
 assert.ok(Math.max(...ys) - Math.min(...ys) > 1024 * 0.55, 'decor runs from the head down to the lettering');
 assert.ok(Math.max(...xs) - Math.min(...xs) > 1024 * 0.55, 'decor reaches both sides of the frame');
 
-// 주 데코가 글자를 압도하지는 않는다 (글자 높이의 1.1~1.7배).
-for (const [text, emotion] of [['사랑해', 'love'], ['내 하루에 네가 들어왔어', 'love'], ['ㅋㅋㅋ 빵터짐', 'laugh']] as const) {
+// 주 데코는 글자 높이 언저리 — 글자를 압도하지 않는다 (0.6~1.3배).
+for (const [text, emotion] of [
+  ['사랑해', 'love'],
+  ['내 하루에 네가 들어왔어', 'love'],
+  ['ㅋㅋㅋ 빵터짐', 'laugh'],
+  ['최고!', 'joy'],
+  ['화나서 못 참겠어', 'angry'],
+] as const) {
   const input = decorInput(text, emotion as Emotion);
   const heroR = Math.max(...planDecor(input).map((item) => item.r));
-  assert.ok(heroR * 2 > input.fontSize * 1.05 && heroR * 2 < input.fontSize * 1.75, `${text}: hero is letter-height scale`);
+  assert.ok(heroR * 2 > input.fontSize * 0.6 && heroR * 2 < input.fontSize * 1.3, `${text}: hero is letter-height scale`);
 }
 
 // 결정적 — 같은 입력은 같은 배치(미리보기=다운로드 100% 일치)
@@ -289,6 +306,43 @@ assert.equal(planDecor({ ...decorInput('사랑해', 'love'), enabled: false }).l
 // 레이어가 여러 장이면 첫 레이어만 장면(머리 위) 데코를 맡는다 — 나머지는 글자 모서리에만.
 assert.ok(planDecor({ ...decorInput('사랑해', 'love'), stage: true }).some((item) => zone(item.slot) !== 'text'), 'stage layer owns the head');
 assert.ok(planDecor({ ...decorInput('사랑해', 'love'), stage: false }).every((item) => zone(item.slot) === 'text'), 'later layers keep the decor on the lettering');
+
+// 문양(아이콘) 선택지 — 30종 이상, 모티프마다 2가지 이상 변주.
+assert.ok(DECOR_KINDS.length >= 30, `icon catalogue is rich (${DECOR_KINDS.length})`);
+const ALL_MOTIFS: DecorMotif[] = [
+  'love', 'thanks', 'greet', 'question', 'laugh', 'cheer', 'congrats', 'praise',
+  'tired', 'sleep', 'angry', 'complain', 'sad', 'cry', 'surprised', 'money', 'smug', 'plain',
+];
+assert.equal(ALL_MOTIFS.length, 18, 'eighteen situation motifs');
+for (const motif of ALL_MOTIFS) {
+  assert.ok(decorVariantsOf(motif) >= 2, `${motif}: has phrase-driven variants`);
+}
+const distinctKinds = new Set(ALL_MOTIFS.flatMap((motif) => decorKindsOf(motif)));
+assert.ok(distinctKinds.size >= 28, `motifs draw on ${distinctKinds.size} different icons`);
+
+// 같은 감정·테마라도 문구가 다르면 다른 문양 조합이 나온다.
+const combos = new Set<string>();
+for (const [text, emotion] of [
+  ['사랑해', 'love'],
+  ['보고 싶어', 'love'],
+  ['설레는 밤', 'love'],
+  ['고마워', 'joy'],
+  ['생일 축하해', 'joy'],
+  ['최고야', 'joy'],
+  ['졸려 죽겠어', 'tired'],
+  ['야근 지겨워', 'tired'],
+] as const) {
+  const decor = planDecor(decorInput(text, emotion as Emotion));
+  combos.add(decor.map((item) => item.kind).join('+'));
+  const motifs = new Set(decor.map((item) => item.motif));
+  assert.equal(motifs.size, 1, `${text}: one motif per caption`);
+}
+assert.ok(combos.size >= 6, `different phrases get different icon sets (${combos.size}/8)`);
+// 하트 계열·별 계열 등 새 아이콘이 실제로 그려진다.
+assert.ok(decorKindsOf('love').includes('heartBroken') && decorKindsOf('love').includes('heartSparkle'));
+assert.ok(decorKindsOf('congrats').includes('crown') && decorKindsOf('sleep').includes('zzz'));
+assert.ok(decorKindsOf('tired').includes('swirl') && decorKindsOf('laugh').includes('haha'));
+assert.ok((DECOR_KINDS as DecorKind[]).includes('coinRain') && (DECOR_KINDS as DecorKind[]).includes('flower'));
 
 // SVG 렌더러 — 흰 스티커 외곽선 + 컬러 패스 + 데코 전용 그림자
 const decorSvg = renderDecorSvg(loveDecor);
@@ -324,4 +378,4 @@ const svgWithDecor = renderSticker(spec({ line: '사랑해', emotion: 'love' }))
 assert.ok(svgWithDecor.includes('data-decor="heart"'), 'procedural sticker captions carry the decor too');
 assert.ok(planDecorCheck(decorInput('사랑해', 'love')).length === 5, 'short captions get the full five-piece cluster');
 assert.equal(decorMotifFor('또 야근이야?', 'angry'), 'angry', 'a chosen emotion beats a bare question mark');
-console.log('Context decor: motif pick, 4–5 piece head/corner composition, face clearance, coverage, clamp, on/off and SVG/canvas parity passed');
+console.log('Context decor: 18 motif variants over 34 icons, ~20% caption volume, head/side/corner composition, face clearance, clamp, on/off and SVG/canvas parity passed');
