@@ -6,6 +6,7 @@ import { EnglishLanding } from '@/components/home/EnglishLanding';
 import { getCurrentUser } from '@/lib/session';
 import { aiAccess, canUseAiGeneration } from '@/lib/admin-access';
 import { PRICE_TIERS } from '@/lib/pricing';
+import { RainFloat } from '@/components/home/RainFloat';
 
 const samples = [
   { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
@@ -36,7 +37,14 @@ export default async function LandingPage() {
   const aiEnabled = canUseAiGeneration(user);
   // 일반 방문자에게는 '12컷 무료 미리보기'가 열려 있다 — 첫 화면에서 그 사실을 분명히 알린다.
   const trial = aiAccess(user) === 'trial';
-  if (locale === 'en') return <EnglishLanding aiEnabled={aiEnabled} />;
+  if (locale === 'en') {
+    return (
+      <>
+        <EnglishLanding aiEnabled={aiEnabled} />
+        <RainFloat locale="en" />
+      </>
+    );
+  }
 
   // 첫 화면 바로가기 4카드 — 앱의 핵심 기능을 한 화면에서 한 번의 탭으로.
   // (긴 설명은 카드 아래 섹션으로 내리고, 여기서는 '무엇을 할 수 있는지'만 보여 준다.)
@@ -91,6 +99,7 @@ export default async function LandingPage() {
     'rounded-full border border-line/80 bg-white/70 px-2.5 py-1 text-[10.5px] font-bold text-sub transition hover:border-primary/35 hover:bg-white hover:text-primary-dark';
 
   return (
+    <>
     <div className="overflow-hidden">
       {/* ── 첫 화면: 바로가기 메뉴판 ─────────────────────────────── */}
       <section className="relative isolate overflow-hidden" aria-labelledby="start-title">
@@ -377,5 +386,7 @@ export default async function LandingPage() {
         </div>
       </section>
     </div>
+    <RainFloat locale="ko" />
+    </>
   );
 }
