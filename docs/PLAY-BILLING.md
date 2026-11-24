@@ -43,6 +43,9 @@
 | `PLAY_BILLING_ENABLED` | 아니오 | `1` 일 때만 요금제 화면에 플레이 결제 버튼 노출(기본 0) |
 | `PLAY_VERIFY_WITH_FIREBASE_SA` | 아니오 | Firebase 서비스 계정에 Play 권한을 준 경우 `1` |
 | `PLAY_DAILY_GENERATION_LIMIT` | 아니오 | 구매자 1인당 KST 일일 AI 생성 시도 상한(기본 96) |
+| `PLAY_API_BASE_URL` / `PLAY_TOKEN_URL` | 테스트만 | 구글 API 스텁 주소. **배포 환경에 넣지 않는다** |
+
+실행 순서·콘솔 화면·실기기 체크리스트는 [PLAY-RUNBOOK.md](./PLAY-RUNBOOK.md), 자동 점검은 `npm run preflight:play`.
 
 ## 4. Console·기기에서 해야 하는 것 (코드 밖)
 
@@ -59,8 +62,9 @@
 ## 5. 아직 없는 것 (출시 전 판단 필요)
 
 - Console 상품 등록 전이므로 **실제 결제 성립은 아직 불가**하다. 이 상태에서 `PLAY_BILLING_ENABLED=0` 이면 결제 버튼도 뜨지 않는다.
-- 구매 자격은 확인됐지만, 웹·앱 사이 크레딧 원장 연동(인앱 크레딧 지급)은 상품 정책 확정 후 연결해야 한다.
-  현재 인앱결제는 "플레이 구매자 자격"만 만들고, 웹 크레딧 잔액을 직접 늘리지 않는다.
+- 2026-11-24 부로 **소비성 크레딧 지급이 원장에 연결됐다.** 서버 검증 → `credits` 지급(1회, 멱등) → 구글 `:consume` 순서로 처리하고, 지급 근거는 `refType='play-purchase'` 다.
+  구독 상품은 크레딧을 지급하지 않고 자격만 만든다. 지급 크레딧 수는 `PLAY_CREDITS_PER_PURCHASE`(기본 20)와 콘솔 상품 설명이 같아야 한다.
+- consume 실패(`consumeError`)는 기록만 남는다 — 재시도 크론은 아직 없다. 실기기 테스트에서 재구매가 막히면 `/admin` 기록과 구글 응답을 대조한다.
 - 구독 해지·플랜 변경 UI 는 없다(플레이 스토어 구독 관리로 이동).
 - 12명×14일 비공개 테스트는 별도 일정이다.
 

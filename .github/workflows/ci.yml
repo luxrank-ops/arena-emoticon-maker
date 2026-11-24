@@ -69,6 +69,10 @@ jobs:
         run: npm run test:play:static
 
       # PG 계약 없이 상품을 인도하는 교환권 경로 (원문 미저장·지급 트랜잭션·시도 제한·대사)
+      # 구글 인앱 실행 준비: 패키지·assetlinks·서명·검증 자격증명·소비성 지급 경로
+      - name: Play preflight
+        run: npm run preflight:play -- --ci
+
       - name: Redeem code readiness
         env:
           DATA_DIR: /tmp/emotime-redeem-ci

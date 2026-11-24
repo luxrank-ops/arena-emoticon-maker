@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { getAccessToken, type ServiceAccount } from '@/lib/gcp-token';
-import { uid, withDB } from '@/lib/store';
-import { PLAY_PRODUCT_DEFAULTS } from '@/lib/play-products';
+import { logEvent, uid, withDB } from '@/lib/store';
+import { PLAY_CREDITS_PER_PURCHASE, PLAY_PRODUCT_DEFAULTS, isPlayConsumable } from '@/lib/play-products';
 import type { PlayPurchase } from '@/lib/types';
 
 // ─────────────────────────────────────────────────────────────
@@ -224,6 +224,19 @@ export async function acknowledgePlayPurchase(input: PlayVerificationInput): Pro
   return res.ok;
 }
 
+/**
+ * 소비성 상품 소비(consume).
+ *  · acknowledge 는 '구매 확인'일 뿐이라 같은 상품을 다시 살 수 없다. 소비성 상품은 `:consume` 이 필요하다.
+ *  · 여기서는 상태 표시만 하고, 크레딧 지급은 verifyAndRecordPlayPurchase 의 원장 트랜잭션이 담당한다.
+ *    (소비만 되고 지급이 안 되는 순서를 만들지 않는다 — 지급 성공 후에 소비한다)
+ */
+export async function consumePlayPurchase(input: PlayVerificationInput): Promise<boolean> {
+  const productPath = encodeURIComponent(input.productId);
+  const tokenPath = encodeURIComponent(input.purchaseToken);
+  const res = await playRequest(`/purchases/products/${productPath}/tokens/${tokenPath}:consume`, { method: 'POST', body: '{}' });
+  return res.ok;
+}
+
 export function playPurchaseId(productId: string, purchaseToken: string): string {
   const digest = createHash('sha256').update(`${playPackageName()}|${productId}|${purchaseToken}`).digest('hex');
   return `plp_${digest.slice(0, 24)}`;
@@ -255,7 +268,8 @@ export async function verifyAndRecordPlayPurchase(userId: string, input: PlayVer
   }
   const now = new Date().toISOString();
   const id = playPurchaseId(productId, purchaseToken);
-  return withDB((db) => {
+  let granted = 0;
+  const saved = await withDB((db) => {
     let record = db.playPurchases.find((item) => item.id === id);
     if (!record) {
       record = {
@@ -290,8 +304,54 @@ export async function verifyAndRecordPlayPurchase(userId: string, input: PlayVer
       record.revokedAt = now;
       record.revokeReason = `STATE_${result.purchaseState}`;
     }
+
+    // 소비성 상품(크레딧)은 서버 검증이 끝난 뒤 **원장에 한 번만** 지급한다.
+    //  · 지급 근거는 구매 기록 id(refType='play-purchase')라서 재검증·재시도에도 중복 지급되지 않는다.
+    //  · 구매 토큰 없이 화면에서 자격을 만들 수 없으므로, 웹 크레딧처럼 보이지만 출처는 구글 결제다.
+    if (record.status === 'ACTIVE' && isPlayConsumable(productId)) {
+      const already = db.credits.some((entry) => entry.reason === 'PURCHASE' && entry.refType === 'play-purchase' && entry.refId === record!.id);
+      const account = db.users.find((item) => item.id === userId);
+      if (!already && account) {
+        account.credits += PLAY_CREDITS_PER_PURCHASE;
+        db.credits.push({
+          id: uid('cr'),
+          userId,
+          delta: PLAY_CREDITS_PER_PURCHASE,
+          reason: 'PURCHASE',
+          memo: '구글 플레이 크레딧 구매',
+          refType: 'play-purchase',
+          refId: record.id,
+          balanceAfter: account.credits,
+          createdAt: now,
+        });
+        record.grantedCredits = PLAY_CREDITS_PER_PURCHASE;
+        logEvent(db, userId, 'play_purchase_granted', { productId, credits: PLAY_CREDITS_PER_PURCHASE, orderId: result.orderId ?? '' });
+        granted = PLAY_CREDITS_PER_PURCHASE;
+      } else if (already) {
+        record.grantedCredits = record.grantedCredits ?? PLAY_CREDITS_PER_PURCHASE;
+      }
+    }
     return { ...record };
   });
+  // 지급(원장 커밋)이 끝난 뒤에만 구글에 소비를 알린다 — 순서를 뒤집으면 지급 유실이 생긴다.
+  // 이미 소비한 구매는 다시 호출하지 않는다(재검증·복원 요청마다 불필요한 API 호출 방지).
+  if (saved.status === 'ACTIVE' && isPlayConsumable(productId) && !saved.consumedAt) {
+    let consumed = false;
+    let consumeError: string | null = null;
+    try {
+      consumed = await consumePlayPurchase({ productId, purchaseToken, kind: result.kind });
+      if (!consumed) consumeError = 'CONSUME_REJECTED';
+    } catch (e) {
+      consumeError = e instanceof PlayPurchaseError ? e.code : 'CONSUME_FAILED';
+    }
+    await withDB((db) => {
+      const row = db.playPurchases.find((item) => item.id === saved.id);
+      if (!row) return;
+      row.consumedAt = consumed ? new Date().toISOString() : null;
+      row.consumeError = consumeError;
+    });
+  }
+  return { ...saved, ...(granted ? { grantedCredits: granted } : {}) };
 }
 
 /** 이미 읽은 DB 스냅샷에서 자격 판정 (세션 해석처럼 저장소 읽기를 한 번으로 줄일 때) */

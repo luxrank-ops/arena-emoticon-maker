@@ -82,6 +82,7 @@ check('미설정 상태에서 원장이 비어 있음', await withDB((db) => db.
 console.log('\n[4] 구글 API 스텁으로 검증 → acknowledge → 자격');
 const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048, publicKeyEncoding: { type: 'spki', format: 'pem' }, privateKeyEncoding: { type: 'pkcs8', format: 'pem' } });
 const acknowledged: string[] = [];
+const consumed: string[] = [];
 const server: Server = createServer((req, res) => {
   const url = req.url ?? '';
   if (url === '/token') {
@@ -91,6 +92,12 @@ const server: Server = createServer((req, res) => {
   }
   if (url.includes(':acknowledge')) {
     acknowledged.push(url);
+    res.writeHead(204);
+    res.end();
+    return;
+  }
+  if (url.includes(':consume')) {
+    consumed.push(url);
     res.writeHead(204);
     res.end();
     return;
@@ -160,6 +167,29 @@ check('다른 계정에는 자격 없음', await playPurchases.hasActivePlayEnti
 const again = await playPurchases.verifyAndRecordPlayPurchase('usr_play', { productId: 'emotihak_credits_20', purchaseToken: 'tok-active' });
 check('재검증해도 기록은 1건(중복 없음)', again.id === record.id && await withDB((db) => db.playPurchases.length) === 1);
 check('조회 응답에 구매 토큰이 노출되지 않음', !('purchaseToken' in (await playPurchases.listPlayEntitlements('usr_play'))[0]));
+
+// ── 소비성 크레딧: 서버 검증 뒤 원장에 1회 지급 + 구글 consume ──
+await withDB((db) => {
+  db.users.push({ id: 'usr_play', name: 'play', plan: 'FREE', credits: 0, role: 'user', createdAt: new Date().toISOString(), lastGrantAt: new Date().toISOString() });
+});
+const consumesBefore = consumed.length;
+const firstBuy = await playPurchases.verifyAndRecordPlayPurchase('usr_play', { productId: 'emotihak_credits_20', purchaseToken: 'tok-active' });
+const afterBuy = await withDB((db) => db.users.find((u) => u.id === 'usr_play')!.credits);
+check('소비성 크레딧 구매는 크레딧을 지급한다', afterBuy === 20, `credits=${afterBuy}`);
+const ledger = await withDB((db) => db.credits.filter((c) => c.refType === 'play-purchase'));
+check('원장에 play-purchase 1건 기록', ledger.length === 1 && ledger[0].delta === 20 && ledger[0].reason === 'PURCHASE');
+check('구매 응답에 지급 크레딧 포함', firstBuy.grantedCredits === 20);
+// 이 토큰은 앞 단계([4])에서 한 번 검증되며 그때 consume 이 호출됐다.
+// 여기서는 "지급이 끝난 구매에 consume 기록이 남아 있다"를 확인하고, 아래에서 중복 호출이 없음을 본다.
+check('지급된 구매는 구글 consume 이 완료되어 있다', consumed.length >= 1 && consumed.every((url) => url.includes(':consume')));
+const consumedRecord = await withDB((db) => db.playPurchases.find((p) => p.purchaseToken === 'tok-active')!);
+check('구매 기록에 consume 시각 저장', !!consumedRecord.consumedAt && !consumedRecord.consumeError);
+const consumesAfterGrant = consumed.length;
+const againBuy = await playPurchases.verifyAndRecordPlayPurchase('usr_play', { productId: 'emotihak_credits_20', purchaseToken: 'tok-active' });
+const afterAgain = await withDB((db) => db.users.find((u) => u.id === 'usr_play')!.credits);
+check('이미 소비한 구매는 consume 을 다시 호출하지 않는다', consumed.length === consumesAfterGrant);
+check('같은 구매 토큰 재검증은 중복 지급하지 않는다', afterAgain === 20 && againBuy.grantedCredits === 20, `credits=${afterAgain}`);
+check('구독 상품은 크레딧을 지급하지 않는다', (await withDB((db) => db.credits.filter((c) => c.refType === 'play-purchase').length)) === 1);
 
 const sub = await playPurchases.verifyAndRecordPlayPurchase('usr_sub', { productId: 'emotihak_plus_monthly', purchaseToken: 'sub-active', kind: 'SUBS' });
 check('구독 활성 상태 → ACTIVE + 만료일 기록', sub.status === 'ACTIVE' && !!sub.expiresAt, JSON.stringify(sub));

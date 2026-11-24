@@ -495,6 +495,12 @@ export interface PlayPurchase {
   verifiedAt: string;
   revokedAt?: string | null;
   revokeReason?: string | null;
+  /** 소비성 상품: 이 구매로 지급한 크레딧 (지급은 기록 id 기준 1회, 원장에도 남는다) */
+  grantedCredits?: number;
+  /** 구글 consume 완료 시각. null 이면 아직 소비 전 — 재시도 크론이 처리한다. */
+  consumedAt?: string | null;
+  /** consume 실패 사유 (다음 크론에서 재시도) */
+  consumeError?: string | null;
 }
 
 export interface BriefItem {
@@ -531,6 +537,7 @@ export interface UsageEvent {
     | 'pack_unlocked'
     | 'referral_rewarded'
     | 'quote_pack_purchased'
+    | 'play_purchase_granted'
     | 'redeem_issued'
     | 'redeem_used'
     | 'redeem_revoked'
