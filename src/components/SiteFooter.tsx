@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BUSINESS } from '@/lib/business';
+import { BUSINESS, mailOrderLabel } from '@/lib/business';
 import { BrandMark } from '@/components/BrandMark';
 import { getLocale } from '@/lib/i18n/server';
 import { localizedPath, tr } from '@/lib/i18n/locale';
@@ -45,7 +45,11 @@ export async function SiteFooter() {
           <summary className="cursor-pointer font-bold">{tr(locale, '사업자 정보', 'Business information')}</summary>
           <p className="mt-2">
             {tr(locale, '상호', 'Business')}: {BUSINESS.name} · {tr(locale, '대표', 'Representative')}: {BUSINESS.owner}<br />
-            {tr(locale, '사업자등록번호', 'Business registration')}: {BUSINESS.regNo} · {tr(locale, '통신판매업신고', 'E-commerce registration')}: {BUSINESS.mailOrder || tr(locale, '정보 미입력', 'Not provided')}<br />
+            {tr(locale, '사업자등록번호', 'Business registration')}: {BUSINESS.regNo}{' '}
+            <a href={BUSINESS.hometaxUrl} target="_blank" rel="noreferrer" className="underline">
+              {tr(locale, '[사업자정보확인]', '[verify]')}
+            </a>{' '}
+            · {tr(locale, '통신판매업신고', 'E-commerce registration')}: {mailOrderLabel()}<br />
             {tr(locale, '주소', 'Address')}: {BUSINESS.address}<br />
             {tr(locale, '문의', 'Contact')}: <a className="underline" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a> · {BUSINESS.tel}<br />
             {tr(locale, BUSINESS.supportHours, 'Weekdays 10:00–18:00 KST · Closed weekends and Korean public holidays')}

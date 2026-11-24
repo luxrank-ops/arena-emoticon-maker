@@ -61,11 +61,24 @@ const businessFields = [
   'NEXT_PUBLIC_SUPPORT_EMAIL',
   'NEXT_PUBLIC_MAIL_ORDER_NO',
 ];
+const mailOrderExempt = value('NEXT_PUBLIC_MAIL_ORDER_EXEMPT') === '1';
 for (const name of businessFields) {
+  // 면제 대상이면 신고번호는 요구하지 않는다 (번호를 지어내지 않는다).
+  if (name === 'NEXT_PUBLIC_MAIL_ORDER_NO' && mailOrderExempt) continue;
   if (!present(name)) fail(`${name}을 실제 운영 정보로 명시해야 합니다.`);
   else if (placeholder(name)) fail(`${name}에 예시 값이 남아 있습니다.`);
 }
-if (businessFields.every((name) => present(name) && !placeholder(name))) pass('사업자·통신판매·고객센터 환경값 형식 확인');
+if (mailOrderExempt) {
+  warn('NEXT_PUBLIC_MAIL_ORDER_EXEMPT=1 — 통신판매업 신고 면제(간이과세자/연 50회 미만)로 표기합니다. 일반과세자 전환 시 즉시 신고 대상입니다.');
+  pass('통신판매업 신고 면제 표기 확인');
+} else if (present('NEXT_PUBLIC_MAIL_ORDER_NO')) {
+  // 지자체마다 형식이 다르다 → '연도 + 지역/일련번호' 구조만 느슨하게 본다.
+  const value_ = value('NEXT_PUBLIC_MAIL_ORDER_NO');
+  if (!/^제?\s*\d{4}\s*-\s*[0-9가-힣A-Za-z]+\s*-\s*\d+\s*호?$/.test(value_)) {
+    fail('NEXT_PUBLIC_MAIL_ORDER_NO 형식이 신고증과 달라 보입니다 (예: 2026-부산강서구-0693, 제2026-서울마포-0123호). 신고증에 적힌 문자열 그대로 넣으세요.');
+  } else pass('통신판매업 신고번호 형식 확인');
+}
+if (businessFields.filter((name) => !(name === 'NEXT_PUBLIC_MAIL_ORDER_NO' && mailOrderExempt)).every((name) => present(name) && !placeholder(name))) pass('사업자·통신판매·고객센터 환경값 형식 확인');
 if (present('NEXT_PUBLIC_SUPPORT_EMAIL') && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(value('NEXT_PUBLIC_SUPPORT_EMAIL'))) fail('NEXT_PUBLIC_SUPPORT_EMAIL 형식이 올바르지 않습니다.');
 
 if (!present('ADMIN_PASSCODE') || placeholder('ADMIN_PASSCODE')) fail('결제 대사 콘솔용 ADMIN_PASSCODE를 안전하게 설정해야 합니다.');
@@ -84,7 +97,7 @@ for (const message of failures) console.error(`  ✗ ${message}`);
 console.log('\n사람이 직접 확인해야 하는 항목 (자동 검사 대체 불가):');
 console.log('  □ 토스 상점 심사·계약, 실제 도메인, 카드 기반 결제 외 수단 비활성화');
 console.log('  □ 같은 상점의 키 쌍, Secret 저장소 등록, 실제 테스트 결제와 PC·모바일 인증');
-console.log('  □ 사업자·통신판매 정보의 정확성, 고객센터 응대, 환불정책 법률 검토와 시행일');
+console.log('  □ 사업자·통신판매 정보의 정확성(신고증과 문자 단위 대조), 고객센터 응대, 환불정책 법률 검토와 시행일');
 console.log('  □ 원격 저장소 연결·장애 테스트, 토스 거래와 원장 대사, 미지급·환불 운영 훈련');
 console.log('  □ 정기결제·자동 환불·가상계좌·굿즈를 활성화하지 않았는지 최종 확인');
 

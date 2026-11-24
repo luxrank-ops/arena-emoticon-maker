@@ -74,6 +74,7 @@ Firebase 연동 절차는 [`docs/FIREBASE.md`](docs/FIREBASE.md) 참고.
 | [docs/PAYMENT_OPERATIONS.md](docs/PAYMENT_OPERATIONS.md) | 결제 대사 · 미지급 복구 · 비상 중단 · 환불 접수 |
 | [docs/FREE-PAYMENT-PLAYBOOK.md](docs/FREE-PAYMENT-PLAYBOOK.md) | 무료로 결제 시스템 탑재하기 — 교환권 경로 · 사업자 전 리스크 · PG 전환 체크리스트 |
 | [docs/PLAY-RUNBOOK.md](docs/PLAY-RUNBOOK.md) | 구글 인앱 실행 순서 — 계정 → AAB → 상품 등록 → 실기기 테스트 → 출시 |
+| [docs/ECOMMERCE-REGISTRATION.md](docs/ECOMMERCE-REGISTRATION.md) | 통신판매업 신고번호 — 대상·면제·발급 절차·형식·표기 위치 |
 | [docs/STEP2-BUILD-NOTES.md](docs/STEP2-BUILD-NOTES.md) | **구현 결과 · 설계 대비 변경 로그 · 보안 현황** |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | **Sentry · PostHog 실연동** — 붙은 지점 · 개인정보 설계 · 무료 쿼터 가드레일 |
 | [AGENTS.md](AGENTS.md) | 5개 서브 에이전트 조직 · 스프린트 보드 |

@@ -22,8 +22,10 @@ function count(needle, file) {
 const business = read('src/lib/business.ts');
 check('통신판매업 신고번호가 기본값으로 노출됨', business.includes('2026-부산강서구-0693'));
 check('신고번호가 "정보 미입력"으로 비지 않음', !business.includes("NEXT_PUBLIC_MAIL_ORDER_NO || null"));
+check('신고 면제 대상 표기를 지원 (번호를 지어내지 않음)', business.includes('NEXT_PUBLIC_MAIL_ORDER_EXEMPT') && business.includes('통신판매업 신고 면제 대상'));
+check('사업자정보확인(홈택스) 링크 제공', business.includes('hometaxUrl') && read('src/components/SiteFooter.tsx').includes('BUSINESS.hometaxUrl'));
 const pricingPage = read('src/app/pricing/page.tsx');
-check('요금제 화면이 사업자 정보에 신고번호를 표시', pricingPage.includes('BUSINESS.mailOrder'));
+check('요금제 화면이 사업자 정보에 신고번호를 표시', pricingPage.includes('mailOrderLabel()'));
 
 // ── 2. 요금제 표기와 실제 허용 스타일 수 일치 ─────────────────
 const pricing = read('src/lib/pricing.ts');

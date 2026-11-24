@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { BUSINESS } from '@/lib/business';
+import { BUSINESS, mailOrderLabel } from '@/lib/business';
 import { CheckoutButton } from '@/components/payments/CheckoutButton';
 import { PLAN_DISCLOSURES, PRICE_TIERS, SKUS, visibleSkus, won } from '@/lib/pricing';
 import { getCurrentUser } from '@/lib/session';
@@ -191,7 +191,10 @@ export default async function PricingPage() {
             대표: {BUSINESS.owner} · 사업자등록번호:{' '}
             {BUSINESS.regNo}
             <br />
-            통신판매업신고: {BUSINESS.mailOrder || '정보 미입력'}
+            통신판매업신고: {mailOrderLabel()}{' '}
+            <a href={BUSINESS.hometaxUrl} target="_blank" rel="noreferrer" className="text-coralink underline">
+              [사업자정보확인]
+            </a>
             <br />
             사업장 주소: {BUSINESS.address}<br />
             고객센터: {BUSINESS.tel} · {BUSINESS.email}
