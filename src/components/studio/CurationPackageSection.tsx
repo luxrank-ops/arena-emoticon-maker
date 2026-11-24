@@ -1,7 +1,7 @@
 'use client';
 
 // ─────────────────────────────────────────────────────────────
-// 추천 큐레이션 패키지 3종 (공개 /presets · /en/presets 상단)
+// 표준 고빈도·시즌·관계 큐레이션 (공개 /presets · /en/presets 상단)
 //  · 카드를 누르면 24/32컷 구성(순번·표현·대사·기획 의도)이 펼쳐진다.
 //  · 패키지 안 카테고리 칩으로 구성 흐름을 걸러 볼 수 있다.
 //  · "이 패키지로 팩 만들기"는 고른 패키지를 만들기 화면까지 들고 간다
@@ -17,6 +17,7 @@ import {
   curationPackageCategories,
   curationPackageCuts,
   type CurationPackage,
+  type CurationPackageGroup,
 } from '@/data/curation-packages';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { rememberPackagePick, rememberPresetPick } from '@/lib/studio/preset-selection';
@@ -30,11 +31,20 @@ export function CurationPackageSection({ locale }: { locale: Locale }) {
   const lp = (href: string) => localizedPath(locale, href);
   const [openId, setOpenId] = useState<string | null>(null);
   const [category, setCategory] = useState<string | null>(null);
+  const [group, setGroup] = useState<CurationPackageGroup | 'all'>('all');
   const open = openId ? curationPackageById(openId) ?? null : null;
 
   const cuts = useMemo(() => (open ? curationPackageCuts(open) : []), [open]);
   const categories = useMemo(() => (open ? curationPackageCategories(open) : []), [open]);
   const visible = category ? cuts.filter((cut) => cut.preset.category === category) : cuts;
+  const packages = group === 'all' ? CURATION_PACKAGES : CURATION_PACKAGES.filter((pkg) => pkg.group === group);
+  const groups: { id: CurationPackageGroup | 'all'; label: string; count: number }[] = [
+    { id: 'all', label: t('전체', 'All'), count: CURATION_PACKAGES.length },
+    { id: 'core', label: t('기본', 'Core'), count: CURATION_PACKAGES.filter((pkg) => pkg.group === 'core').length },
+    { id: 'season', label: t('시즌', 'Seasonal'), count: CURATION_PACKAGES.filter((pkg) => pkg.group === 'season').length },
+    { id: 'relationship', label: t('관계', 'Relationships'), count: CURATION_PACKAGES.filter((pkg) => pkg.group === 'relationship').length },
+    { id: 'everyday', label: t('일상·밈', 'Everyday & memes'), count: CURATION_PACKAGES.filter((pkg) => pkg.group === 'everyday').length },
+  ];
 
   return (
     <section aria-labelledby="curation-packages" className="mt-8">
@@ -42,20 +52,41 @@ export function CurationPackageSection({ locale }: { locale: Locale }) {
         <div className="min-w-0">
           <p className="eyebrow">CURATED SETS · {CURATION_PACKAGES.length}</p>
           <h2 id="curation-packages" className="mt-1 text-lg font-black break-keep sm:text-xl">
-            {t('추천 큐레이션 패키지 3종', 'Three curated packages')}
+            {t(`기본·시즌·관계 큐레이션 ${CURATION_PACKAGES.length}종`, `${CURATION_PACKAGES.length} core, seasonal & relationship sets`)}
           </h2>
           <p className="mt-1 max-w-2xl text-[12px] leading-relaxed text-sub">
             {t(
-              '상황이 정해진 24·32컷 세트예요. 카드를 눌러 구성과 기획 의도를 확인하고, 그대로 팩으로 만들 수 있어요.',
-              'Ready-made 24 and 32 cut sets. Open a card to see the line-up and why each cut exists, then turn it into a pack.',
+              '기본 고빈도 24컷 1종 · 시즌 6종 · 커플/친구/팀·부서 관계팩을 준비했어요. 반려동물 집사 밈은 위 전용 12컷 팩에서 볼 수 있어요. 구성과 대사를 확인한 뒤 그대로 만들 수 있습니다.',
+              'Browse the standardized high-frequency 24, six seasonal sets, and couple/friend/team relationship packs. The dedicated 12-cut pet-butler set is shown above. Review each line-up before creating it.',
             )}
           </p>
         </div>
         <span className="chip !bg-cream shrink-0">{t('한 번에 채우기', 'One tap to fill')}</span>
       </div>
 
-      <div className="mt-3 grid gap-2.5 sm:grid-cols-3">
-        {CURATION_PACKAGES.map((pkg) => {
+      <div className="-mx-1 mt-3 flex gap-1.5 overflow-x-auto px-1 pb-1" role="group" aria-label={t('팩 묶음 필터', 'Filter curated sets')}>
+        {groups.map((item) => (
+          <button
+            key={item.id}
+            type="button"
+            aria-pressed={group === item.id}
+            onClick={() => {
+              setGroup(item.id);
+              setOpenId(null);
+              setCategory(null);
+            }}
+            className={clsx(
+              'min-h-9 shrink-0 rounded-full border px-3 text-[11px] font-bold',
+              group === item.id ? 'border-ink bg-ink text-cream' : 'border-line bg-paper text-sub',
+            )}
+          >
+            {item.label} <span className="opacity-60">{item.count}</span>
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+        {packages.map((pkg) => {
           const expanded = openId === pkg.id;
           const detailId = `curation-${pkg.id}`;
           return (
@@ -98,6 +129,11 @@ export function CurationPackageSection({ locale }: { locale: Locale }) {
                 <span className="mt-1 block text-[11px] leading-snug text-sub break-keep">
                   {locale === 'en' ? pkg.taglineEn : pkg.tagline}
                 </span>
+                {pkg.seasonalAngle ? (
+                  <span className="mt-2 block rounded-lg border border-coral/25 bg-coral/[0.06] px-2 py-1.5 text-[10px] font-bold leading-snug text-coralink">
+                    {pkg.recommendedMonth ? `🗓️ ${pkg.recommendedMonth}${t('월 추천 · ', ' month pick · ')}` : '🎄 '}{locale === 'en' ? pkg.seasonalAngleEn : pkg.seasonalAngle}
+                  </span>
+                ) : null}
               </button>
               <Link
                 href={`${lp('/studio/upload')}?package=${pkg.id}`}
@@ -127,6 +163,11 @@ export function CurationPackageSection({ locale }: { locale: Locale }) {
               <p className="mt-1 text-[11px] leading-relaxed text-sub break-keep">
                 {locale === 'en' ? open.conceptEn : open.concept}
               </p>
+              {open.seasonalAngle ? (
+                <p className="mt-2 rounded-lg border border-coral/25 bg-coral/[0.06] px-2.5 py-2 text-[11px] font-bold leading-relaxed text-coralink">
+                  {open.recommendedMonth ? `🗓️ ${open.recommendedMonth}${t('월 추천 · ', ' month pick · ')}` : '🎄 '}{locale === 'en' ? open.seasonalAngleEn : open.seasonalAngle}
+                </p>
+              ) : null}
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
               <Link
@@ -183,11 +224,12 @@ export function CurationPackageSection({ locale }: { locale: Locale }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
                       <span className="text-[12px] font-black text-ink">
-                        {locale === 'en' ? cut.preset.en.keyword : cut.preset.keyword}
+                        {locale === 'en' ? cut.displayLabelEn ?? cut.preset.en.keyword : cut.displayLabel ?? cut.preset.keyword}
                       </span>
+                      {cut.slot ? <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[9px] font-black text-primary-dark">CORE</span> : null}
                       <span className="text-[10px] font-bold text-sub">#{cut.presetId}</span>
                       <span className="text-[11px] font-bold text-cyber">
-                        “{locale === 'en' ? cut.preset.en.dialogue : cut.preset.dialogue}”
+                        “{locale === 'en' ? cut.lineEn ?? cut.preset.en.dialogue : cut.line ?? cut.preset.dialogue}”
                       </span>
                     </div>
                     <p className="mt-0.5 text-[11px] leading-snug text-sub break-keep">

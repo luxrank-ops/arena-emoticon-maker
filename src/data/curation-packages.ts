@@ -1,15 +1,39 @@
 // ─────────────────────────────────────────────────────────────
-// 추천 큐레이션 패키지 3종 (직장인 생존 24 · 달달 꽁냥 커플 24 · 만능 일상 & 병맛 티키타카 32)
-//  · 사용자가 지정한 순번·마스터 ID 를 그대로 유지한다 (재정렬·중복 금지).
-//  · 각 컷의 대사·표정·포즈·이펙트는 emoticon-presets-150.ts 의 원본을 그대로 쓴다.
-//    여기에는 '기획 의도'(어떤 상황에서 쓰는 컷인지)만 얹는다.
-//  · 무결성(24·24·32, 중복 없음, 순서 일치, 원본 일치)은
-//    scripts/test-curation-packages.ts 가 전수로 검사한다.
+// 표준 큐레이션 팩 — 기본 고빈도 24컷 · 시즌 6종 · 관계/일상 팩
+//  · 마스터 프리셋 150종의 표정·포즈·이펙트를 재사용하고 상황 기획 의도를 추가한다.
+//  · 기본 24컷의 첫 12컷은 사용자가 지정한 고빈도 슬롯을 순서대로 고정한다.
+//  · 시즌팩은 24컷, 12월 연말팩은 선물·연말 감사·새해 인사 앵글을 강조한다.
+//  · data integrity is exhaustively checked by scripts/test-curation-packages.ts.
 // ─────────────────────────────────────────────────────────────
 
 import { PRESET_CATEGORIES, presetById, type EmoticonPreset } from './emoticon-presets-150';
+import { STANDARDIZED_CURATION_PACKAGES } from './standardized-packages';
 
-export type CurationPackageId = 'office-survival' | 'couple-sweet' | 'daily-meme';
+export type CurationPackageId =
+  | 'basic-high-frequency'
+  | 'year-end'
+  | 'new-year'
+  | 'lunar-new-year'
+  | 'exam-season'
+  | 'monday-blues'
+  | 'overtime'
+  | 'friends-group'
+  | 'team-department'
+  | 'office-survival'
+  | 'couple-sweet'
+  | 'daily-meme';
+
+export type CurationPackageGroup = 'core' | 'season' | 'relationship' | 'everyday';
+
+export type HighFrequencySlot =
+  | 'laugh' | 'okay' | 'no' | 'thanks' | 'sorry' | 'congrats'
+  | 'cheer' | 'clock-out' | 'commute' | 'blank' | 'heart-thump' | 'anger';
+
+export const DEFAULT_CURATION_PACKAGE_ID: CurationPackageId = 'basic-high-frequency';
+export const HIGH_FREQUENCY_SLOT_ORDER: readonly HighFrequencySlot[] = [
+  'laugh', 'okay', 'no', 'thanks', 'sorry', 'congrats',
+  'cheer', 'clock-out', 'commute', 'blank', 'heart-thump', 'anger',
+];
 
 export interface CurationCut {
   /** 마스터 프리셋 ID (1~150) — 원본 순서 그대로 */
@@ -17,10 +41,19 @@ export interface CurationCut {
   /** 기획 의도: 이 컷을 쓰는 상황 */
   intent: string;
   intentEn: string;
+  /** 기본 팩의 표준 슬롯 표시명 (마스터 원본 keyword 와 별도로 유지) */
+  displayLabel?: string;
+  displayLabelEn?: string;
+  /** 팩별 대사 덮어쓰기 — 표정·포즈·이펙트는 원본 프리셋에서 유지 */
+  line?: string;
+  lineEn?: string;
+  /** 기본 고빈도 팩의 정규화 슬롯 */
+  slot?: HighFrequencySlot;
 }
 
 export interface CurationPackage {
   id: CurationPackageId;
+  group: CurationPackageGroup;
   emoji: string;
   /** 24 또는 32 */
   count: 24 | 32;
@@ -34,12 +67,18 @@ export interface CurationPackage {
   conceptEn: string;
   /** 카드 강조색 (tailwind gradient) */
   accent: string;
+  /** 시즌/캠페인 보조 앵글. 특히 12월에는 선물·새해 준비를 명시한다. */
+  seasonalAngle?: string;
+  seasonalAngleEn?: string;
+  recommendedMonth?: number;
   cuts: CurationCut[];
 }
 
-export const CURATION_PACKAGES: CurationPackage[] = [
+const LEGACY_CURATION_PACKAGES: CurationPackage[] = [
+
   {
     id: 'office-survival',
+    group: 'relationship',
     emoji: '💼',
     count: 24,
     title: '직장인 생존 패키지',
@@ -80,6 +119,7 @@ export const CURATION_PACKAGES: CurationPackage[] = [
   },
   {
     id: 'couple-sweet',
+    group: 'relationship',
     emoji: '💗',
     count: 24,
     title: '달달 꽁냥 커플 패키지',
@@ -120,6 +160,7 @@ export const CURATION_PACKAGES: CurationPackage[] = [
   },
   {
     id: 'daily-meme',
+    group: 'everyday',
     emoji: '🎭',
     count: 32,
     title: '만능 일상 & 병맛 티키타카 패키지',
@@ -166,6 +207,11 @@ export const CURATION_PACKAGES: CurationPackage[] = [
       { presetId: 150, intent: '대화 마무리·퇴장 인사', intentEn: 'Wrapping up the chat and bowing out' },
     ],
   },
+];
+
+export const CURATION_PACKAGES: CurationPackage[] = [
+  ...STANDARDIZED_CURATION_PACKAGES,
+  ...LEGACY_CURATION_PACKAGES,
 ];
 
 const PACKAGE_BY_ID = new Map<string, CurationPackage>(CURATION_PACKAGES.map((pkg) => [pkg.id, pkg]));

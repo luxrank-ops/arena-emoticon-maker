@@ -21,6 +21,7 @@ import { comicExpressionById } from '@/lib/comic-expressions';
 import { loadImage } from '@/lib/images';
 import { localizedComicExpressions, localizedPhotoStickerScenes } from '@/lib/i18n/presets';
 import { presetById, presetCaption, presetKeyword, presetTextLayer } from '@/data/emoticon-presets-150';
+import { curationPackageById } from '@/data/curation-packages';
 import type { Locale } from '@/lib/i18n/locale';
 import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { defaultLayerOf, formatCuts, packFormatById, type PackFormatId } from '@/lib/pack-formats';
@@ -143,7 +144,7 @@ export async function createPack(
    *  · 크레딧을 차감하지 않고, 첫 팩은 12컷 전체를 저비용(Flash) 렌더로 채운다.
    *  · 결제(단건 완성권) 전에는 내보내기가 잠긴다 (packExportState).
    */
-  opts: { preview?: boolean } = {},
+  opts: { preview?: boolean; curationPackageId?: string } = {},
 ) {
   if (opts.preview && size !== PREVIEW_PACK_SIZE) {
     throw new PackError('INVALID_SIZE', `무료 미리보기는 ${PREVIEW_PACK_SIZE}컷 팩으로만 만들 수 있어요.`);
@@ -172,6 +173,21 @@ export async function createPack(
   );
 
   const packFormat = sheet.format ? packFormatById(sheet.format) : formatId ? packFormatById(formatId) : undefined;
+  const curationPackage = opts.curationPackageId ? curationPackageById(opts.curationPackageId) : undefined;
+  if (opts.curationPackageId && !curationPackage) throw new PackError('INVALID_CURATION_PACKAGE', '알 수 없는 큐레이션 패키지입니다.');
+  if (curationPackage) {
+    const previewSample = opts.preview && size === PREVIEW_PACK_SIZE && curationPackage.count >= size;
+    if (sheet.format || formatId || packFormat || comicExpressionIds || presetIds) {
+      throw new PackError('INVALID_PRESET_SELECTION', '큐레이션 패키지는 다른 팩 구성과 함께 사용할 수 없습니다.');
+    }
+    if (size !== curationPackage.count && !previewSample) {
+      throw new PackError('INVALID_SIZE', `${curationPackage.title} 패키지는 ${curationPackage.count}컷으로 만들어야 합니다.`);
+    }
+  }
+  const selectedCurationCuts = curationPackage ? curationPackage.cuts.slice(0, size) : undefined;
+  if (selectedCurationCuts && selectedCurationCuts.length !== size) {
+    throw new PackError('INVALID_CURATION_PACKAGE', '큐레이션 패키지의 컷 구성이 올바르지 않습니다.');
+  }
   if (sheet.tone === 'photo-sticker' && !packFormat && size !== 12 && size !== 16) throw new PackError('INVALID_SIZE', '실사 카톡 스티커는 12컷 또는 16컷을 선택해 주세요');
   if (size === 16 && sheet.tone !== 'photo-sticker' && !packFormat) throw new PackError('INVALID_SIZE', '16컷은 실사 카톡 스티커에서만 선택할 수 있습니다');
   if (packFormat?.id === 'pet-meme' && (sheet.subjectKind ?? 'person') !== 'pet') {
@@ -186,8 +202,10 @@ export async function createPack(
   if (comicExpressionIds && presetIds) throw new PackError('INVALID_PRESET_SELECTION', '코믹 표정과 프리셋은 함께 고를 수 없습니다.');
   const formatCutList = packFormat ? formatCuts(packFormat.id, size, locale) : null;
   if (packFormat && (!formatCutList || formatCutList.length < size)) throw new PackError('INVALID_SIZE', `${packFormat.label} 팩은 최대 ${packFormat.cuts.length}컷까지 만들 수 있습니다.`);
-  /** 프리셋 팩: 고른 순서 그대로 컷이 만들어진다 */
-  const presetList = presetIds ? presetIds.map((id) => presetById(id)!) : null;
+  /** 프리셋 팩: 고른 순서 그대로 컷이 만들어진다. 큐레이션은 원본 장면에 팩별 문구를 적용한다. */
+  const presetList = selectedCurationCuts
+    ? selectedCurationCuts.map((cut) => presetById(cut.presetId)!)
+    : presetIds ? presetIds.map((id) => presetById(id)!) : null;
   const templates = formatCutList
     ? formatCutList.map((cut) => ({
         id: `fmt-${packFormat!.id}-${cut.id}`,
@@ -196,12 +214,19 @@ export async function createPack(
         emotion: cut.emotion,
       }))
     : presetList
-    ? presetList.map((preset) => ({
-        id: `preset-${preset.id}`,
-        label: presetKeyword(preset, locale),
-        line: presetCaption(preset, locale),
-        emotion: preset.emotion,
-      }))
+    ? presetList.map((preset, index) => {
+        const curatedCut = selectedCurationCuts?.[index];
+        return {
+          id: `preset-${preset.id}`,
+          label: locale === 'en'
+            ? curatedCut?.displayLabelEn ?? presetKeyword(preset, locale)
+            : curatedCut?.displayLabel ?? presetKeyword(preset, locale),
+          line: locale === 'en'
+            ? curatedCut?.lineEn ?? presetCaption(preset, locale)
+            : curatedCut?.line ?? presetCaption(preset, locale),
+          emotion: preset.emotion,
+        };
+      })
     : comicExpressionIds
     ? localizedComicExpressions(locale)
         .filter((item) => comicExpressionIds.includes(item.id) && comicExpressionById(item.id))
@@ -222,7 +247,7 @@ export async function createPack(
     const presetLayer = cut ? defaultLayerOf(cut) : null;
     const textLayers = textMode === 'layer'
       ? preset
-        ? [normalizeLayer(presetTextLayer(preset, locale), 0)]
+        ? [normalizeLayer({ ...presetTextLayer(preset, locale), text: t.line }, 0)]
         : presetLayer
           ? [normalizeLayer({ ...presetLayer, id: `cut-${cut!.id}` }, 0)]
           : (() => { const layer = layerFromLine(t.line); return layer ? [layer] : []; })()
@@ -287,6 +312,7 @@ export async function createPack(
     subjectKind: sheet.subjectKind ?? 'person',
     characterReferenceImageId: chosen?.imageId,
     ...(packFormat ? { format: packFormat.id } : {}),
+    ...(curationPackage ? { curationPackageId: curationPackage.id } : {}),
     textMode,
     designSheet: buildCharacterSheet({
       tone: sheet.tone,
@@ -297,7 +323,9 @@ export async function createPack(
     }),
     tone: sheet.tone,
     mode: sheet.mode ?? 'face',
-    title: title?.trim() || (locale === 'en' ? 'My reaction stickers' : `${sheet.tone === 'caricature' ? '개그' : '나의'} 이모티콘 팩`),
+    title: title?.trim() || (curationPackage
+      ? locale === 'en' ? curationPackage.titleEn : curationPackage.title
+      : locale === 'en' ? 'My reaction stickers' : `${sheet.tone === 'caricature' ? '개그' : '나의'} 이모티콘 팩`),
     size,
     status: 'GENERATING',
     renderer: 'ai',

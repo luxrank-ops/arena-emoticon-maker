@@ -8,7 +8,11 @@ import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
 import { PresetPicker } from '@/components/studio/PresetPicker';
 import { recommendedPresetIds } from '@/data/emoticon-presets-150';
-import { CURATION_PACKAGES, curationPackagePresetIds } from '@/data/curation-packages';
+import {
+  CURATION_PACKAGES,
+  DEFAULT_CURATION_PACKAGE_ID,
+  curationPackagePresetIds,
+} from '@/data/curation-packages';
 import {
   packagePickFromSearch,
   presetPickFromSearch,
@@ -66,11 +70,13 @@ export function SheetPicker({
   const maxCuts = formatInfo?.cuts.length ?? 24;
   const sizeOptions = (formatInfo ? (maxCuts >= 32 ? [12, 24, 32] : maxCuts >= 24 ? [12, 24] : [12]) : tone === 'photo-sticker' ? [12, 16] : [12, 24, 32]) as readonly number[];
   const [chosen, setChosen] = useState<string | null>(alreadyChosen);
-  const [size, setSize] = useState<12 | 16 | 24 | 32>(12);
-  // 자동 구성(감정 로테이션) · 코믹 24종 · 150종 프리셋 중 하나
-  const [composition, setComposition] = useState<'auto' | 'comic' | 'preset'>('auto');
+  const [size, setSize] = useState<12 | 16 | 24 | 32>(format || tone === 'photo-sticker' ? 12 : 24);
+  // 일반 기본 팩은 고빈도 표준 24컷으로 시작하고, 실사·표현형 팩은 기존 크기를 유지한다.
+  const [composition, setComposition] = useState<'auto' | 'comic' | 'preset'>(format || tone === 'photo-sticker' ? 'auto' : 'preset');
   const [comicIds, setComicIds] = useState<string[]>([]);
-  const [presetIds, setPresetIds] = useState<number[]>([]);
+  const [presetIds, setPresetIds] = useState<number[]>(
+    format || tone === 'photo-sticker' ? [] : curationPackagePresetIds(DEFAULT_CURATION_PACKAGE_ID),
+  );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [images, setImages] = useState<Record<string, string>>(() =>
@@ -83,6 +89,9 @@ export function SheetPicker({
   // 무료 미리보기 팩 — 오늘 남은 미리보기 팩 수(서버 카운터)
   const [previewLeft, setPreviewLeft] = useState(trialStatus?.previewPacksLeftToday ?? 0);
   const [previewBusy, setPreviewBusy] = useState(false);
+  const activePackage = !formatInfo && composition === 'preset'
+    ? CURATION_PACKAGES.find((pkg) => pkg.count === presetIds.length && pkg.cuts.every((cut, index) => presetIds[index] === cut.presetId))
+    : undefined;
 
   async function generate(keys: string[]) {
     const photo = loadPhoto(`sheet:${sheetId}`);
@@ -125,7 +134,7 @@ export function SheetPicker({
 
   // 프리셋 화면에서 골라 온 값이 있으면 '프리셋' 구성으로 미리 채운다.
   useEffect(() => {
-    if (trial || formatInfo) return;
+    if (formatInfo) return;
     // 큐레이션 패키지가 우선한다 — 컷 수와 순서를 패키지 그대로 맞춘다.
     const pickedPackage = packagePickFromSearch(window.location.search) ?? rememberedPackagePick();
     if (pickedPackage) {
@@ -141,7 +150,8 @@ export function SheetPicker({
     const picked = presetPickFromSearch(window.location.search) ?? rememberedPresetPick();
     if (!picked) return;
     setComposition('preset');
-    setPresetIds((prev) => (prev.length ? prev : [picked, ...recommendedPresetIds(Math.max(0, size - 1), [picked])]));
+    setPresetIds([picked, ...recommendedPresetIds(Math.max(0, size - 1), [picked])]);
+    rememberPackagePick(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -200,10 +210,19 @@ export function SheetPicker({
         const j = await chooseRes.json().catch(() => null);
         throw new Error(locale === 'en' ? 'We could not select this character. Try again.' : (j?.error?.message ?? '캐릭터를 선택하지 못했어요'));
       }
+      const previewSelection = format
+        ? { format }
+        : activePackage
+          ? { curationPackageId: activePackage.id }
+          : composition === 'preset'
+            ? { presetIds: presetIds.slice(0, PREVIEW_PACK_SIZE) }
+            : composition === 'comic'
+              ? { comicExpressionIds: comicIds.slice(0, PREVIEW_PACK_SIZE) }
+              : {};
       const packRes = await fetch('/api/packs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId, size: PREVIEW_PACK_SIZE, locale, preview: true, ...(format ? { format } : {}) }),
+        body: JSON.stringify({ sheetId, size: PREVIEW_PACK_SIZE, locale, preview: true, ...previewSelection }),
       });
       const packJson = await packRes.json().catch(() => null);
       if (!packRes.ok) throw new Error(locale === 'en' ? 'We could not open your preview pack. Please try again tomorrow.' : (packJson?.error?.message ?? '미리보기 팩을 만들지 못했어요.'));
@@ -225,6 +244,7 @@ export function SheetPicker({
 
   /** 팩 크기가 바뀌면 고른 구성도 그 크기에 맞춘다 (부족분은 카테고리를 번갈아 추천). */
   function changeSize(next: 12 | 16 | 24 | 32) {
+    rememberPackagePick(null);
     setSize(next);
     if (composition === 'comic') setComicIds(expressions.slice(0, next).map((item) => item.id));
     if (composition === 'preset') {
@@ -237,6 +257,7 @@ export function SheetPicker({
   }
 
   function changeComposition(next: 'auto' | 'comic' | 'preset') {
+    if (next !== 'preset') rememberPackagePick(null);
     setComposition(next);
     if (next === 'comic' && comicIds.length !== size) setComicIds(expressions.slice(0, size).map((item) => item.id));
     if (next === 'preset' && presetIds.length !== size) setPresetIds(recommendedPresetIds(size, presetIds));
@@ -263,9 +284,10 @@ export function SheetPicker({
           sheetId,
           size,
           locale,
+          ...(activePackage ? { title: locale === 'en' ? activePackage.titleEn : activePackage.title, curationPackageId: activePackage.id } : {}),
           ...(format ? { format } : {}),
-          ...(composition === 'comic' ? { comicExpressionIds: comicIds } : {}),
-          ...(composition === 'preset' ? { presetIds } : {}),
+          ...(!format && composition === 'comic' ? { comicExpressionIds: comicIds } : {}),
+          ...(!format && composition === 'preset' && !activePackage ? { presetIds } : {}),
         }),
       });
       const packJson = await packRes.json();
@@ -291,10 +313,6 @@ export function SheetPicker({
   }
 
   const chosenReady = !!(chosen && images[chosen]);
-  // 지금 고른 프리셋이 어느 패키지와 100% 일치하는지 (원클릭 적용 상태 표시)
-  const activePackage = CURATION_PACKAGES.find(
-    (pkg) => pkg.count === presetIds.length && pkg.cuts.every((cut, index) => presetIds[index] === cut.presetId),
-  );
   const packageBlocked = tone === 'photo-sticker';
 
   return (
@@ -551,7 +569,12 @@ export function SheetPicker({
                   })}
                 </div>
               </div>
-              <PresetPicker selectedIds={presetIds} max={size} onChange={setPresetIds} locale={locale} />
+              <PresetPicker
+                selectedIds={presetIds}
+                max={size}
+                onChange={(ids) => { rememberPackagePick(null); setPresetIds(ids); }}
+                locale={locale}
+              />
               {presetIds.length !== size ? <p className="mt-2 text-xs font-bold text-coralink">{t(`${size}개를 골라야 팩을 만들 수 있어요.`, `Pick ${size} presets to create this pack.`)}</p> : null}
             </div>
           ) : null}

@@ -239,6 +239,8 @@ export interface Pack {
   characterReferenceImageId?: string;
   /** 표현 형태(팩 테마) — 없으면 기존 감정 위주 구성 */
   format?: PackFormatId;
+  /** 선택한 표준 큐레이션 팩의 버전 가능한 카탈로그 ID */
+  curationPackageId?: string;
   /** 'layer' 면 AI 는 글자 없이 그리고 앱이 한글 레이어를 합성한다 */
   textMode?: 'baked' | 'layer';
   /** 전 컷에 강제하는 고정 캐릭터 디자인 시트 */
