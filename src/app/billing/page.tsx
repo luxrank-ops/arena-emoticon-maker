@@ -17,6 +17,7 @@ const REASON_LABEL: Record<string, string> = {
   REFUND: '환불',
   PURCHASE: '크레딧 충전',
   ADMIN_GIFT: '운영 지급',
+  REDEEM: '교환권 지급',
 };
 
 export default async function BillingPage() {
@@ -72,7 +73,13 @@ export default async function BillingPage() {
               history.map((h) => (
                 <li key={h.id} className="flex items-center justify-between py-2">
                   <div>
-                    <p className="text-[13px] font-bold">{h.refType === 'quote-pack' ? '대사 팩 구매' : REASON_LABEL[h.reason] ?? h.reason}</p>
+                    <p className="text-[13px] font-bold">
+                      {h.refType === 'quote-pack'
+                        ? '대사 팩 구매'
+                        : (h.memo ?? '').includes('교환권')
+                          ? h.memo
+                          : REASON_LABEL[h.reason] ?? h.reason}
+                    </p>
                     <p className="text-[10px] text-sub">{formatKstDateTime(h.createdAt)}</p>
                   </div>
                   <span className={`text-sm font-black ${h.delta > 0 ? 'text-mint' : 'text-coralink'}`}>

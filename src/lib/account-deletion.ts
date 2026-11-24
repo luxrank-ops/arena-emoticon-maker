@@ -68,6 +68,17 @@ export async function deleteAccountPermanently(userId: string): Promise<AccountD
     db.playUsage = db.playUsage.filter((item) => item.userId !== userId);
     // 플레이 구매는 구글 결제 원장이 원본이므로 토큰·자격 사본은 계정과 함께 지운다.
     db.playPurchases = (db.playPurchases ?? []).filter((item) => item.userId !== userId);
+    // 교환권은 해시·발급 기록만 남긴다. 사용자 식별값(귀속 발급·마지막 사용 이력)·IP 해시는 지운다.
+    // (남은 코드는 계속 쓸 수 있어야 하므로 코드 행 자체는 폐기하지 않는다)
+    db.redeemCodes = (db.redeemCodes ?? []).map((code) => {
+      const next = { ...code };
+      if (next.issuedTo === userId) delete next.issuedTo;
+      if (next.redemption?.userId === userId) {
+        next.redemption = { ...next.redemption, userId: 'deleted', ipHash: '' };
+      }
+      if (next.ipHash) delete next.ipHash;
+      return next;
+    });
     db.events = db.events.filter((item) => item.userId !== userId);
     logEvent(db, 'system', 'account_deleted', {
       auditId: createHash('sha256').update(userId).digest('hex').slice(0, 16),

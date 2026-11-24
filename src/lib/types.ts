@@ -304,7 +304,9 @@ export interface CreditEntry {
     | 'PURCHASE'
     | 'ADMIN_GIFT'
     /** 친구 초대 보상 — 초대받은 사람이 처음 체험/가입했을 때 3컷 지급 */
-    | 'REFERRAL';
+    | 'REFERRAL'
+    /** 교환권(코드)으로 지급된 크레딧 — 결제 없이 인도된 부채 */
+    | 'REDEEM';
   /** 초대 보상 상세 (초대한 사람에게만) */
   memo?: string;
   refType?: string;
@@ -355,6 +357,62 @@ export interface Referral {
   reason?: string;
   createdAt: string;
   rewardedAt?: string;
+}
+
+/**
+ * 교환권(코드) 1장 — PG 없이 상품을 인도하는 수단.
+ *  · 원문 코드는 저장하지 않는다(sha256 해시만). 원문은 발급 응답에서 한 번만 보인다.
+ *  · 발급 묶음(RedeemBatch) 단위로 폐기·대사한다.
+ *  · 사용 이력은 덮어쓰지 않고 count + 마지막 사용자만 남긴다(개인정보 최소화).
+ *    전체 이력은 주문(provider='redeem')과 이벤트 로그에 남는다.
+ */
+export interface RedeemCode {
+  /** sha256(`emotihak:redeem:v1:` + 정규화 코드) */
+  codeHash: string;
+  batchId: string;
+  sku: string;
+  label: string;
+  note?: string;
+  /** 코드 1장으로 지급할 횟수 (보통 1) */
+  quantity: number;
+  usedCount: number;
+  issuedAt: string;
+  issuedBy: string;
+  /** 특정 사용자에게만 쓸 수 있는 코드 (CS 재발급·보상) */
+  issuedTo?: string;
+  expiresAt?: string;
+  startsAt?: string;
+  disabled?: boolean;
+  revokedAt?: string;
+  revokedBy?: string;
+  revokeReason?: string;
+  usedAt?: string;
+  /** 마지막 사용 (전체 이력은 주문·이벤트에 남는다) */
+  redemption?: {
+    userId: string;
+    at: string;
+    ipHash: string;
+    orderId: string;
+    packId?: string;
+  };
+  /** 실패 시도 기록(batchId='__fail')의 IP 해시 */
+  ipHash?: string;
+  createdAt: string;
+}
+
+/** 같은 조건으로 한 번에 발급한 교환권 묶음 */
+export interface RedeemBatch {
+  id: string;
+  sku: string;
+  label: string;
+  /** 코드 1장당 지급 횟수 */
+  quantity: number;
+  count: number;
+  issuedAt: string;
+  issuedBy: string;
+  expiresAt: string;
+  note?: string;
+  createdAt: string;
 }
 
 export interface GoodsOrder extends Order {
@@ -473,6 +531,9 @@ export interface UsageEvent {
     | 'pack_unlocked'
     | 'referral_rewarded'
     | 'quote_pack_purchased'
+    | 'redeem_issued'
+    | 'redeem_used'
+    | 'redeem_revoked'
     | 'content_reported'
     | 'content_moderated'
     | 'account_deleted'

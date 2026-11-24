@@ -168,6 +168,22 @@ export interface Sku {
 export const PACK_UNLOCK_SKUS = ['pack-unlock-single', 'pack-unlock-duo', 'pack-unlock-pet'] as const;
 export type PackUnlockSku = (typeof PACK_UNLOCK_SKUS)[number];
 
+/**
+ * 교환권(무료 지급 경로)으로 발급할 수 있는 팩 완성권.
+ *  · PG 계약 전에는 운영자가 교환권으로 잠금을 열어 준다.
+ *  · 2인 케미·반려동물 완성권은 생성 원가가 더 드는 상품이라 무료 지급에서 뺀다(남용 방지).
+ *  · docs/FREE-PAYMENT-PLAYBOOK.md §4 참고.
+ */
+export const REDEEMABLE_UNLOCK_SKUS: PackUnlockSku[] = ['pack-unlock-single'];
+
+/** 교환권으로 지급 가능한 크레딧 팩 — 가장 작은 팩부터 (원가 통제) */
+export const REDEEMABLE_CREDIT_SKUS = ['credits-theme-9900'] as const;
+
+/** 교환권 지급이 허용된 SKU 전체 */
+export function redeemableSkus(): string[] {
+  return [...REDEEMABLE_UNLOCK_SKUS, ...REDEEMABLE_CREDIT_SKUS, 'plan-creator-monthly'];
+}
+
 export const SKUS: Record<string, Sku> = {
   'pack-unlock-single': {
     sku: 'pack-unlock-single',

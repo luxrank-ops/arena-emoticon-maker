@@ -18,6 +18,8 @@ import type {
   Referral,
   PlayUsage,
   QuotePurchase,
+  RedeemBatch,
+  RedeemCode,
   TrialUsage,
   UsageEvent,
   User,
@@ -53,6 +55,10 @@ export interface DB {
   referrals: Referral[];
   /** 서버가 검증한 구글 플레이 구매 기록 (자격 원장) */
   playPurchases: PlayPurchase[];
+  /** 교환권(코드) 발급 묶음 — PG 없이 상품을 인도하는 무료 경로 */
+  redeemBatches: RedeemBatch[];
+  /** 교환권 코드(해시만 저장) + 실패 시도 기록 */
+  redeemCodes: RedeemCode[];
   briefs: DailyBrief[];
   events: UsageEvent[];
 }
@@ -77,6 +83,8 @@ const EMPTY: DB = {
   trialUsage: [],
   referrals: [],
   playPurchases: [],
+  redeemBatches: [],
+  redeemCodes: [],
   briefs: [],
   events: [],
 };
@@ -575,7 +583,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
     }
   };
 
-  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'sharedLinks' | 'credits' | 'quotePurchases' | 'orders' | 'contentReports' | 'deletionJobs' | 'playUsage' | 'trialUsage' | 'referrals' | 'playPurchases' | 'adminLoginAttempts'>>(rawUsers);
+  const uShard = parseShard<Pick<DB, 'users' | 'accounts' | 'sessions' | 'sharedLinks' | 'credits' | 'quotePurchases' | 'orders' | 'contentReports' | 'deletionJobs' | 'playUsage' | 'trialUsage' | 'referrals' | 'playPurchases' | 'redeemBatches' | 'redeemCodes' | 'adminLoginAttempts'>>(rawUsers);
   const pShard = parseShard<Pick<DB, 'consistencyPreparations'>>(rawPrep);
   const fShard = parseShard<Pick<DB, 'faces'>>(rawFaces);
   const sShard = parseShard<Pick<DB, 'sheets'>>(rawSheets);
@@ -654,6 +662,9 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
     trialUsage: mergeById(local.trialUsage ?? [], uShard.data?.trialUsage ?? legacyDB?.trialUsage ?? [], (x) => x.id, uRemoteNewer),
     referrals: mergeById(local.referrals ?? [], uShard.data?.referrals ?? legacyDB?.referrals ?? [], (x) => x.id, uRemoteNewer),
     playPurchases: mergeById(local.playPurchases ?? [], uShard.data?.playPurchases ?? legacyDB?.playPurchases ?? [], (x) => x.id, uRemoteNewer),
+    // 교환권은 결제와 같은 샤드에 둔다 — 발급·사용·폐기가 원장과 한 번에 커밋되어야 한다.
+    redeemBatches: mergeById(local.redeemBatches ?? [], uShard.data?.redeemBatches ?? legacyDB?.redeemBatches ?? [], (x) => x.id, uRemoteNewer),
+    redeemCodes: mergeById(local.redeemCodes ?? [], uShard.data?.redeemCodes ?? legacyDB?.redeemCodes ?? [], (x) => x.codeHash, uRemoteNewer),
     briefs: mergeById(local.briefs ?? [], kShard.data?.briefs ?? legacyDB?.briefs ?? [], (x) => x.date, kRemoteNewer),
     events: (local.events ?? []).slice(-500),
   };
@@ -696,7 +707,7 @@ async function withCloudflareKV<T>(fn: (db: DB) => T | Promise<T>, _strict = fal
   }
   if (pendingLookups.length > 0) await Promise.all(pendingLookups);
 
-  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, sharedLinks: db.sharedLinks, credits: db.credits, quotePurchases: db.quotePurchases, orders: db.orders, contentReports: db.contentReports, deletionJobs: db.deletionJobs, playUsage: db.playUsage, trialUsage: db.trialUsage, referrals: db.referrals, playPurchases: db.playPurchases, adminLoginAttempts: db.adminLoginAttempts });
+  const snapUsers = () => JSON.stringify({ users: db.users, accounts: db.accounts, sessions: db.sessions, sharedLinks: db.sharedLinks, credits: db.credits, quotePurchases: db.quotePurchases, orders: db.orders, contentReports: db.contentReports, deletionJobs: db.deletionJobs, playUsage: db.playUsage, trialUsage: db.trialUsage, referrals: db.referrals, playPurchases: db.playPurchases, redeemBatches: db.redeemBatches, redeemCodes: db.redeemCodes, adminLoginAttempts: db.adminLoginAttempts });
   const snapPrep = () => JSON.stringify({ consistencyPreparations: db.consistencyPreparations });
   const snapFaces = () => JSON.stringify({ faces: db.faces });
   const snapSheets = () => JSON.stringify({ sheets: db.sheets });

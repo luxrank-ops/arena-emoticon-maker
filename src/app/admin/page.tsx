@@ -7,6 +7,8 @@ import { won } from '@/lib/pricing';
 import { purgeStats } from '@/lib/purge';
 import { paymentReviewItems } from '@/lib/payment-review';
 import { AdminPaymentReview } from '@/components/payments/AdminPaymentReview';
+import { AdminRedeemPanel } from '@/components/payments/AdminRedeemPanel';
+import { redeemAdminRows, redeemCatalog, redeemReconciliation } from '@/lib/redeem';
 import { AdminContentReports } from '@/components/moderation/AdminContentReports';
 
 export const dynamic = 'force-dynamic';
@@ -59,6 +61,8 @@ export default async function AdminPage() {
     };
   });
 
+  // 교환권(PG 없이 지급) 운영 현황 — 발급·사용·대사
+  const [redeemRows, redeemTotals] = await Promise.all([redeemAdminRows(), redeemReconciliation()]);
   const purge = await purgeStats();
   const aiCost = m.frames * 54;
   const margin = m.revenue > 0 ? Math.round(((m.revenue - aiCost) / m.revenue) * 100) : 0;
@@ -124,6 +128,8 @@ export default async function AdminPage() {
           <AdminContentReports items={m.contentReports} />
 
           <AdminPaymentReview items={m.paymentReview} />
+
+          <AdminRedeemPanel rows={redeemRows} totals={redeemTotals} catalog={redeemCatalog()} />
 
           <PurgePanel stats={purge} />
 

@@ -501,6 +501,13 @@ export function PackViewer({
                   : t('결제 준비 중', 'Payment preparing')}
                 className="btn-primary w-full !py-4 text-base"
               />
+              {/* 카드 결제(PG)가 준비되지 않은 기간에도 교환권 코드로 잠금을 열 수 있다. */}
+              <Link
+                href={localizedPath(locale, '/redeem')}
+                className="btn-ghost mt-2 block w-full !py-3 text-center text-sm"
+              >
+                {t('교환권 코드로 잠금 해제', 'Unlock with a redeem code')}
+              </Link>
             </div>
             <p className="mt-2 text-center text-[10px] leading-relaxed text-sub">
               {t('결제 즉시 이 팩 전체가 열리고, 12컷을 고화질로 다시 그립니다. 디지털 콘텐츠 사용 시작 후에는 청약철회가 제한될 수 있어요.', 'The whole pack opens right after payment and all cuts are re-rendered at full quality. Digital content usage limits cancellation.')}

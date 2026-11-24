@@ -161,6 +161,15 @@ export const MENU_SHEET: MenuEntry[] = [
     descEn: 'Completions, credits, Creator Pro',
   },
   {
+    key: 'pricing',
+    href: '/redeem',
+    emoji: '🎟️',
+    ko: '교환권 사용',
+    en: 'Redeem code',
+    descKo: '카드 없이 코드로 완성권·크레딧 받기',
+    descEn: 'Get a pass or credits with a code',
+  },
+  {
     key: 'help',
     href: '/guide',
     emoji: '📖',
@@ -194,6 +203,7 @@ const MENU_SHEET_PATHS: string[] = [
   '/refund',
   '/account-deletion',
   '/billing',
+  '/redeem',
   '/settings',
 ];
 

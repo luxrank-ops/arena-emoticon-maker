@@ -8,7 +8,7 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "typecheck": "tsc --noEmit",
-    "test": "tsx scripts/test-recommend-optimization.ts && node scripts/test-launch-readiness.mjs && tsx scripts/test-presets-150.ts && tsx scripts/test-free-trial.ts && tsx scripts/test-play-billing.ts && tsx scripts/test-studio-upgrade.ts && tsx scripts/test-pack-formats-flow.ts && tsx scripts/test-curation-packages.ts && tsx scripts/test-sample-cuts.ts && tsx scripts/test-paywall-unlock.ts && tsx scripts/test-referral.ts && tsx scripts/test-killer-packs.ts && tsx scripts/test-reviewer-sheet.ts && tsx scripts/test-drip-themes.ts && tsx scripts/test-ai-matte.ts && tsx scripts/test-photo-cutout.ts",
+    "test": "tsx scripts/test-recommend-optimization.ts && node scripts/test-launch-readiness.mjs && tsx scripts/test-presets-150.ts && tsx scripts/test-free-trial.ts && tsx scripts/test-play-billing.ts && tsx scripts/test-studio-upgrade.ts && tsx scripts/test-pack-formats-flow.ts && tsx scripts/test-curation-packages.ts && tsx scripts/test-sample-cuts.ts && tsx scripts/test-paywall-unlock.ts && tsx scripts/test-referral.ts && tsx scripts/test-killer-packs.ts && tsx scripts/test-reviewer-sheet.ts && tsx scripts/test-drip-themes.ts && tsx scripts/test-ai-matte.ts && tsx scripts/test-photo-cutout.ts && tsx scripts/test-redeem.ts",
     "smoke": "node scripts/smoke.mjs",
     "test:payments": "node scripts/test-payment-readiness.cjs",
     "test:checkout": "node scripts/test-checkout.mjs",
@@ -39,7 +39,8 @@
     "test:killer": "tsx scripts/test-killer-packs.ts",
     "test:review": "tsx scripts/test-reviewer-sheet.ts",
     "test:ai-matte": "tsx scripts/test-ai-matte.ts",
-    "test:cutout": "tsx scripts/test-photo-cutout.ts"
+    "test:cutout": "tsx scripts/test-photo-cutout.ts",
+    "test:redeem": "tsx scripts/test-redeem.ts"
   },
   "dependencies": {
     "@cloudflare/workers-response-store": "^1.1.5",

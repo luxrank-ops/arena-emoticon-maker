@@ -25,6 +25,7 @@
 | 카카오 패키저 | `/studio/pack/[id]` | 32종 · 360×360 · 개당 150KB 자동 압축 · 흰색 외곽선 · ZIP (Studio) |
 | 요금제/결제 | `/pricing` → `/checkout/[orderId]` | Plus/Studio/크레딧, 청약철회 동의 · 서버 금액 검증 · 원장 지급 |
 | 마이페이지 | `/billing` | 크레딧 원장 · 결제 내역 · 승인 결과 복구 · 내 팩 |
+| 교환권 | `/redeem` | PG 계약 없이 코드로 완성권·크레딧·Creator Pro 지급 (운영 발급은 `/admin`) |
 | 운영 콘솔 | `/admin` | 매출 · 결제 대사/미지급 복구 · 플랜 분포 · 최다 사용 컷 · 얼굴 파기 현황/실행 |
 | 정책 | `/terms` `/privacy` `/refund` `/support` | PG 심사 대응 문서 |
 | 관측 | Sentry · PostHog | 에러 추적 + 퍼널 분석(사진·대사 미전송, 키 없으면 no-op) |
@@ -71,6 +72,7 @@ Firebase 연동 절차는 [`docs/FIREBASE.md`](docs/FIREBASE.md) 참고.
 | [docs/COMPLIANCE.md](docs/COMPLIANCE.md) | 토스페이먼츠 심사 · 청약철회 · 개인정보 · AI 표시 의무 |
 | [docs/TOSS_PAYMENTS_SETUP.md](docs/TOSS_PAYMENTS_SETUP.md) | 토스 설정 · 결제 preflight · 자동 검증 |
 | [docs/PAYMENT_OPERATIONS.md](docs/PAYMENT_OPERATIONS.md) | 결제 대사 · 미지급 복구 · 비상 중단 · 환불 접수 |
+| [docs/FREE-PAYMENT-PLAYBOOK.md](docs/FREE-PAYMENT-PLAYBOOK.md) | 무료로 결제 시스템 탑재하기 — 교환권 경로 · 사업자 전 리스크 · PG 전환 체크리스트 |
 | [docs/STEP2-BUILD-NOTES.md](docs/STEP2-BUILD-NOTES.md) | **구현 결과 · 설계 대비 변경 로그 · 보안 현황** |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | **Sentry · PostHog 실연동** — 붙은 지점 · 개인정보 설계 · 무료 쿼터 가드레일 |
 | [AGENTS.md](AGENTS.md) | 5개 서브 에이전트 조직 · 스프린트 보드 |

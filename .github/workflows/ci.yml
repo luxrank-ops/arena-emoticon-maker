@@ -68,6 +68,13 @@ jobs:
       - name: Play static readiness
         run: npm run test:play:static
 
+      # PG 계약 없이 상품을 인도하는 교환권 경로 (원문 미저장·지급 트랜잭션·시도 제한·대사)
+      - name: Redeem code readiness
+        env:
+          DATA_DIR: /tmp/emotime-redeem-ci
+          STORE_BACKEND: file
+        run: rm -rf "$DATA_DIR" && npm run test:redeem
+
       - name: Play entitlement, moderation and account deletion tests
         env:
           DATA_DIR: /tmp/emotime-play-ci

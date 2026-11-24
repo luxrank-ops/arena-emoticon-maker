@@ -137,6 +137,19 @@ export default async function PricingPage() {
         </>
       )}
 
+      <div className="card mt-6 flex flex-wrap items-center justify-between gap-3 p-5">
+        <div>
+          <h2 className="text-sm font-black">교환권(코드)으로 바로 받기</h2>
+          <p className="mt-1 max-w-xl text-[11px] leading-relaxed text-sub">
+            카드 결제 없이, 구입처에서 받은 32자리 코드로 팩 완성권·크레딧·Creator Pro를 받을 수 있어요.
+            카드 결제가 준비되지 않은 기간에도 같은 상품을 코드로 지급합니다.
+          </p>
+        </div>
+        <Link href="/redeem" className="btn-dark !px-5 !py-2.5 text-xs">
+          교환권 사용
+        </Link>
+      </div>
+
       <div className="card-flat mt-10 p-5">
         <h2 className="text-sm font-black">요금제 표기 안내</h2>
         <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-sub">
