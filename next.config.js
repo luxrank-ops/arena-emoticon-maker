@@ -4,7 +4,6 @@ const nextConfig = {
   poweredByHeader: false,
   experimental: {
     serverActions: { bodySizeLimit: '2mb' },
-    instrumentationHook: true,
   },
   async headers() {
     return [

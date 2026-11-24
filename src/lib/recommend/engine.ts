@@ -53,8 +53,12 @@ export function composePackTemplates(size: number, now = new Date(), recentIds: 
   const maxPerEmotion = Math.max(2, Math.ceil(size / 5));
 
   const take = (pool: SituationTemplate[], limit: number) => {
-    const sorted = shuffle(pool).sort((a, b) => score(b, slot, recent) - score(a, slot, recent));
-    for (const t of sorted) {
+    // 점수는 이 호출 동안 변하지 않는다. 정렬 비교마다 반복 계산하지 않는다.
+    // shuffle 후 안정 정렬하므로 같은 점수의 추천 순서는 이전과 같다.
+    const sorted = shuffle(pool)
+      .map((template) => ({ template, rank: score(template, slot, recent) }))
+      .sort((a, b) => b.rank - a.rank);
+    for (const { template: t } of sorted) {
       if (picked.length >= limit) break;
       if (picked.some((p) => p.id === t.id)) continue;
       const c = emotionCount.get(t.emotion) ?? 0;
