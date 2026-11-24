@@ -11,6 +11,7 @@ export async function SiteFooter() {
     { href: '/privacy', ko: '개인정보처리방침', en: 'Privacy' },
     { href: '/terms', ko: '이용약관', en: 'Terms' },
     { href: '/refund', ko: '환불 정책', en: 'Refunds' },
+    { href: '/guide', ko: '사용 설명서', en: 'Korean guide' },
     { href: '/support', ko: '고객센터', en: 'Support' },
     { href: '/account-deletion', ko: '계정 삭제', en: 'Delete account' },
     { href: '/creator', ko: '작가 신청', en: 'Creator program' },

@@ -162,6 +162,15 @@ export const MENU_SHEET: MenuEntry[] = [
   },
   {
     key: 'help',
+    href: '/guide',
+    emoji: '📖',
+    ko: '사용 설명서',
+    en: 'Korean user guide',
+    descKo: '실제 화면으로 기능과 저장 방법 확인',
+    descEn: 'Learn the app with real-screen walkthroughs',
+  },
+  {
+    key: 'help',
     href: '/support',
     emoji: '🛟',
     ko: '고객센터',
@@ -178,6 +187,7 @@ const MENU_SHEET_PATHS: string[] = [
   '/brief',
   '/goods',
   '/pricing',
+  '/guide',
   '/support',
   '/terms',
   '/privacy',
@@ -223,7 +233,7 @@ export function isNavActive(key: NavKey, pathname: string): boolean {
     case 'pricing':
       return path === '/pricing' || path.startsWith('/pricing/');
     case 'help':
-      return ['/support', '/terms', '/privacy', '/refund', '/account-deletion'].some((p) => path === p || path.startsWith(`${p}/`));
+      return ['/guide', '/support', '/terms', '/privacy', '/refund', '/account-deletion'].some((p) => path === p || path.startsWith(`${p}/`));
     default:
       return false;
   }

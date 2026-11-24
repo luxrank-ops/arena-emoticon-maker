@@ -99,8 +99,8 @@ check('하단 바 첫 항목이 홈(/)', /home: \{ key: 'home', href: '\/'/.test
 check('하단 바 다섯째가 전체메뉴(≡)', /'menu'/.test(bottomKeys) && navSource.includes("menu: { key: 'menu'"));
 check('전체메뉴가 시트(dialog)를 연다', bottomNav.includes('role="dialog"') && bottomNav.includes('aria-haspopup="dialog"') && bottomNav.includes('aria-expanded={menuOpen}'));
 const menuEntries = navSource.match(/MENU_SHEET: MenuEntry\[\] = \[([\s\S]*?)\n\];/)?.[1] ?? '';
-check('전체메뉴 시트에 10개 기능이 한 줄 설명과 함께 있음', (menuEntries.match(/descKo:/g) ?? []).length === 10 && (menuEntries.match(/descKo: '.+'/g) ?? []).length === 10);
-for (const href of ['/studio/photo', '/studio/upload', '/quotes', '/presets', '/brief', '/studio/packs', '/reply', '/goods', '/pricing', '/support']) {
+check('전체메뉴 시트에 11개 기능이 한 줄 설명과 함께 있음', (menuEntries.match(/descKo:/g) ?? []).length === 11 && (menuEntries.match(/descKo: '.+'/g) ?? []).length === 11);
+for (const href of ['/studio/photo', '/studio/upload', '/quotes', '/presets', '/brief', '/studio/packs', '/reply', '/goods', '/pricing', '/guide', '/support']) {
   check(`전체메뉴 시트에 ${href} 항목`, menuEntries.includes(`href: '${href}'`));
 }
 const headerSource = read('src/components/SiteHeader.tsx');

@@ -12,6 +12,7 @@ export default function SupportPage() {
       <h1 className="h2">고객센터</h1>
       <p className="mt-2 text-sm text-sub">이용 중 궁금한 점이나 결제·환불 문의를 접수해 주세요.</p>
       <p className="mt-1 text-xs text-sub">고객센터 운영시간: {BUSINESS.supportHours}</p>
+      <Link href="/guide" className="btn-ghost mt-4 inline-flex !px-4 !py-2 text-xs">📖 사용 설명서 보기</Link>
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
         <div className="card p-5">
