@@ -3,10 +3,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import Link from 'next/link';
 import clsx from 'clsx';
-import { downloadBlob, exportKakaoPackZip, renderFrameCanvas, renderPngBlob, type MatteInfo } from '@/lib/export';
+import {
+  downloadBlob,
+  exportKakaoPackZip,
+  renderAnimatedApngBlob,
+  renderAnimatedGifBlob,
+  renderFrameCanvas,
+  renderFramesToApngBlob,
+  renderFramesToGifBlob,
+  renderMultiFrameCanvases,
+  renderPngBlob,
+  type MatteInfo,
+} from '@/lib/export';
 import { EMOTIONS } from '@/lib/art/sticker';
 import { LAYER_EFFECTS, TEXT_STYLES } from '@/lib/studio/layers';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
+import {
+  MOTION_TEMPLATES,
+  motionById,
+  motionDurationMs,
+  motionParticlesAt,
+  motionTransformAt,
+  type MotionId,
+} from '@/lib/studio/motion';
+import { extractVideoFrames, isVideoFile } from '@/lib/studio/video-frames';
 import {
   CUTOUT_CAPTION_MAX,
   CUTOUT_DEFAULT_OUTLINE,
@@ -30,9 +50,9 @@ import {
 
 // ─────────────────────────────────────────────────────────────
 // 내 사진 바로 누끼 스티커 (무료 · 서버 왕복 없음)
-//  · 사진 1~12장을 올리면 기기 안에서 배경을 떼고(AI 피사체 누끼) 흰 스티커 외곽선을 입힌다.
-//  · 컷마다 캘리그라피 한 줄·심플 데코를 골라 얹고, 360×360 투명 PNG 또는 카카오 규격 ZIP으로 저장한다.
-//  · Gemini 를 호출하지 않으므로 원가 0원·대기 없음. 사진은 서버로 보내지 않는다.
+//  · 사진 1~12장 또는 1~3초 숏폼 동영상을 올리면 기기 안에서 배경을 떼고
+//    흰 스티커 외곽선과 캘리그라피 한 줄을 얹어 360×360 투명 APNG/GIF/PNG 로 저장한다.
+//  · Gemini 를 호출하지 않으므로 원가 0원·대기 없음. 사진과 영상은 서버로 보내지 않는다.
 // ─────────────────────────────────────────────────────────────
 
 interface Cutout {
@@ -49,6 +69,10 @@ interface Cutout {
   /** 마지막으로 만든 360 미리보기 (PNG data URL) */
   preview?: string;
   matte?: MatteInfo;
+  /** 동영상/숏폼인 경우 추출된 프레임 배열 (없으면 단일 사진) */
+  videoFrames?: string[];
+  /** 동영상인 경우 프레임 간 딜레이(ms) */
+  frameDelayMs?: number;
 }
 
 const CHECKER: CSSProperties = {
@@ -116,8 +140,9 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
   const [themeId, setThemeId] = useState<string>(CUTOUT_SUGGESTIONS[0]?.id ?? '');
   const [uploading, setUploading] = useState(false);
   const [rendering, setRendering] = useState<string[]>([]);
+  const [busyFormat, setBusyFormat] = useState<'png' | 'gif' | 'apng' | null>(null);
   const [zipBusy, setZipBusy] = useState(false);
-  const [pngBusy, setPngBusy] = useState(false);
+  const [packFormat, setPackFormat] = useState<'apng' | 'gif' | 'png'>('apng');
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
@@ -125,10 +150,19 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
   const cutsRef = useRef<Cutout[]>([]);
   const renderedRef = useRef(new Map<string, string>());
   const queueRef = useRef<Promise<void>>(Promise.resolve());
+  const baseCanvasesRef = useRef(new Map<string, HTMLCanvasElement>());
+  const videoCanvasesRef = useRef(new Map<string, HTMLCanvasElement[]>());
+
   const galleryRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLInputElement>(null);
   const cameraRef = useRef<HTMLInputElement>(null);
+  const previewCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const selected = cuts.find((cut) => cut.id === selectedId) ?? cuts[0] ?? null;
+  const isVideoSelected = (selected?.videoFrames?.length ?? 0) > 1;
+  const currentMotion = selected?.style.motion ?? 'none';
+  const isAnimatedSelected = isVideoSelected || currentMotion !== 'none';
+
   const textStyles = useMemo(() => TEXT_STYLES.filter((item) => (CUTOUT_TEXT_STYLE_IDS as readonly string[]).includes(item.id)), []);
   const effects = useMemo(() => LAYER_EFFECTS.filter((item) => (CUTOUT_EFFECT_IDS as readonly string[]).includes(item.id)), []);
   const activeTheme = CUTOUT_SUGGESTIONS.find((theme) => theme.id === themeId) ?? CUTOUT_SUGGESTIONS[0];
@@ -137,8 +171,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     cutsRef.current = cuts;
   }, [cuts]);
 
-  // 컷 하나를 그린다 — 미리보기와 같은 파이프라인(누끼 + 외곽선 + 레이어)을 쓴다.
-  // MediaPipe 세그멘터는 한 번에 하나씩만 써야 해서 큐로 순서를 지킨다.
+  // 컷 하나를 그린다 — 누끼 + 외곽선 + 레이어 합성
   const renderCut = useCallback(
     async (cut: Cutout) => {
       const key = styleKeyOf(cut, outline);
@@ -146,7 +179,8 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
       setRendering((prev) => (prev.includes(cut.id) ? prev : [...prev, cut.id]));
       try {
         let info: MatteInfo | null = null;
-        const canvas = await renderFrameCanvas(cutoutSpec({ photo: cut.photo, style: cut.style, seed: cutoutSeed(cut.id) }), {
+        const spec = cutoutSpec({ photo: cut.photo, style: cut.style, seed: cutoutSeed(cut.id) });
+        const canvas = await renderFrameCanvas(spec, {
           size: CUTOUT_SIZE,
           outline,
           preciseMatte: true,
@@ -156,10 +190,22 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
           },
         });
         const latest = cutsRef.current.find((item) => item.id === cut.id);
-        // 그리는 사이에 문구·구도가 바뀌었으면 결과를 버린다(다음 렌더가 맞는 값을 만든다).
         if (latest && styleKeyOf(latest, outline) !== key) return;
         renderedRef.current.set(cut.id, key);
+        baseCanvasesRef.current.set(cut.id, canvas);
         const preview = canvas.toDataURL('image/png');
+
+        // 동영상 컷인 경우 나머지 프레임도 순차 렌더링하여 애니메이션 루프 준비
+        if (cut.videoFrames && cut.videoFrames.length > 1) {
+          const vCanvases = await renderMultiFrameCanvases(cut.videoFrames, spec, {
+            size: CUTOUT_SIZE,
+            outline,
+            preciseMatte: true,
+            matteEngine: 'auto',
+          });
+          videoCanvasesRef.current.set(cut.id, vCanvases);
+        }
+
         setCuts((prev) => prev.map((item) => (item.id === cut.id ? { ...item, preview, matte: info ?? item.matte } : item)));
       } catch {
         setError(t('미리보기를 만들지 못했어요. 사진을 다시 선택해 주세요.', 'We could not build the preview. Please choose the photo again.'));
@@ -167,7 +213,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
         setRendering((prev) => prev.filter((id) => id !== cut.id));
       }
     },
-    [outline, locale],
+    [outline, locale, t],
   );
 
   const enqueue = useCallback(
@@ -181,7 +227,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     [renderCut],
   );
 
-  // 선택한 컷의 문구·구도가 바뀌면 잠깐 기다렸다 다시 그린다(타이핑 중 깜빡임 방지).
+  // 문구·구도·모션 변경 디바운스
   const selectedKey = selected ? styleKeyOf(selected, outline) : '';
   useEffect(() => {
     if (!selected) return;
@@ -190,7 +236,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey]);
 
-  // 외곽선 두께는 모든 컷에 적용된다 — 미리보기와 ZIP 결과가 어긋나지 않게 함께 다시 그린다.
+  // 외곽선 변경 시 전체 재렌더링
   useEffect(() => {
     if (cuts.length === 0) return;
     const timer = window.setTimeout(() => {
@@ -199,6 +245,71 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outline]);
+
+  // ── 실시간 60FPS 모션 미리보기 루프 (Canvas) ───────────────────────
+  useEffect(() => {
+    let raf = 0;
+    const started = performance.now();
+    const motion = selected?.style.motion ?? 'none';
+    const isVideo = (selected?.videoFrames?.length ?? 0) > 1;
+
+    const draw = (now: number) => {
+      const canvas = previewCanvasRef.current;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      const size = canvas.width;
+      ctx.clearRect(0, 0, size, size);
+
+      if (!selected) return;
+
+      if (isVideo) {
+        const vCanvases = videoCanvasesRef.current.get(selected.id);
+        if (vCanvases && vCanvases.length > 0) {
+          const delay = selected.frameDelayMs ?? 90;
+          const totalDur = vCanvases.length * delay;
+          const frameIdx = Math.floor(((now - started) % totalDur) / delay) % vCanvases.length;
+          const cur = vCanvases[frameIdx];
+          if (cur) ctx.drawImage(cur, 0, 0, size, size);
+        } else {
+          const base = baseCanvasesRef.current.get(selected.id);
+          if (base) ctx.drawImage(base, 0, 0, size, size);
+        }
+      } else {
+        const base = baseCanvasesRef.current.get(selected.id);
+        if (!base) return;
+
+        if (motion === 'none') {
+          ctx.drawImage(base, 0, 0, size, size);
+        } else {
+          const duration = motionDurationMs(motion);
+          const p = ((now - started) % duration) / duration;
+          const tf = motionTransformAt(motion, p);
+          ctx.save();
+          ctx.globalAlpha = tf.alpha;
+          ctx.translate(size / 2 + tf.dx * size, size / 2 + tf.dy * size);
+          ctx.rotate((tf.rotate * Math.PI) / 180);
+          ctx.scale(tf.scaleX, tf.scaleY);
+          ctx.drawImage(base, -size / 2, -size / 2, size, size);
+          ctx.restore();
+
+          for (const particle of motionParticlesAt(motion, p)) {
+            ctx.save();
+            ctx.globalAlpha = Math.max(0, Math.min(1, particle.alpha));
+            ctx.fillStyle = particle.kind === 'heart' ? '#FF5A79' : '#FFD24D';
+            ctx.beginPath();
+            ctx.arc(particle.x * size, particle.y * size, particle.r * size, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+          }
+        }
+      }
+      raf = requestAnimationFrame(draw);
+    };
+
+    raf = requestAnimationFrame(draw);
+    return () => cancelAnimationFrame(raf);
+  }, [selectedId, selected?.style.motion, selected?.rev, cuts]);
 
   function updateSelected(patch: Partial<CutoutStyle>) {
     if (!selected) return;
@@ -209,41 +320,55 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     if (!files) return;
     setError(null);
     setNotice(null);
-    const list = Array.from(files).filter((file) => file.type.startsWith('image/'));
-    if (list.length === 0) {
-      setError(t('이미지 파일만 올릴 수 있어요.', 'Only image files can be added.'));
+    const fileList = Array.from(files);
+    const valid = fileList.filter((file) => file.type.startsWith('image/') || isVideoFile(file));
+    if (valid.length === 0) {
+      setError(t('이미지 또는 1~3초 동영상 파일만 올릴 수 있어요.', 'Only image or 1-3s video files can be added.'));
       return;
     }
     const room = CUTOUT_MAX_PHOTOS - cutsRef.current.length;
     if (room <= 0) {
-      setNotice(t(`사진은 한 번에 ${CUTOUT_MAX_PHOTOS}장까지예요. 필요 없는 컷을 지우고 다시 올려 주세요.`, `Up to ${CUTOUT_MAX_PHOTOS} photos at a time. Remove one to add another.`));
+      setNotice(t(`스티커는 한 번에 ${CUTOUT_MAX_PHOTOS}개까지예요. 필요 없는 컷을 지우고 다시 올려 주세요.`, `Up to ${CUTOUT_MAX_PHOTOS} items at a time.`));
       return;
     }
-    const accepted = list.slice(0, room);
-    if (list.length > room) {
-      setNotice(t(`사진은 한 번에 ${CUTOUT_MAX_PHOTOS}장까지예요. ${accepted.length}장을 올렸어요.`, `Up to ${CUTOUT_MAX_PHOTOS} photos — ${accepted.length} added.`));
-    }
+    const accepted = valid.slice(0, room);
     setUploading(true);
     const added: Cutout[] = [];
     for (const file of accepted) {
       try {
-        const photo = await squarePhoto(file, 'face');
-        added.push({
-          id: crypto.randomUUID(),
-          file,
-          name: file.name,
-          photo,
-          crop: 'face',
-          rev: 0,
-          style: { ...DEFAULT_CUTOUT_STYLE },
-        });
-      } catch {
-        /* 읽지 못한 파일은 건너뛴다 */
+        if (isVideoFile(file)) {
+          setNotice(t('🎬 동영상에서 12프레임을 추출하고 있어요…', 'Extracting frames from video…'));
+          const clip = await extractVideoFrames(file, { crop: 'face' });
+          added.push({
+            id: crypto.randomUUID(),
+            file,
+            name: file.name,
+            photo: clip.frames[0],
+            crop: 'face',
+            rev: 0,
+            style: { ...DEFAULT_CUTOUT_STYLE, caption: '나 지금 가는 중!!' },
+            videoFrames: clip.frames,
+            frameDelayMs: clip.delayMs,
+          });
+        } else {
+          const photo = await squarePhoto(file, 'face');
+          added.push({
+            id: crypto.randomUUID(),
+            file,
+            name: file.name,
+            photo,
+            crop: 'face',
+            rev: 0,
+            style: { ...DEFAULT_CUTOUT_STYLE },
+          });
+        }
+      } catch (err) {
+        console.warn('파일 처리 실패:', err);
       }
     }
     setUploading(false);
     if (added.length === 0) {
-      setError(t('사진을 읽지 못했어요. 다른 사진으로 시도해 주세요.', 'We could not read that photo. Please try another image.'));
+      setError(t('파일을 읽지 못했어요. 다른 사진이나 동영상으로 시도해 주세요.', 'We could not read the file. Please try another image or video.'));
       return;
     }
     setCuts((prev) => [...prev, ...added]);
@@ -255,8 +380,19 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     if (cut.crop === crop) return;
     setError(null);
     try {
-      const photo = await squarePhoto(cut.file, crop);
-      setCuts((prev) => prev.map((item) => (item.id === cut.id ? { ...item, photo, crop, rev: item.rev + 1 } : item)));
+      if (cut.videoFrames && isVideoFile(cut.file)) {
+        const clip = await extractVideoFrames(cut.file, { crop });
+        setCuts((prev) =>
+          prev.map((item) =>
+            item.id === cut.id
+              ? { ...item, photo: clip.frames[0], videoFrames: clip.frames, frameDelayMs: clip.delayMs, crop, rev: item.rev + 1 }
+              : item,
+          ),
+        );
+      } else {
+        const photo = await squarePhoto(cut.file, crop);
+        setCuts((prev) => prev.map((item) => (item.id === cut.id ? { ...item, photo, crop, rev: item.rev + 1 } : item)));
+      }
     } catch {
       setError(t('사진 구도를 다시 잡지 못했어요.', 'We could not re-frame the photo.'));
     }
@@ -265,12 +401,16 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
   function removeCut(id: string) {
     const next = cutsRef.current.filter((cut) => cut.id !== id);
     renderedRef.current.delete(id);
+    baseCanvasesRef.current.delete(id);
+    videoCanvasesRef.current.delete(id);
     setCuts(next);
     if (selectedId === id) setSelectedId(next[0]?.id ?? null);
   }
 
   function clearAll() {
     renderedRef.current.clear();
+    baseCanvasesRef.current.clear();
+    videoCanvasesRef.current.clear();
     setCuts([]);
     setSelectedId(null);
     setNotice(null);
@@ -289,30 +429,57 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     applySuggestion(line);
   }
 
-  async function downloadSelected() {
+  async function downloadSingle(format: 'png' | 'gif' | 'apng') {
     if (!selected) return;
-    setPngBusy(true);
+    setBusyFormat(format);
     setError(null);
     setNotice(null);
     try {
       const index = cutsRef.current.findIndex((cut) => cut.id === selected.id);
-      const blob = await renderPngBlob(cutoutSpec({ photo: selected.photo, style: selected.style, seed: cutoutSeed(selected.id) }), {
-        size: CUTOUT_SIZE,
-        outline,
-        preciseMatte: true,
-        matteEngine: 'auto',
-      });
-      downloadBlob(blob, cutoutFileName(index < 0 ? 0 : index));
+      const safeIndex = index < 0 ? 0 : index;
+      const spec = cutoutSpec({ photo: selected.photo, style: selected.style, seed: cutoutSeed(selected.id) });
+      const baseOpts = { size: CUTOUT_SIZE, outline, preciseMatte: true, matteEngine: 'auto' as const };
+      const isVideo = (selected.videoFrames?.length ?? 0) > 1;
+      const motion = selected.style.motion ?? 'none';
+
+      let blob: Blob;
+      let filename: string;
+
+      if (format === 'png') {
+        blob = await renderPngBlob(spec, baseOpts);
+        filename = cutoutFileName(safeIndex, 'png');
+      } else if (format === 'gif') {
+        if (isVideo) {
+          const vCanvases = videoCanvasesRef.current.get(selected.id) ?? (await renderMultiFrameCanvases(selected.videoFrames!, spec, baseOpts));
+          blob = await renderFramesToGifBlob(vCanvases, selected.frameDelayMs ?? 90, 128);
+        } else {
+          blob = await renderAnimatedGifBlob(spec, { ...baseOpts, motion: motion === 'none' ? 'bounce' : motion, colors: 128 });
+        }
+        filename = cutoutFileName(safeIndex, 'gif');
+      } else {
+        // apng
+        if (isVideo) {
+          const vCanvases = videoCanvasesRef.current.get(selected.id) ?? (await renderMultiFrameCanvases(selected.videoFrames!, spec, baseOpts));
+          blob = await renderFramesToApngBlob(vCanvases, selected.frameDelayMs ?? 90);
+        } else {
+          blob = await renderAnimatedApngBlob(spec, { ...baseOpts, motion: motion === 'none' ? 'bounce' : motion });
+        }
+        filename = `emotihak-cutout-${cutoutOrder(safeIndex)}-apng.png`;
+      }
+
+      downloadBlob(blob, filename);
+      const kb = Math.round(blob.size / 1024);
       setNotice(
-        t(
-          `투명 PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE}를 내려받았어요 (${Math.round(blob.size / 1024)}KB). 카카오톡 채팅방에 사진으로 보내면 스티커처럼 보여요.`,
-          `Downloaded a transparent ${CUTOUT_SIZE}×${CUTOUT_SIZE} PNG (${Math.round(blob.size / 1024)}KB).`,
-        ),
+        format === 'gif'
+          ? t(`🎬 움직이는 GIF 내려받기 완료 (${kb}KB)! 카카오톡 채팅방에 사진으로 보내면 바로 움직여요.`, `Downloaded moving GIF (${kb}KB)!`)
+          : format === 'apng'
+            ? t(`✨ 카톡 규격 APNG 내려받기 완료 (${kb}KB)! 카카오 이모티콘 스튜디오 제출용 무손실 투명 규격이에요.`, `Downloaded Kakao APNG (${kb}KB)!`)
+            : t(`🖼️ 투명 PNG 내려받기 완료 (${kb}KB)! 360×360 선명한 정지 스티커예요.`, `Downloaded transparent PNG (${kb}KB)!`),
       );
     } catch {
-      setError(t('PNG를 만들지 못했어요. 잠시 후 다시 시도해 주세요.', 'We could not build the PNG. Please try again.'));
+      setError(t('스티커를 만들지 못했어요. 잠시 후 다시 시도해 주세요.', 'Could not build sticker. Please try again.'));
     } finally {
-      setPngBusy(false);
+      setBusyFormat(null);
     }
   }
 
@@ -326,16 +493,27 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
       const items = list.map((cut, index) => ({
         spec: cutoutSpec({ photo: cut.photo, style: cut.style, seed: cutoutSeed(cut.id) }),
         filename: `${cutoutOrder(index)}-cutout`,
+        videoFrames: cut.videoFrames,
+        frameDelayMs: cut.frameDelayMs,
+        motion: cut.style.motion,
       }));
-      const result = await exportKakaoPackZip(items, { outline, preciseMatte: true, matteEngine: 'auto', motion: 'none' });
+
+      const isPackAnimated = packFormat !== 'png';
+      const result = await exportKakaoPackZip(items, {
+        outline,
+        preciseMatte: true,
+        matteEngine: 'auto',
+        motion: isPackAnimated ? 'bounce' : 'none',
+        animationFormat: packFormat === 'gif' ? 'gif' : 'apng',
+      });
+
       downloadBlob(result.blob, CUTOUT_ZIP_NAME);
-      // 컷 수(공식 32컷)는 내 대화방용 팩에는 해당 없다 — 픽셀·용량 같은 실제 쓸모 기준으로 안내한다.
       const usable = result.validation.exportable;
       setNotice(
         usable
           ? t(
-              `${list.length}컷 카카오 규격 ZIP을 내려받았어요. 360×360 · 개당 150KB 이하 확인${result.compressed > 0 ? ` · 자동 압축 ${result.compressed}컷` : ''}. 카카오 공식 제안은 32컷이라 개수는 다르지만, 내 대화방에 바로 쓸 수 있어요.`,
-              `Downloaded a ${list.length}-cut ZIP (360×360, under 150KB each).`,
+              `${list.length}컷 카카오 규격 ZIP을 내려받았어요 (${packFormat.toUpperCase()}). 360×360 · 개당 150KB 이하 확인${result.compressed > 0 ? ` · 자동 압축 ${result.compressed}컷` : ''}. 카카오 공식 제안은 32컷(움티 24컷)이라 개수는 다르지만, 내 대화방에 바로 쓸 수 있어요.`,
+              `Downloaded a ${list.length}-cut ZIP (${packFormat.toUpperCase()}, 360×360, under 150KB each).`,
             )
           : t(
               `${list.length}컷 ZIP을 내려받았어요. ${result.validation.summary}`,
@@ -364,17 +542,18 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
       </nav>
 
       <header>
-        <p className="eyebrow">{t('PHOTO CUTOUT · FREE', 'PHOTO CUTOUT · FREE')}</p>
-        <h1 className="h2 mt-1 break-keep">📸 {t('내 사진 바로 누끼 스티커', 'Cut my photo into a sticker')}</h1>
+        <p className="eyebrow">{t('PHOTO & VIDEO CUTOUT · FREE', 'PHOTO & VIDEO CUTOUT · FREE')}</p>
+        <h1 className="h2 mt-1 break-keep">📸 {t('내 사진·동영상 바로 누끼 스티커', 'Cut my photo & video into a sticker')}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">
           {t(
-            'AI가 새로 그리지 않아요. 올린 사진 그대로 배경만 떼고, 캘리그라피 한 줄과 심플 데코를 얹어 360×360 투명 PNG로 바로 저장해요.',
-            'No AI redraw: we remove the background from your own photo, add a handwritten line and a small decor, and save a 360×360 transparent PNG.',
+            'AI가 새로 그리지 않아요. 올린 사진이나 1~3초 숏폼 영상 그대로 배경만 떼고, 캘리그라피 한 줄과 모션을 얹어 카톡 규격(360×360 투명 APNG/GIF)으로 바로 저장해요.',
+            'No AI redraw: remove background from your photo or short video, add lettering & motion, and export as KakaoTalk-ready 360×360 transparent APNG/GIF.',
           )}
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-black">
           <span className="chip !bg-mint/10 !text-ink">{t('AI 생성 없음 · 즉시 완성', 'No AI generation · instant')}</span>
-          <span className="chip !bg-white">{t('사진은 기기 안에서만', 'Photos stay on device')}</span>
+          <span className="chip !bg-white">{t('사진·영상은 기기 안에서만', 'Photos & videos stay on device')}</span>
+          <span className="chip !bg-white">{t('움직이는 카톡 움티 지원 (APNG·GIF)', 'Animated Kakao sticker supported')}</span>
           <span className="chip !bg-white">{t('크레딧 0 · 무료', '0 credits · free')}</span>
         </div>
       </header>
@@ -385,28 +564,42 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
             <p className="text-sm font-black">
               {t('미리보기', 'Preview')}
-              {selected ? <span className="ml-2 text-[11px] font-bold text-sub">{cutoutOrder(selectedIndex)} / {String(cuts.length).padStart(2, '0')}</span> : null}
+              {selected ? (
+                <span className="ml-2 text-[11px] font-bold text-sub">
+                  {cutoutOrder(selectedIndex)} / {String(cuts.length).padStart(2, '0')}
+                </span>
+              ) : null}
             </p>
-            {matteText ? <span className="chip !bg-cream !text-[10px]">{matteText}</span> : null}
+            <div className="flex items-center gap-1.5">
+              {isVideoSelected ? (
+                <span className="chip !bg-coral/10 !text-coralink !text-[10px]">🎬 {t('동영상 클립', 'Video clip')}</span>
+              ) : currentMotion !== 'none' ? (
+                <span className="chip !bg-primary/10 !text-primary-dark !text-[10px]">
+                  {motionById(currentMotion)?.emoji} {locale === 'en' ? motionById(currentMotion)?.labelEn : motionById(currentMotion)?.label}
+                </span>
+              ) : null}
+              {matteText ? <span className="chip !bg-cream !text-[10px]">{matteText}</span> : null}
+            </div>
           </div>
           <div className="p-4">
             <div className="relative mx-auto aspect-square w-full max-w-[360px] overflow-hidden rounded-2xl border border-line" style={CHECKER}>
-              {selected?.preview ? (
-                /* eslint-disable-next-line @next/next/no-img-element */
-                <img
-                  src={selected.preview}
-                  alt={t('누끼 스티커 미리보기', 'Cutout sticker preview')}
-                  className="h-full w-full object-contain"
-                />
-              ) : (
+              <canvas
+                ref={previewCanvasRef}
+                width={CUTOUT_SIZE}
+                height={CUTOUT_SIZE}
+                className={clsx('h-full w-full object-contain', !selected && 'hidden')}
+              />
+              {!selected ? (
                 <div className="grid h-full place-items-center p-6 text-center">
                   <div>
-                    <p aria-hidden="true" className="text-4xl">🖼️</p>
-                    <p className="mt-2 text-sm font-black">{t('사진을 올리면 여기에 완성돼요', 'Your sticker appears here')}</p>
-                    <p className="mt-1 text-[11px] leading-relaxed text-sub">{t('체크무늬는 투명한 부분이에요.', 'The checkered area is transparent.')}</p>
+                    <p aria-hidden="true" className="text-4xl">📸</p>
+                    <p className="mt-2 text-sm font-black">{t('사진이나 동영상을 올리면 여기에 완성돼요', 'Your sticker appears here')}</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-sub">
+                      {t('단일 사진은 8종 모션, 짧은 영상은 실제 움직임 그대로 살아 움직여요.', 'Single photos get 8 motions; short videos move naturally.')}
+                    </p>
                   </div>
                 </div>
-              )}
+              ) : null}
               {selected && rendering.includes(selected.id) ? (
                 <div className="absolute inset-0 grid place-items-center bg-paper/70 backdrop-blur-[1px]">
                   <span role="status" className="rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-black text-ink shadow-soft">
@@ -416,29 +609,104 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
               ) : null}
             </div>
 
-            <div className="mt-4 grid gap-2">
-              <button type="button" className="btn-primary min-h-12 !py-3 text-sm" disabled={!selected || pngBusy} onClick={downloadSelected}>
-                {pngBusy
-                  ? t('PNG 만드는 중…', 'Making PNG…')
-                  : t(`투명 PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE} 내려받기`, `Download transparent PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE}`)}
-              </button>
-              <button type="button" className="btn-dark min-h-12 !py-3 text-sm" disabled={cuts.length === 0 || zipBusy} onClick={downloadZip}>
-                {zipBusy ? t('ZIP 만드는 중…', 'Making ZIP…') : t(`전체 ${cuts.length}컷 카카오 규격 ZIP`, `All ${cuts.length} cuts · Kakao ZIP`)}
-              </button>
+            {/* 단일 컷 다운로드 버튼군 */}
+            <div className="mt-4 space-y-2">
+              {isAnimatedSelected ? (
+                <div className="grid gap-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      className="btn-primary min-h-12 !py-2.5 text-xs font-black shadow-pop"
+                      disabled={!selected || busyFormat !== null}
+                      onClick={() => downloadSingle('gif')}
+                    >
+                      {busyFormat === 'gif' ? t('GIF 만드는 중…', 'Making GIF…') : t('🎬 움직이는 GIF(움짤) 저장', 'Save Animated GIF')}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-accent min-h-12 !py-2.5 text-xs font-black"
+                      disabled={!selected || busyFormat !== null}
+                      onClick={() => downloadSingle('apng')}
+                    >
+                      {busyFormat === 'apng' ? t('APNG 만드는 중…', 'Making APNG…') : t('✨ 카톡 규격 APNG 저장', 'Save Kakao APNG')}
+                    </button>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn-ghost min-h-10 !py-2 text-xs font-bold text-sub"
+                    disabled={!selected || busyFormat !== null}
+                    onClick={() => downloadSingle('png')}
+                  >
+                    {busyFormat === 'png' ? t('PNG 만드는 중…', 'Making PNG…') : t('🖼️ 정지 PNG (360×360) 저장', 'Save Still PNG')}
+                  </button>
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  <button
+                    type="button"
+                    className="btn-primary min-h-12 !py-3 text-sm font-black shadow-pop"
+                    disabled={!selected || busyFormat !== null}
+                    onClick={() => downloadSingle('png')}
+                  >
+                    {busyFormat === 'png'
+                      ? t('PNG 만드는 중…', 'Making PNG…')
+                      : t(`투명 PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE} 내려받기`, `Download transparent PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE}`)}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost min-h-10 !py-2 text-xs font-bold text-sub"
+                    disabled={!selected}
+                    onClick={() => updateSelected({ motion: 'bounce' })}
+                  >
+                    🏀 {t('이 컷에 움직임(바운스 모션) 추가하기', 'Add bounce motion to this cut')}
+                  </button>
+                </div>
+              )}
+
+              {/* 전체 팩 ZIP 패키징 */}
+              <div className="mt-3 rounded-2xl border border-line bg-cream/40 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-black text-ink">{t('전체 컷 패키징 형식', 'Pack format')}</p>
+                  <div className="flex gap-1">
+                    {(['apng', 'gif', 'png'] as const).map((fmt) => (
+                      <button
+                        key={fmt}
+                        type="button"
+                        onClick={() => setPackFormat(fmt)}
+                        className={clsx(
+                          'rounded-lg px-2 py-1 text-[10px] font-black uppercase transition',
+                          packFormat === fmt ? 'bg-ink text-white' : 'bg-white text-sub hover:text-ink',
+                        )}
+                      >
+                        {fmt}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn-dark mt-2.5 w-full min-h-11 !py-2.5 text-xs font-black"
+                  disabled={cuts.length === 0 || zipBusy}
+                  onClick={downloadZip}
+                >
+                  {zipBusy ? t('ZIP 만드는 중…', 'Making ZIP…') : t(`전체 ${cuts.length}컷 카카오 규격 ZIP (${packFormat.toUpperCase()})`, `All ${cuts.length} cuts · Kakao ZIP (${packFormat.toUpperCase()})`)}
+                </button>
+              </div>
             </div>
+
             {notice ? <p role="status" className="mt-3 rounded-xl border border-mint/40 bg-mint/10 px-3 py-2 text-[11px] font-bold leading-relaxed text-ink">{notice}</p> : null}
             {error ? <p role="alert" className="mt-3 rounded-xl border border-coral/50 bg-coral/10 px-3 py-2 text-[11px] font-bold leading-relaxed text-coralink">{error}</p> : null}
           </div>
         </section>
 
         <div className="space-y-4">
-          {/* ── 사진 올리기 ──────────────────────────────── */}
+          {/* ── 사진·동영상 올리기 ──────────────────────────────── */}
           <section className="card p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <h2 className="text-sm font-black">{t('① 사진 올리기', '① Add photos')}</h2>
+                <h2 className="text-sm font-black">{t('① 사진 또는 동영상 올리기', '① Add photos or video')}</h2>
                 <p className="mt-1 text-[11px] leading-relaxed text-sub">
-                  {t(`한 장만 올려도 되고, ${CUTOUT_MAX_PHOTOS}장까지 한 번에 올려 팩처럼 저장할 수 있어요.`, `One photo is enough; up to ${CUTOUT_MAX_PHOTOS} at once for a whole pack.`)}
+                  {t(`사진 1~${CUTOUT_MAX_PHOTOS}장 또는 1~3초 짧은 동영상을 올리면 실사 카톡 짤로 만들어 드려요.`, `Upload photos or a 1-3s short video to create live-action stickers.`)}
                 </p>
               </div>
               <span className="chip !bg-cream !text-[10px]">{cuts.length} / {CUTOUT_MAX_PHOTOS}</span>
@@ -472,6 +740,16 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
                 }}
               />
               <input
+                ref={videoRef}
+                type="file"
+                accept="video/mp4,video/quicktime,video/webm,video/*"
+                className="sr-only"
+                onChange={(event) => {
+                  void addFiles(event.target.files);
+                  event.target.value = '';
+                }}
+              />
+              <input
                 ref={cameraRef}
                 type="file"
                 accept="image/*"
@@ -483,14 +761,19 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
                 }}
               />
               <p className="text-[13px] font-bold leading-relaxed">
-                {uploading ? t('사진을 준비하고 있어요…', 'Preparing photos…') : t('사진을 여기로 끌어다 놓거나 아래 버튼을 눌러 주세요', 'Drop photos here or use the buttons below')}
+                {uploading
+                  ? t('파일을 준비하고 있어요…', 'Preparing files…')
+                  : t('사진이나 1~3초 동영상을 여기로 끌어다 놓으세요', 'Drop photos or 1-3s video here')}
               </p>
               <div className="mt-3 flex flex-wrap justify-center gap-2">
                 <button type="button" className="btn-primary min-h-11 !px-4 !py-2 text-xs" disabled={uploading} onClick={() => galleryRef.current?.click()}>
-                  {t('사진 선택', 'Choose photos')}
+                  📸 {t('사진 올리기', 'Add photos')}
+                </button>
+                <button type="button" className="btn-accent min-h-11 !px-4 !py-2 text-xs" disabled={uploading} onClick={() => videoRef.current?.click()}>
+                  🎬 {t('동영상 올리기 (1~3초)', 'Add short video')}
                 </button>
                 <button type="button" className="btn-ghost min-h-11 !px-4 !py-2 text-xs" disabled={uploading} onClick={() => cameraRef.current?.click()}>
-                  {t('카메라로 찍기', 'Take a photo')}
+                  {t('카메라 촬영', 'Take photo')}
                 </button>
                 {cuts.length > 0 ? (
                   <button type="button" className="min-h-11 rounded-xl px-3 text-xs font-bold text-sub hover:text-ink" onClick={clearAll}>
@@ -500,116 +783,189 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
               </div>
             </div>
 
+            {/* 업로드된 컷 썸네일 스트립 */}
             {cuts.length > 0 ? (
-              <ul className="mt-3 grid grid-cols-4 gap-2" aria-label={t('올린 사진', 'Added photos')}>
-                {cuts.map((cut, index) => {
-                  const active = cut.id === selected?.id;
-                  return (
-                    <li key={cut.id} className="relative">
-                      <button
-                        type="button"
+              <div className="mt-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-[11px] font-black text-sub">{t('컷 선택', 'Select cut')}</p>
+                  <p className="text-[10px] text-sub">{t('선택한 컷을 아래에서 편집해요', 'Edit selected cut below')}</p>
+                </div>
+                <div className="mt-2 flex gap-2 overflow-x-auto pb-2">
+                  {cuts.map((cut, index) => {
+                    const active = cut.id === selected?.id;
+                    const isVid = (cut.videoFrames?.length ?? 0) > 1;
+                    return (
+                      <div
+                        key={cut.id}
+                        role="button"
+                        tabIndex={0}
                         aria-pressed={active}
                         onClick={() => setSelectedId(cut.id)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            setSelectedId(cut.id);
+                          }
+                        }}
                         className={clsx(
-                          'block w-full overflow-hidden rounded-xl border-2 bg-cream transition',
-                          active ? 'border-primary ring-2 ring-primary/20' : 'border-line hover:border-primary/40',
+                          'group relative shrink-0 w-20 cursor-pointer rounded-2xl border-2 p-1 text-left transition',
+                          active ? 'border-primary bg-primary/5 shadow-soft ring-2 ring-primary/30' : 'border-line bg-white hover:border-ink/30',
                         )}
                       >
-                        <span className="relative block aspect-square">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={cut.preview ?? cut.photo} alt={cut.name} className="h-full w-full object-cover" />
-                          {rendering.includes(cut.id) ? <span className="absolute inset-0 grid place-items-center bg-paper/60 text-sm">✂️</span> : null}
-                        </span>
-                        <span className="block truncate px-1 py-1 text-[10px] font-black">{cutoutOrder(index)}</span>
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={t(`${cutoutOrder(index)}번 사진 지우기`, `Remove photo ${cutoutOrder(index)}`)}
-                        onClick={() => removeCut(cut.id)}
-                        className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full border border-line bg-white text-xs font-black text-sub shadow-soft hover:text-coralink"
-                      >
-                        ×
-                      </button>
-                    </li>
-                  );
-                })}
-                {cuts.length < CUTOUT_MAX_PHOTOS ? (
-                  <li>
-                    <button
-                      type="button"
-                      onClick={() => galleryRef.current?.click()}
-                      className="grid aspect-square w-full place-items-center rounded-xl border-2 border-dashed border-line bg-cream/40 text-lg font-black text-sub hover:border-primary/40 hover:text-primary-dark"
-                      aria-label={t('사진 더 올리기', 'Add more photos')}
-                    >
-                      +
-                    </button>
-                  </li>
-                ) : null}
-              </ul>
+                        <div className="relative aspect-square w-full overflow-hidden rounded-xl" style={CHECKER}>
+                          {cut.preview ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
+                            <img src={cut.preview} alt="" className="h-full w-full object-contain" />
+                          ) : (
+                            <div className="grid h-full place-items-center text-xs text-sub">…</div>
+                          )}
+                          {isVid ? (
+                            <span className="absolute bottom-1 right-1 rounded-md bg-ink/80 px-1 py-0.5 text-[8px] font-black text-white">
+                              🎬 12F
+                            </span>
+                          ) : cut.style.motion && cut.style.motion !== 'none' ? (
+                            <span className="absolute bottom-1 right-1 rounded-md bg-primary/90 px-1 py-0.5 text-[8px] font-black text-white">
+                              {motionById(cut.style.motion)?.emoji}
+                            </span>
+                          ) : null}
+                        </div>
+                        <div className="mt-1 flex items-center justify-between px-1">
+                          <span className="text-[10px] font-black text-sub">{cutoutOrder(index)}</span>
+                          <button
+                            type="button"
+                            aria-label={t(`${index + 1}번 컷 삭제`, `Delete cut ${index + 1}`)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              removeCut(cut.id);
+                            }}
+                            className="rounded p-0.5 text-[10px] text-sub hover:bg-coral/10 hover:text-coralink"
+                          >
+                            ✕
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             ) : null}
           </section>
 
-          {/* ── 문구 ─────────────────────────────────────── */}
-          <section className="card p-4 sm:p-5" aria-labelledby="cutout-caption-title">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 id="cutout-caption-title" className="text-sm font-black">{t('② 문구 넣기', '② Add a line')}</h2>
-              <span className="text-[10px] font-bold text-sub">{captionLength} / {CUTOUT_CAPTION_MAX}</span>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <input
-                type="text"
-                value={selected?.style.caption ?? ''}
-                maxLength={CUTOUT_CAPTION_MAX}
-                disabled={!selected}
-                placeholder={t('예) 퇴근!! / 간식 내놔 / ㅋㅋㅋㅋ', 'e.g. Going home!')}
-                onChange={(event) => updateSelected({ caption: event.target.value })}
-                className="min-h-12 w-full rounded-xl border-2 border-line bg-cream px-3 text-sm font-bold text-ink disabled:opacity-50"
-                aria-label={t('사진에 얹을 문구', 'Line to place on the photo')}
-              />
-              <button
-                type="button"
-                className="btn-ghost min-h-12 shrink-0 !px-3 text-xs"
-                disabled={!selected || !hasCaption(selected.style)}
-                onClick={() => updateSelected({ caption: '' })}
-              >
-                {t('지우기', 'Clear')}
-              </button>
+          {/* ── 문구·모션·스타일 편집 ────────────────────────── */}
+          <section className="card p-4 sm:p-5">
+            <h2 className="text-sm font-black">{t('② 문구·모션 편집', '② Lettering & motion')}</h2>
+
+            {/* 1) 움직임 효과 선택 (단일 사진 모션 vs 동영상 원본 동작) */}
+            <div className="mt-3 rounded-2xl border border-line bg-paper p-3.5">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-xs font-black text-ink">
+                  {isVideoSelected ? '🎬 ' + t('숏폼 동영상 모션', 'Short video motion') : '🏀 ' + t('움직임 효과 (카톡 모션)', 'Motion effect (Kakao)')}
+                </p>
+                {isVideoSelected ? (
+                  <span className="chip !bg-coral/10 !text-coralink !text-[10px]">{t('원본 동작 12프레임', '12 original frames')}</span>
+                ) : (
+                  <span className="text-[10px] text-sub">{motionById(currentMotion)?.hint ?? t('정지 이미지', 'Still')}</span>
+                )}
+              </div>
+
+              {isVideoSelected ? (
+                <p className="mt-1.5 text-[11px] leading-relaxed text-sub">
+                  {t('업로드한 영상의 실제 움직임 그대로 12프레임 배경을 분리하여 카톡 규격 APNG/GIF 로 조립합니다.', 'Uses your video frames directly for natural live movement.')}
+                </p>
+              ) : (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <button
+                    type="button"
+                    disabled={!selected}
+                    aria-pressed={currentMotion === 'none'}
+                    onClick={() => updateSelected({ motion: 'none' })}
+                    className={clsx(
+                      'min-h-9 rounded-full border px-2.5 text-[11px] font-black transition',
+                      currentMotion === 'none' ? 'border-ink bg-ink text-white' : 'border-line bg-white text-sub hover:text-ink',
+                    )}
+                  >
+                    {t('정지 컷', 'Still')}
+                  </button>
+                  {MOTION_TEMPLATES.map((tpl) => (
+                    <button
+                      key={tpl.id}
+                      type="button"
+                      disabled={!selected}
+                      aria-pressed={currentMotion === tpl.id}
+                      onClick={() => updateSelected({ motion: tpl.id })}
+                      className={clsx(
+                        'min-h-9 rounded-full border px-2.5 text-[11px] font-black transition',
+                        currentMotion === tpl.id ? 'border-primary bg-primary text-white shadow-soft' : 'border-line bg-white text-sub hover:border-primary/50',
+                      )}
+                    >
+                      <span>{tpl.emoji}</span> {locale === 'en' ? tpl.labelEn : tpl.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
+            {/* 2) 문구 입력 */}
             <div className="mt-4">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <p className="text-[11px] font-black text-sub">{t(`추천 대사 ${CUTOUT_SUGGESTION_COUNT}개 — 누르면 바로 채워져요`, `${CUTOUT_SUGGESTION_COUNT} ready-made lines — tap to fill`)}</p>
-                <button type="button" className="text-[11px] font-black text-coralink underline" disabled={!selected} onClick={randomSuggestion}>
+              <div className="flex items-center justify-between">
+                <label className="text-[11px] font-black text-sub" htmlFor="cutout-caption">
+                  {t('대사 한 줄 (비우면 사진/영상만)', 'Caption (leave empty for photo only)')}
+                </label>
+                <span className={clsx('text-[10px] font-bold', captionLength > CUTOUT_CAPTION_MAX ? 'text-coral' : 'text-sub')}>
+                  {captionLength} / {CUTOUT_CAPTION_MAX}
+                </span>
+              </div>
+              <div className="mt-1.5 flex gap-1.5">
+                <input
+                  id="cutout-caption"
+                  type="text"
+                  maxLength={CUTOUT_CAPTION_MAX}
+                  value={selected?.style.caption ?? ''}
+                  disabled={!selected}
+                  placeholder={t('예: 나 지금 가는 중!!, 오늘 칼퇴합니다', 'e.g. On my way!, Calling it a day')}
+                  onChange={(event) => updateSelected({ caption: event.target.value })}
+                  className="input-field flex-1 text-sm font-bold disabled:opacity-50"
+                />
+                <button
+                  type="button"
+                  disabled={!selected}
+                  onClick={randomSuggestion}
+                  className="btn-ghost shrink-0 !px-3 text-xs font-bold"
+                  title={t('추천 대사 무작위 넣기', 'Random suggestion')}
+                >
                   🎲 {t('랜덤', 'Random')}
                 </button>
               </div>
-              <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label={t('추천 대사 테마', 'Line themes')}>
-                {CUTOUT_SUGGESTIONS.map((theme) => (
-                  <button
-                    key={theme.id}
-                    type="button"
-                    aria-pressed={theme.id === activeTheme?.id}
-                    onClick={() => setThemeId(theme.id)}
-                    className={clsx(
-                      'rounded-full border px-2.5 py-1 text-[11px] font-black transition',
-                      theme.id === activeTheme?.id ? 'border-primary bg-primary text-white' : 'border-line bg-white text-sub hover:text-ink',
-                    )}
-                  >
-                    <span aria-hidden="true">{theme.emoji}</span> {theme.title}
-                  </button>
-                ))}
+            </div>
+
+            {/* 추천 대사 테마 칩 */}
+            <div className="mt-3 rounded-2xl border border-line bg-cream/30 p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-[11px] font-black text-sub">💡 {t('추천 대사 (클릭하면 바로 적용)', 'Suggestions')}</p>
+                <div className="flex gap-1 overflow-x-auto">
+                  {CUTOUT_SUGGESTIONS.map((theme) => (
+                    <button
+                      key={theme.id}
+                      type="button"
+                      onClick={() => setThemeId(theme.id)}
+                      className={clsx(
+                        'shrink-0 rounded-lg px-2 py-0.5 text-[10px] font-black transition',
+                        themeId === theme.id ? 'bg-ink text-white' : 'bg-white text-sub hover:text-ink',
+                      )}
+                    >
+                      <span aria-hidden="true">{theme.emoji}</span> {theme.title}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <div className="mt-2 grid max-h-44 gap-1.5 overflow-y-auto rounded-xl border border-line bg-cream/40 p-2 sm:grid-cols-2">
+              <div className="mt-2 flex flex-wrap gap-1.5">
                 {activeTheme?.lines.map((line) => (
                   <button
                     key={line.id}
                     type="button"
                     disabled={!selected}
                     onClick={() => applySuggestion(line)}
-                    className={clsx(
-                      'rounded-lg border px-2 py-1.5 text-left text-[11px] font-bold leading-snug transition',
-                      selected?.style.caption === line.line ? 'border-primary bg-primary/10 text-primary-dark' : 'border-line bg-white text-ink hover:border-primary/40',
-                    )}
+                    className="rounded-full border border-line bg-white px-2.5 py-1 text-[11px] font-bold text-ink transition hover:border-primary hover:bg-primary/5 active:scale-95 disabled:opacity-40"
                   >
                     <span aria-hidden="true" className="mr-1">{EMOTIONS[line.emotion]?.emoji}</span>
                     {line.line}
@@ -617,14 +973,10 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
                 ))}
               </div>
             </div>
-          </section>
 
-          {/* ── 스타일 ───────────────────────────────────── */}
-          <section className="card p-4 sm:p-5" aria-labelledby="cutout-style-title">
-            <h2 id="cutout-style-title" className="text-sm font-black">{t('③ 서체·데코 고르기', '③ Style & decor')}</h2>
-
-            <p className="mt-3 text-[11px] font-black text-sub">{t('서체', 'Typeface')}</p>
-            <div className="mt-1.5 grid grid-cols-5 gap-1.5">
+            {/* 서체 선택 */}
+            <p className="mt-4 text-[11px] font-black text-sub">{t('서체', 'Font')}</p>
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
               {textStyles.map((item) => (
                 <button
                   key={item.id}
@@ -633,8 +985,8 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
                   aria-pressed={selected?.style.style === item.id}
                   onClick={() => updateSelected({ style: item.id })}
                   className={clsx(
-                    'min-h-10 rounded-xl border px-1 text-[11px] font-black transition',
-                    selected?.style.style === item.id ? 'border-primary bg-primary/10 text-primary-dark' : 'border-line bg-white text-sub hover:text-ink',
+                    'min-h-9 rounded-full border px-3 text-[11px] font-black transition',
+                    selected?.style.style === item.id ? 'border-primary bg-primary text-white shadow-soft' : 'border-line bg-white text-sub hover:border-primary/50',
                   )}
                 >
                   {item.label}
@@ -642,7 +994,8 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
               ))}
             </div>
 
-            <div className="mt-4 grid grid-cols-2 gap-2">
+            {/* 문구 위치 및 사진 구도 */}
+            <div className="mt-4 grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[11px] font-black text-sub">{t('문구 위치', 'Position')}</p>
                 <div className="mt-1.5 flex gap-1.5">
@@ -685,6 +1038,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
               </div>
             </div>
 
+            {/* 글자 크기 */}
             <label className="mt-4 block text-[11px] font-black text-sub" htmlFor="cutout-size">
               {t('글자 크기', 'Text size')}
             </label>
@@ -700,6 +1054,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
               className="mt-1 w-full accent-primary"
             />
 
+            {/* 분위기/감정 */}
             <label className="mt-3 block text-[11px] font-black text-sub" htmlFor="cutout-emotion">
               {t('분위기 (글자 색·데코)', 'Mood (ink & decor)')}
             </label>
@@ -715,6 +1070,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
               ))}
             </select>
 
+            {/* 데코 & 이펙트 */}
             <div className="mt-4 flex flex-wrap items-center justify-between gap-2">
               <p className="text-[11px] font-black text-sub">{t('심플 데코', 'Small decor')}</p>
               <div className="flex gap-1.5">
@@ -755,6 +1111,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
               ))}
             </div>
 
+            {/* 흰 스티커 외곽선 */}
             <div className="mt-4 rounded-xl border border-line bg-cream/50 p-3">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-[11px] font-black text-sub">{t('흰 스티커 외곽선', 'White sticker border')}</p>
@@ -775,11 +1132,8 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
           </section>
 
           <section className="card-flat space-y-1.5 p-4 text-[11px] leading-relaxed text-sub">
-            <p><strong className="text-ink">{t('사진은 서버로 보내지 않아요.', 'Photos never leave your device.')}</strong> {t('누끼·글자·외곽선을 모두 이 브라우저 안에서 계산하고, 내려받는 순간에도 업로드가 없어요.', 'Cutout, lettering and border are all computed in this browser — nothing is uploaded.')}</p>
-            <p>{t('세로로 긴 사진은 정사각형으로 잘려요. 머리가 잘리면 「사진 구도」를 가운데로 바꾸거나, 여백을 두고 찍은 사진을 올려 주세요.', 'Tall photos are cropped to a square. If the head is cut, switch Crop to Center or use a photo with more margin.')}</p>
-            <p>{t('사람·반려동물을 인식하는 기기 안 AI 누끼를 쓰고, 기기에서 지원되지 않으면 단색 배경 기준으로 대신 떼요.', 'An on-device AI matte finds people and pets; on unsupported devices it falls back to flat-background removal.')}</p>
-            <p>{t('저장 규격: 360×360 투명 PNG · 카카오 ZIP은 개당 150KB 이하로 자동 압축하고 validation.json 에 검증 결과를 담아요.', 'Output: 360×360 transparent PNG. The Kakao ZIP auto-compresses each cut under 150KB and includes validation.json.')}</p>
-            <p><Link href={lp('/privacy')} className="font-black text-coralink underline">{t('개인정보 처리 안내', 'Privacy details')}</Link></p>
+            <p><strong className="text-ink">{t('사진과 영상은 서버로 보내지 않아요.', 'Photos & videos never leave your device.')}</strong> {t('누끼·글자·외곽선·APNG/GIF 인코딩을 모두 이 브라우저 안에서 계산하고, 내려받는 순간에도 업로드가 없어요.', 'Cutout, lettering, borders, and APNG/GIF encoding are computed entirely in your browser.')}</p>
+            <p>{t('동영상은 1~3초 내외의 클립에서 12프레임을 추출하여 가장 자연스러운 카톡 움티로 완성됩니다.', 'Short 1-3s video clips are converted into smooth 12-frame Kakao animated stickers.')}</p>
           </section>
         </div>
       </div>

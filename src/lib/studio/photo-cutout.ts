@@ -9,6 +9,7 @@
 
 import { DEFAULT_PALETTE, DEFAULT_SIGNATURE } from '@/lib/art/sticker';
 import type { Emotion, StickerSpec } from '@/lib/types';
+import type { MotionId } from '@/lib/studio/motion';
 import {
   normalizeLayer,
   type DecorMode,
@@ -48,6 +49,8 @@ export interface CutoutStyle {
   size: number;
   /** #rrggbb — 기본 잉크면 감정 색을 쓴다 */
   color: string;
+  /** 움직임 효과 (정지 컷 또는 8종 모션) */
+  motion?: MotionId | 'none';
 }
 
 export const DEFAULT_CUTOUT_STYLE: CutoutStyle = {
@@ -59,6 +62,7 @@ export const DEFAULT_CUTOUT_STYLE: CutoutStyle = {
   position: 'bottom',
   size: 0.15,
   color: '#191512',
+  motion: 'none',
 };
 
 /** 아래/위 문구 중심 y (캔버스 기준 0~1) — 얼굴을 가리지 않고 두 줄도 잘리지 않는 여백 */
@@ -140,12 +144,32 @@ export function cutoutOrder(index: number): string {
 }
 
 /** 개별 내려받기 파일명 */
-export function cutoutFileName(index: number): string {
-  return `emotihak-cutout-${cutoutOrder(index)}.png`;
+export function cutoutFileName(index: number, ext: 'png' | 'gif' = 'png'): string {
+  return `emotihak-cutout-${cutoutOrder(index)}.${ext}`;
 }
 
 /** 팩(ZIP) 내려받기 파일명 */
 export const CUTOUT_ZIP_NAME = 'emotihak-cutout-kakao.zip';
+
+// ── 숏폼 동영상 / 연속 컷 누끼 관련 상수 및 헬퍼 ──────────────────
+export const CUTOUT_VIDEO_MAX_DURATION = 3.0; // 최대 추출 시간(초)
+export const CUTOUT_VIDEO_DEFAULT_FRAMES = 12; // 카톡 움티에 이상적인 12프레임
+export const CUTOUT_VIDEO_DEFAULT_DELAY_MS = 90; // ~11fps 루프
+
+/** 동영상 길이와 프레임 수에 따른 균등 샘플링 타임스탬프 계산(초) */
+export function calculateVideoSampleTimestamps(duration: number, frameCount = CUTOUT_VIDEO_DEFAULT_FRAMES): number[] {
+  const safeDur = Math.max(0.1, Math.min(duration, CUTOUT_VIDEO_MAX_DURATION));
+  const count = Math.max(2, Math.min(frameCount, 16));
+  return Array.from({ length: count }, (_, i) => (i / count) * safeDur);
+}
+
+/** 동영상 길이와 프레임 수에 따른 적정 프레임 간격(ms) 계산 (60~140ms 안전 범위) */
+export function calculateVideoDelayMs(duration: number, frameCount = CUTOUT_VIDEO_DEFAULT_FRAMES): number {
+  const safeDur = Math.max(0.1, Math.min(duration, CUTOUT_VIDEO_MAX_DURATION));
+  const count = Math.max(2, Math.min(frameCount, 16));
+  const ms = Math.round((safeDur * 1000) / count);
+  return Math.max(60, Math.min(ms, 140));
+}
 
 export interface CutoutSuggestionLine {
   id: string;

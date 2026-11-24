@@ -31,7 +31,7 @@ const OBJECT_CLASSES = [3, 8, 10, 12, 13, 15, 17];
 
 const LOAD_TIMEOUT_MS = 20_000;
 const SEGMENT_TIMEOUT_MS = 6_000;
-const CACHE_LIMIT = 24;
+const CACHE_LIMIT = 64;
 
 export type AiMatteModel = 'person' | 'objects';
 

@@ -16,6 +16,8 @@ import {
   CUTOUT_SUGGESTION_COUNT,
   CUTOUT_ZIP_NAME,
   DEFAULT_CUTOUT_STYLE,
+  calculateVideoDelayMs,
+  calculateVideoSampleTimestamps,
   cutoutFileName,
   cutoutLayer,
   cutoutOrder,
@@ -97,7 +99,13 @@ const PHOTO = 'data:image/jpeg;base64,AAAA';
   check('시드는 양수', cutoutSeed('cut-1') > 0);
   check('순번은 2자리', cutoutOrder(0) === '01' && cutoutOrder(9) === '10' && cutoutOrder(11) === '12');
   check('파일명 규칙', cutoutFileName(0) === 'emotihak-cutout-01.png' && cutoutFileName(11) === 'emotihak-cutout-12.png');
+  check('GIF 확장자 지원', cutoutFileName(0, 'gif') === 'emotihak-cutout-01.gif');
   check('ZIP 파일명', CUTOUT_ZIP_NAME.endsWith('.zip'));
+  check('기본 모션은 none(정지)', DEFAULT_CUTOUT_STYLE.motion === 'none');
+  const timestamps = calculateVideoSampleTimestamps(2.0, 12);
+  check('동영상 12프레임 타임스탬프 계산', timestamps.length === 12 && timestamps[0] === 0 && timestamps[11] < 2.0);
+  const delay = calculateVideoDelayMs(1.5, 12);
+  check('동영상 딜레이 간격 계산 (60~140ms)', delay >= 60 && delay <= 140);
 }
 
 // ── 6. 추천 대사 (드립·밈 7테마 66줄) ──────────────────────

@@ -336,25 +336,38 @@ function transparentPaletteIndex(palette: number[][]): number {
   return index >= 0 ? index : 0;
 }
 
-/** 애니메이션 GIF (gifenc). colors 를 낮추면 용량이 줄어든다. */
-export async function renderAnimatedGifBlob(
-  spec: StickerSpec,
-  opts: AnimateOptions & { colors?: number } = {},
+/** 캔버스 배열을 무손실 APNG Blob 으로 조립 */
+export async function renderFramesToApngBlob(frames: HTMLCanvasElement[], delayMs = 80): Promise<Blob> {
+  if (frames.length === 0) throw new Error('APNG: 프레임이 없습니다');
+  const pngs: Uint8Array[] = [];
+  for (const canvas of frames) {
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
+    if (!blob) throw new Error('APNG: 프레임 PNG 를 만들지 못했습니다');
+    pngs.push(new Uint8Array(await blob.arrayBuffer()));
+  }
+  const bytes = assembleApng(pngs, delayMs, { plays: 0 });
+  return new Blob([bytes as unknown as BlobPart], { type: 'image/png' });
+}
+
+/** 캔버스 배열을 투명 애니메이션 GIF Blob 으로 조립 */
+export async function renderFramesToGifBlob(
+  frames: HTMLCanvasElement[],
+  delayMs = 80,
+  colors = 128,
 ): Promise<Blob> {
-  const size = opts.size ?? SIZE;
-  const frames = await renderMotionFrames(spec, opts);
-  const delay = motionById(opts.motion ?? DEFAULT_MOTION)?.delayMs ?? 80;
-  const colors = Math.max(16, Math.min(256, opts.colors ?? 128));
+  if (frames.length === 0) throw new Error('GIF: 프레임이 없습니다');
+  const size = frames[0].width;
   const { GIFEncoder, quantize, applyPalette } = await import('gifenc');
   const gif = GIFEncoder();
+  const safeColors = Math.max(16, Math.min(256, colors));
   for (const canvas of frames) {
     const ctx = canvas.getContext('2d', { willReadFrequently: true })!;
     const image = prepareGifPixels(ctx, size);
-    const palette = quantize(image.data, colors, { format: 'rgba4444' });
+    const palette = quantize(image.data, safeColors, { format: 'rgba4444' });
     const index = applyPalette(image.data, palette, 'rgba4444');
     gif.writeFrame(index, size, size, {
       palette,
-      delay,
+      delay: delayMs,
       transparent: true,
       transparentIndex: transparentPaletteIndex(palette),
       dispose: 2,
@@ -364,19 +377,38 @@ export async function renderAnimatedGifBlob(
   return new Blob([gif.bytes()], { type: 'image/gif' });
 }
 
+/**
+ * 연속된 사진/동영상 프레임 배열에 누끼+외곽선+문구 레이어를 합성한 캔버스 배열을 만든다.
+ */
+export async function renderMultiFrameCanvases(
+  framePhotos: string[],
+  spec: StickerSpec,
+  opts: ExportOptions & { onProgress?: (current: number, total: number) => void } = {},
+): Promise<HTMLCanvasElement[]> {
+  const canvases: HTMLCanvasElement[] = [];
+  for (let i = 0; i < framePhotos.length; i++) {
+    const canvas = await renderFrameCanvas({ ...spec, imageUrl: framePhotos[i] }, opts);
+    canvases.push(canvas);
+    opts.onProgress?.(i + 1, framePhotos.length);
+  }
+  return canvases;
+}
+
+/** 애니메이션 GIF (gifenc). colors 를 낮추면 용량이 줄어든다. */
+export async function renderAnimatedGifBlob(
+  spec: StickerSpec,
+  opts: AnimateOptions & { colors?: number } = {},
+): Promise<Blob> {
+  const frames = await renderMotionFrames(spec, opts);
+  const delay = motionById(opts.motion ?? DEFAULT_MOTION)?.delayMs ?? 80;
+  return renderFramesToGifBlob(frames, delay, opts.colors ?? 128);
+}
+
 /** 애니메이션 APNG (자체 조립기, 화질 손실 없음) */
 export async function renderAnimatedApngBlob(spec: StickerSpec, opts: AnimateOptions = {}): Promise<Blob> {
   const frames = await renderMotionFrames(spec, opts);
-  if (frames.length === 0) throw new Error('APNG: 프레임이 없습니다');
   const delay = motionById(opts.motion ?? DEFAULT_MOTION)?.delayMs ?? 80;
-  const pngs: Uint8Array[] = [];
-  for (const canvas of frames) {
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/png'));
-    if (!blob) throw new Error('APNG: 프레임 PNG 를 만들지 못했습니다');
-    pngs.push(new Uint8Array(await blob.arrayBuffer()));
-  }
-  const bytes = assembleApng(pngs, delay, { plays: 0 });
-  return new Blob([bytes as unknown as BlobPart], { type: 'image/png' });
+  return renderFramesToApngBlob(frames, delay);
 }
 
 export async function renderAnimatedBlob(
@@ -511,30 +543,64 @@ export interface KakaoPackOptions extends ExportOptions {
   maxBytes?: number;
 }
 
+export interface KakaoPackItem {
+  spec: StickerSpec;
+  filename: string;
+  /** 동영상/연속 프레임 컷인 경우 data URL 배열 */
+  videoFrames?: string[];
+  /** 동영상 프레임 재생 간격(ms) */
+  frameDelayMs?: number;
+  /** 컷별 모션 지정 (없으면 전체 공통 opts.motion) */
+  motion?: MotionId | 'none';
+}
+
 export async function exportKakaoPackZip(
-  items: { spec: StickerSpec; filename: string }[],
+  items: (KakaoPackItem | { spec: StickerSpec; filename: string })[],
   opts: KakaoPackOptions = {},
 ): Promise<KakaoPackResult> {
   const JSZip = (await import('jszip')).default;
   const zip = new JSZip();
   const folder = zip.folder('kakao') ?? zip;
-  const animated = !!opts.motion && opts.motion !== 'none';
-  const rules = animated ? KAKAO_ANIMATED_RULES : KAKAO_RULES;
+  const defaultAnimated = !!opts.motion && opts.motion !== 'none';
+  const hasAnyAnimated =
+    defaultAnimated ||
+    items.some((it) => ('videoFrames' in it && (it.videoFrames?.length ?? 0) > 1) || ('motion' in it && it.motion && it.motion !== 'none'));
+  const rules = hasAnyAnimated ? KAKAO_ANIMATED_RULES : KAKAO_RULES;
   const maxBytes = opts.maxBytes ?? rules.maxBytes;
   const rendered: { name: string; bytes: number; width: number; height: number }[] = [];
   let compressed = 0;
 
   for (const [i, it] of items.entries()) {
     const spec: StickerSpec = { ...it.spec, background: 'transparent' };
-    const name = `${String(i + 1).padStart(2, '0')}.${animated ? (opts.animationFormat ?? 'apng') : 'png'}`;
+    const videoFrames = 'videoFrames' in it ? it.videoFrames : undefined;
+    const hasVideo = Array.isArray(videoFrames) && videoFrames.length > 1;
+    const itemMotion = ('motion' in it ? it.motion : undefined) ?? opts.motion;
+    const isAnimated = hasVideo || (!!itemMotion && itemMotion !== 'none');
+    const ext = isAnimated ? (opts.animationFormat ?? 'apng') : 'png';
+    const name = `${String(i + 1).padStart(2, '0')}.${ext}`;
     let blob: Blob;
-    if (animated) {
-      blob = await renderAnimatedBlob(spec, { ...opts, size: rules.size, motion: opts.motion as MotionId });
+
+    if (hasVideo) {
+      const canvases = await renderMultiFrameCanvases(videoFrames, spec, { ...opts, size: rules.size });
+      const delay = ('frameDelayMs' in it ? it.frameDelayMs : undefined) ?? 90;
+      if (ext === 'gif') {
+        blob = await renderFramesToGifBlob(canvases, delay, 128);
+        if (blob.size > maxBytes) {
+          for (const colors of [64, 32, 16]) {
+            blob = await renderFramesToGifBlob(canvases, delay, colors);
+            if (blob.size <= maxBytes) break;
+          }
+        }
+      } else {
+        blob = await renderFramesToApngBlob(canvases, delay);
+      }
+    } else if (isAnimated) {
+      blob = await renderAnimatedBlob(spec, { ...opts, size: rules.size, motion: itemMotion as MotionId });
       if (blob.size > maxBytes) {
         // GIF 는 색 수를 낮춰 다시 만든다
         if ((opts.animationFormat ?? 'apng') === 'gif') {
           for (const colors of [64, 32, 16]) {
-            blob = await renderAnimatedGifBlob(spec, { ...opts, size: rules.size, motion: opts.motion as MotionId, colors });
+            blob = await renderAnimatedGifBlob(spec, { ...opts, size: rules.size, motion: itemMotion as MotionId, colors });
             if (blob.size <= maxBytes) break;
           }
         }
@@ -549,14 +615,14 @@ export async function exportKakaoPackZip(
     rendered.push({ name, bytes: blob.size, width: rules.size, height: rules.size });
   }
 
-  const validation = validateKakaoFiles(rendered, { maxBytes, animated });
+  const validation = validateKakaoFiles(rendered, { maxBytes, animated: hasAnyAnimated });
 
   folder.file(
     'validation.json',
     JSON.stringify(
       {
         rules,
-        animated,
+        animated: hasAnyAnimated,
         maxBytes,
         generatedAt: new Date().toISOString(),
         ok: validation.ok,
@@ -602,7 +668,7 @@ export async function exportKakaoPackZip(
     [
       '이모티학(EmotiHak) · 카카오 이모티콘 스튜디오 제안 규격 패키지',
       '',
-      `· 구성: ${items.length}종 · ${rules.size}×${rules.size}px · 투명 ${animated ? (opts.animationFormat ?? 'APNG') : 'PNG'}`,
+      `· 구성: ${items.length}종 · ${rules.size}×${rules.size}px · 투명 ${hasAnyAnimated ? (opts.animationFormat ?? 'APNG') : 'PNG'}`,
       `· 파일 크기 한도: 개당 ${(maxBytes / 1024).toFixed(0)}KB (validation.json 참고)`,
       `· 자동 압축 적용: ${compressed}개 파일`,
       `· 검증 결과: ${validation.ok ? '통과' : '미충족 — ' + validation.summary}`,
