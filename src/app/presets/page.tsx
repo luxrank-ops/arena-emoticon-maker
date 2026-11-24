@@ -14,11 +14,11 @@ export const dynamic = 'force-dynamic';
 export async function generateMetadata() {
   const locale = await getLocale();
   return {
-    title: locale === 'en' ? '150 expression presets & 3 curated packs — EmotiHak' : '표정·포즈 프리셋 150종 · 큐레이션 패키지 3종 — 이모티학',
+    title: locale === 'en' ? '150 expression presets & 12 curated packs — EmotiHak' : '표정·포즈 프리셋 150종 · 기본/시즌/관계 큐레이션 12종 — 이모티학',
     description:
       locale === 'en'
-        ? 'Browse 150 Korean chat-sticker presets, three curated 24/32-cut sets and seven deadpan drip themes with 66 lines — office survival, sweet couple, everyday meme. Pick one and make your own face stickers.'
-        : '표정·포즈·이펙트·대사가 한 묶음인 150종 프리셋과 직장인 생존·달달 꽁냥 커플·만능 일상 & 병맛 티키타카 큐레이션 패키지 24·32컷, 그리고 킹받는 반전·드립 7테마 66컷. 하나를 골라 내 얼굴 이모티콘으로 만들면 그대로 반영됩니다.',
+        ? 'Browse 150 Korean chat-sticker presets, a standardized high-frequency 24-cut pack, six seasonal sets, relationship packs and seven drip themes with 66 lines. Pick a set and make your own stickers.'
+        : '표정·포즈·이펙트·대사가 한 묶음인 150종 프리셋, ㅋㅋ·ㅇㅋ·ㄴㄴ 등 고빈도 기본 24컷, 연말·새해·설날·시험·월요병·야근 시즌팩 6종과 관계팩을 확인하세요. 12월 연말팩은 선물·새해 앵글을 강조합니다.',
   };
 }
 
@@ -38,11 +38,11 @@ export default async function PresetsPage() {
       <div className="mb-5 grid items-end gap-4 sm:grid-cols-[minmax(0,1fr)_auto]">
         <div className="max-w-3xl">
           <p className="eyebrow">PRESET LIBRARY · {PRESET_COUNT} + CURATED · {CURATION_PACKAGES.length} + DRIP · {DRIP_THEME_COUNT} THEMES / {DRIP_LINE_COUNT}</p>
-          <h1 className="h2 mt-1 break-keep">{t('큐레이션 패키지와 프리셋 150종', 'Curated packs & 150 presets')}</h1>
+          <h1 className="h2 mt-1 break-keep">{t('기본·시즌·관계 팩과 프리셋 150종', 'Core, seasonal & relationship packs · 150 presets')}</h1>
           <p className="mt-3 text-sm leading-relaxed text-sub">
             {t(
-              '직장인 생존·달달 꽁냥 커플·만능 일상 & 병맛 티키타카 24·32컷 세트를 한 번에 채우거나, 150종 프리셋에서 직접 골라 구성하세요. 킹받는 반전·드립 7테마 66컷은 문구만 골라 대사 스튜디오에서 바로 만들 수 있어요.',
-              'Fill a 24 or 32 cut set in one tap — office survival, sweet couple, everyday meme — or hand-pick from 150 presets. The seven deadpan drip themes also let you pick a line and turn it straight into a sticker.',
+              '기본 팩은 ㅋㅋ·ㅇㅋ·ㄴㄴ·감사·미안·축하·힘내·퇴근·출근·멍·심쿵·분노를 포함한 표준 24컷이에요. 연말·새해·설날·시험·월요병·야근 시즌팩 6종과 커플·친구·팀/부서 관계팩도 준비했어요. 12월 연말팩은 선물과 새해 인사를 한 흐름으로 묶었습니다.',
+              'The standard 24-cut pack covers LOL, OK, no, thanks, sorry, congrats, cheer, clock-out, commute, blank, heart-thump and anger. Six seasonal packs cover year-end, New Year, Lunar New Year, exams, Monday blues and overtime, alongside couple, friend and team packs. December highlights gifts and New Year wishes.',
             )}
           </p>
         </div>

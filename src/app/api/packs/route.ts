@@ -9,6 +9,7 @@ import { createPack } from '@/lib/packs';
 import { captureServer } from '@/lib/analytics-server';
 import { enforceRateLimit, RATE_LIMITS } from '@/lib/ratelimit';
 import { PACK_FORMAT_IDS } from '@/lib/pack-formats';
+import { isCurationPackageId } from '@/data/curation-packages';
 import { rewardReferralForInvitee } from '@/lib/referral';
 
 const schema = z.object({
@@ -20,6 +21,7 @@ const schema = z.object({
   /** 표정·포즈 프리셋 150종 (id 1~150, 컷 수만큼 중복 없이) */
   presetIds: z.array(z.number().int().min(1).max(150).refine((id) => !!presetById(id), '알 수 없는 프리셋입니다')).max(32).optional(),
   format: z.enum(PACK_FORMAT_IDS).optional(),
+  curationPackageId: z.string().refine(isCurationPackageId, '알 수 없는 큐레이션 패키지입니다.').optional(),
   /** 무료 12컷 워터마크 미리보기 팩 (체험 사용자 전용) */
   preview: z.boolean().optional(),
 });
@@ -44,7 +46,8 @@ export async function POST(req: Request) {
     if (body.comicExpressionIds && (body.comicExpressionIds.length !== body.size || new Set(body.comicExpressionIds).size !== body.size)) return fail('INVALID_COMIC_SELECTION', '코믹 표정을 컷 수만큼 중복 없이 선택해 주세요.', 422);
     if (body.presetIds && (body.presetIds.length !== body.size || new Set(body.presetIds).size !== body.size)) return fail('INVALID_PRESET_SELECTION', '프리셋을 컷 수만큼 중복 없이 선택해 주세요.', 422);
     if (body.presetIds && body.comicExpressionIds) return fail('INVALID_PRESET_SELECTION', '코믹 표정과 프리셋은 함께 고를 수 없습니다.', 422);
-    const pack = await createPack(user.id, body.sheetId, body.size, body.title, isUnlimited(user), body.comicExpressionIds, body.locale, body.format, body.presetIds, { preview });
+    if (body.curationPackageId && (body.presetIds || body.comicExpressionIds || body.format)) return fail('INVALID_PRESET_SELECTION', '큐레이션 패키지는 다른 팩 구성과 함께 사용할 수 없습니다.', 422);
+    const pack = await createPack(user.id, body.sheetId, body.size, body.title, isUnlimited(user), body.comicExpressionIds, body.locale, body.format, body.presetIds, { preview, curationPackageId: body.curationPackageId });
     void captureServer('pack_created', user.id, { size: pack.size, cost: pack.creditsSpent });
     // 초대받은 사람이 실제로 첫 미리보기 팩을 만들었을 때 초대한 사람에게 3컷을 지급한다.
     if (preview) void rewardReferralForInvitee(user.id).catch(() => undefined);
@@ -56,6 +59,7 @@ export async function POST(req: Request) {
     if ((e as { code?: string }).code === 'PET_PHOTO_REQUIRED') return fail('PET_PHOTO_REQUIRED', (e as Error).message, 422);
     if ((e as { code?: string }).code === 'TRIAL_LIMIT') return fail('TRIAL_LIMIT', (e as Error).message, 429);
     if ((e as { code?: string }).code === 'INVALID_PRESET_SELECTION') return fail('INVALID_PRESET_SELECTION', (e as Error).message, 422);
+    if ((e as { code?: string }).code === 'INVALID_CURATION_PACKAGE') return fail('INVALID_CURATION_PACKAGE', (e as Error).message, 422);
     return handleError(e);
   }
 }
