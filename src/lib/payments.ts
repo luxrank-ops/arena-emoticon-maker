@@ -13,9 +13,27 @@ export function tossConfigured(): boolean {
   return !!mode && (process.env.NODE_ENV !== 'production' || mode === 'live');
 }
 
+/** 포트원(PortOne) V2 결제창: 스토어 ID·채널키·API 시크릿이 모두 있어야 활성화한다. */
+export function portoneConfigured(): boolean {
+  const storeId = process.env.PORTONE_STORE_ID || process.env.NEXT_PUBLIC_PORTONE_STORE_ID || '';
+  const channelKey = process.env.PORTONE_CHANNEL_KEY || '';
+  const apiSecret = process.env.PORTONE_API_SECRET || '';
+  return !!storeId && !!channelKey && !!apiSecret;
+}
+
+/** 결제창을 그리는 데 필요한 공개 값(스토어 ID·채널키) — 시크릿은 포함하지 않는다. */
+export function portoneClientConfig(): { storeId: string; channelKey: string } | null {
+  if (!portoneConfigured()) return null;
+  return {
+    storeId: process.env.PORTONE_STORE_ID || process.env.NEXT_PUBLIC_PORTONE_STORE_ID || '',
+    channelKey: process.env.PORTONE_CHANNEL_KEY || '',
+  };
+}
+
 export function paymentsUnavailable(): boolean {
   const provider = paymentProvider();
   if (provider === 'toss') return !tossConfigured();
+  if (provider === 'portone') return !portoneConfigured();
   return provider !== 'mock' || process.env.NODE_ENV === 'production';
 }
 

@@ -34,9 +34,11 @@ export default defineConfig({
       GEMINI_PHOTO_MODEL: bindings.text("gemini-3-pro-image-preview"),
       GEMINI_STYLE_MODEL: bindings.text("gemini-3.1-flash-image-preview"),
       GEMINI_TEXT_MODEL: bindings.text("gemini-flash-latest"),
-      // 운영은 토스페이먼츠 실결제. 키는 대시보드 Variable/Secret 에서 관리한다
-      // (키가 없는 상태면 paymentsUnavailable() 이 503 으로 안전하게 차단한다).
-      PAYMENT_PROVIDER: bindings.text("toss"),
+      // 운영은 포트원(PortOne) V2 → KG이니시스 결제창.
+      // 스토어 ID는 공개 값이라 코드에 두고, 채널키(PORTONE_CHANNEL_KEY)·API 시크릿(PORTONE_API_SECRET)은
+      // 대시보드 Variable/Secret 에서 관리한다(값이 없으면 paymentsUnavailable() 이 503 으로 안전하게 차단한다).
+      PAYMENT_PROVIDER: bindings.text("portone"),
+      PORTONE_STORE_ID: bindings.text("store-f9fe74e1-f7f8-4678-b4a7-7bf143b15b16"),
       // 새 주문만 중단하는 비상 스위치 (기존 승인·복구는 계속 허용)
       PAYMENT_CHECKOUT_DISABLED: bindings.text("0"),
       STORE_BACKEND: bindings.text("auto"),

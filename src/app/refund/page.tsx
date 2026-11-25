@@ -9,8 +9,16 @@ export default function RefundPage() {
   return (
     <div className="wrap max-w-3xl py-12">
       <h1 className="h2">환불 · 청약철회 정책</h1>
-      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 25일 · 버전 v1.0</p>
+      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 25일 · 버전 v1.1</p>
       <div className="mt-8 space-y-8 text-sm leading-relaxed text-sub">
+        <section>
+          <h2 className="text-base font-black text-ink">상품의 제공(배송) 기간</h2>
+          <ul className="mt-3 list-disc space-y-2 pl-5">
+            <li><strong className="text-ink">디지털 상품(크레딧·팩 완성권·Creator Pro 이용권):</strong> 결제 승인 즉시 계정에 지급되며 별도의 배송이 없습니다. 결제 완료 화면 또는 내 팩·요금제 화면에서 바로 사용할 수 있습니다. 지급이 확인되지 않으면 주문번호와 함께 고객센터로 알려 주세요.</li>
+            <li><strong className="text-ink">실물 굿즈:</strong> 주문 제작 상품으로 결제 후 제작 착수까지 영업일 2~3일, 제작·배송에 영업일 5~7일이 걸립니다. 배송 지연이 예상되면 주문에 안내된 연락처로 먼저 알려 드립니다.</li>
+            <li><strong className="text-ink">교환:</strong> 디지털 상품은 사본이 제공되는 성질상 단순 교환이 적용되지 않으며, 대신 생성 실패·미지급 시 재지급 또는 환불로 처리합니다. 실물 굿즈는 하자·오배송 시 수령 후 7일 이내 교환을 요청할 수 있습니다.</li>
+          </ul>
+        </section>
         <section>
           <h2 className="text-base font-black text-ink">먼저 확인해 주세요</h2>
           <ul className="mt-3 list-disc space-y-2 pl-5">
