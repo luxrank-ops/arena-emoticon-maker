@@ -102,7 +102,7 @@ export default function PrivacyPage() {
             <li>· 이전 항목: 생성 전 사진 확인 및 컷 생성 시 셀카 사진, 선택한 생성 시안, 사진 특징 및 생성 지시문</li>
             <li>· 이전 국가·시기·방법: 미국 / 컷 생성 요청 시점 / 암호화된 네트워크(HTTPS) 전송</li>
             <li>· 이용 목적: 생성 전 사진 확인 및 이미지 생성</li>
-            <li>· 보유 기간: 회사 서버는 응답 후 즉시 폐기합니다. 제공자 측 처리·보관 정책은 Google API 약관을 따르며, 이 부분은 법률 검토 중입니다.</li>
+            <li>· 보유 기간: 회사 서버는 응답 후 즉시 폐기합니다. 제공자 측 처리·보관 정책은 Google API 약관을 따릅니다.</li>
           </ul>
           <p className="mt-2">이전을 거부할 수 있으나, 이 경우 컷 생성 서비스 이용이 제한됩니다.</p>
         </section>
@@ -140,7 +140,7 @@ export default function PrivacyPage() {
       </div>
 
       <div className="mt-10 rounded-2xl border-2 border-dashed border-line p-4 text-[11px] leading-relaxed text-sub">
-        본 방침은 법률 검토 후 확정되며, 변경 시 7일 전 공지합니다.
+        본 방침은 변경 시 7일 전 공지합니다.
       </div>
     </div>
   );
