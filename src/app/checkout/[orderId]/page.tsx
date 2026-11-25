@@ -2,7 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { PayPanel } from '@/components/payments/PayPanel';
 import { getCurrentUser } from '@/lib/session';
-import { withPaymentDB } from '@/lib/store';
+import { withDB, withPaymentDB } from '@/lib/store';
 import { checkoutSuspended, paymentProvider, paymentsUnavailable, portoneClientConfig } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
@@ -13,6 +13,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ order
   const order = await withPaymentDB((db) => db.orders.find((o) => o.id === orderId && o.userId === user.id) ?? null);
   if (!order) notFound();
   const portone = portoneClientConfig();
+  // KG이니시스 V2는 구매자 이메일이 필수라, 로그인 회원은 가입 이메일을 기본값으로 넘긴다.
+  const account = await withDB((db) => db.accounts.find((a) => a.userId === user.id) ?? null);
 
   return (
     <div className="wrap max-w-3xl py-12">
@@ -35,6 +37,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ order
         storeId={portone?.storeId ?? ''}
         channelKey={portone?.channelKey ?? ''}
         available={!paymentsUnavailable() && !checkoutSuspended() && order.status === 'PENDING' && order.provider === paymentProvider() && !order.paymentKey}
+        buyerEmail={account?.email ?? ''}
+        buyerName={account?.name || user.name}
       />
 
       <div className="mt-6 space-y-2 text-[11px] leading-relaxed text-sub">
