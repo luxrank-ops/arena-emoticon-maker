@@ -16,7 +16,6 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: locale === 'en'
       ? ['team stickers', 'work emoticons', 'office memes']
       : ['직장인 이모티콘', '팀 단톡 이모티콘', '야근 짤', '칼퇴 이모티콘', '회사 단톡방'],
-    alternates: { canonical: '/team' },
     openGraph: {
       title, description, type: 'website', url: '/team',
       images: [{ url: '/og/emotihak-og.png', width: 1200, height: 630, alt: title }],

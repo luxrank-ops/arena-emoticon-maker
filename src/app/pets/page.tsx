@@ -16,7 +16,6 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: locale === 'en'
       ? ['pet stickers', 'dog emoticon', 'cat sticker maker']
       : ['강아지 이모티콘', '고양이 이모티콘', '반려동물 스티커 만들기', '펫 이모티콘'],
-    alternates: { canonical: '/pets' },
     openGraph: {
       title, description, type: 'website', url: '/pets',
       images: [{ url: '/og/emotihak-og.png', width: 1200, height: 630, alt: title }],
