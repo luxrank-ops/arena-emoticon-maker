@@ -1300,7 +1300,12 @@ export function PhotoCutoutStudio({
                   </div>
                 ) : (
                   <p className="mt-2 text-[10px] leading-relaxed text-sub">
-                    {t('시즌 소품은 오픈일 00시에 자동으로 열려요.', 'Season props unlock automatically at 00:00 KST on opening day.')}{' '}
+                    {orderedSeasonGroups.some((group) => group.unlocked)
+                      ? t(
+                          '사진을 올린 뒤 시즌 소품을 고르면 미리보기와 내려받기에 똑같이 얹혀요.',
+                          'Upload a photo, then pick a season prop — it is applied to the preview and the download alike.',
+                        )
+                      : t('시즌 소품은 오픈일 00시에 자동으로 열려요.', 'Season props unlock automatically at 00:00 KST on opening day.')}{' '}
                     <Link href={lp('/season')} className="font-black text-primary-dark underline underline-offset-2">
                       {t('시즌팩 미리 보기 →', 'Preview season packs →')}
                     </Link>

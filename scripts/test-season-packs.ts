@@ -188,6 +188,7 @@ const studio = read('src/components/studio/PhotoCutoutStudio.tsx');
 check('누끼 스튜디오에 시즌 소품 영역', studio.includes('시즌 소품') && studio.includes('SeasonPropArt'));
 check('잠긴 소품은 안내만 하고 적용하지 않는다', studio.includes('season_prop_locked') && studio.includes('if (!group.unlocked)'));
 check('소품이 미리보기·내려받기·ZIP 에 모두 들어간다', (studio.match(/seasonProp: seasonPlacement/g) ?? []).length >= 3);
+check('오픈된 뒤에는 잠금 안내 대신 사용 안내를 보여 준다', studio.includes('orderedSeasonGroups.some((group) => group.unlocked)'));
 check('export 가 소품을 그린다', read('src/lib/export.ts').includes('drawSeasonProp') && read('src/lib/export.ts').includes('seasonProp?: SeasonPropPlacement'));
 check('AI 악세사리 목록이 오픈 판정을 쓴다', read('src/lib/accessories.ts').includes('availableSeasonAccessories'));
 check('생성 API 가 시즌 악세사리를 검증한다', read('src/app/api/render/route.ts').includes('accessoryById'));
