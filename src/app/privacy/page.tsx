@@ -8,7 +8,7 @@ export default function PrivacyPage() {
   return (
     <div className="wrap max-w-3xl py-12">
       <h1 className="h2">개인정보처리방침</h1>
-      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 5일 · 버전 v1.3</p>
+      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 25일 · 버전 v1.4</p>
 
       <div className="mt-8 space-y-8 text-[13px] leading-relaxed text-sub">
         <section>
@@ -132,7 +132,36 @@ export default function PrivacyPage() {
         </section>
 
         <section>
-          <h2 className="text-sm font-black text-ink">7. 개인정보 보호책임자</h2>
+          <h2 className="text-sm font-black text-ink">7. 개인정보 처리의 위탁</h2>
+          <p className="mt-2">
+            회사는 결제 업무를 아래와 같이 위탁합니다. 결제 과정에서 카드번호·승인 정보 등 결제에 필요한 정보가
+            결제대행사와 카드사·간편결제사에 전송되며, 회사는 카드번호 전체를 보관하지 않습니다.
+          </p>
+          <table className="mt-2 w-full text-left text-[13px]">
+            <thead>
+              <tr className="text-sub">
+                <th className="py-2 font-bold">수탁자</th>
+                <th className="py-2 font-bold">위탁 업무</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td className="py-2 font-bold text-ink">주식회사 코리아포트원 (포트원)</td>
+                <td className="py-2">결제 연동 및 결제 정보 처리·전송, 결제 결과 통지</td>
+              </tr>
+              <tr>
+                <td className="py-2 font-bold text-ink">KG이니시스</td>
+                <td className="py-2">신용·체크카드 및 간편결제 승인·정산 대행</td>
+              </tr>
+            </tbody>
+          </table>
+          <p className="mt-2">
+            회사는 위탁 계약 시 개인정보 보호 관련 법령을 준수하도록 관리·감독하며, 수탁자가 변경되면 본 방침으로 알립니다.
+          </p>
+        </section>
+
+        <section>
+          <h2 className="text-sm font-black text-ink">8. 개인정보 보호책임자</h2>
           <p className="mt-2">
             성명: {BUSINESS.owner} · 직책: 대표자 · 연락처: {BUSINESS.email} / {BUSINESS.tel}
           </p>
