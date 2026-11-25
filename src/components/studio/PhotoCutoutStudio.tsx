@@ -212,8 +212,8 @@ export function PhotoCutoutStudio({
     ? ''
     : activeSeasonProp.fit === 'head'
       ? t(
-          '사진의 정수리·머리 너비를 재서 모자 크기를 맞추고, 눈을 가리지 않게 얹어요.',
-          'Measures the head width and sits the prop above the eyes.',
+          '정수리 윤곽과 머리 너비를 재서 챙이 머리카락을 덮게 앉히고, 기운 얼굴만큼 같이 눕혀요. 눈썹은 가리지 않아요.',
+          'Reads the crown and head width so the band hugs the hair, tilts with the face, and never covers the brows.',
         )
       : activeSeasonProp.fit === 'face'
         ? t('사진에서 얼굴 위치를 찾아 코 자리에 맞춰 얹어요.', 'Finds the face and sits it on the nose.')
@@ -1234,11 +1234,81 @@ export function PhotoCutoutStudio({
                     {t('사진 위에 얹어 바로 저장', 'Overlay and save')}
                   </span>
                 </div>
+
+                {/* 차선책 1 — 2D 얹기가 어색한 사진은 AI가 직접 그린다. */}
+                <Link
+                  href={lp('/studio/upload')}
+                  onClick={() => track('season_ai_wear_click', { from: 'studio_photo' })}
+                  className="mt-2 flex items-start gap-2 rounded-xl border border-primary/35 bg-gradient-to-r from-primary/[0.12] to-coral/[0.10] p-2.5 transition hover:border-primary/60"
+                >
+                  <span aria-hidden="true" className="text-[15px] leading-none">
+                    ✨
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[11px] font-black text-primary-dark">
+                      {t('내 사진에 AI로 자연스럽게 입히기', 'Wear it with AI')}
+                    </span>
+                    <span className="mt-0.5 block text-[10px] leading-relaxed text-sub">
+                      {t(
+                        '사진을 올리고 악세사리를 고르면 AI가 머리카락·조명·각도에 맞춰 모자·뿔·산타복·한복을 직접 그려요. (AI 컷 만들기 · 크레딧)',
+                        'Upload the photo, pick an accessory, and AI draws the hat, antlers, Santa suit or hanbok around your hair, light and angle. (AI cuts · credits)',
+                      )}
+                    </span>
+                  </span>
+                  <span aria-hidden="true" className="shrink-0 text-[11px] font-black text-primary-dark">
+                    →
+                  </span>
+                </Link>
+
                 {orderedSeasonGroups.map((group) => {
                   const props = group.propIds.map((id) => seasonPropById(id)).filter((prop): prop is NonNullable<typeof prop> => Boolean(prop));
                   const openLabel = locale === 'en' ? group.openLabelEn : group.openLabel;
+                  // 주변 데코(실패 0)를 먼저, 머리에 쓰는 소품은 각도 주의와 함께 뒤에 — 차선책 2
+                  const decorProps = props.filter((prop) => prop.kind === 'decor');
+                  const wearProps = props.filter((prop) => prop.kind === 'wear');
+                  const chip = (prop: (typeof props)[number]) => {
+                    const active = seasonProp === prop.id;
+                    return (
+                      <button
+                        key={prop.id}
+                        type="button"
+                        aria-pressed={active}
+                        onClick={() => {
+                          if (!group.unlocked) {
+                            setNotice(
+                              t(
+                                `${openLabel} 오픈이에요. 그날 00시에 자동으로 열려요. 지금은 시즌팩 안내에서 소품 모양만 볼 수 있어요.`,
+                                `Opens ${openLabel}. Preview the shapes in Season packs.`,
+                              ),
+                            );
+                            track('season_prop_locked', { prop: prop.id, pack: group.id });
+                            return;
+                          }
+                          const next = active ? 'none' : prop.id;
+                          setSeasonProp(next);
+                          setPropSpot('auto');
+                          resetPropTuning();
+                          if (next !== 'none') track('season_prop_select', { prop: prop.id, pack: group.id });
+                        }}
+                        className={clsx(
+                          'inline-flex min-h-8 items-center gap-1 rounded-full border px-2 py-1 text-[10.5px] font-black transition',
+                          active
+                            ? 'border-primary bg-primary text-white shadow-soft'
+                            : group.unlocked
+                              ? 'border-line bg-white text-sub hover:border-primary/50 hover:text-ink'
+                              : 'border-line/70 bg-white/60 text-sub/60',
+                        )}
+                      >
+                        <span className={clsx('block h-4 w-4', !group.unlocked && 'opacity-45')}>
+                          <SeasonPropArt id={prop.id} />
+                        </span>
+                        {locale === 'en' ? prop.labelEn : prop.label}
+                        {!group.unlocked ? <span aria-hidden="true" className="text-[9px]">🔒</span> : null}
+                      </button>
+                    );
+                  };
                   return (
-                    <div key={group.id} className="mt-2.5">
+                    <div key={group.id} className="mt-3 rounded-xl bg-white/60 p-2.5">
                       <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-black text-sub">
                         <span aria-hidden="true">{group.emoji}</span>
                         <span>{locale === 'en' ? group.titleEn : group.title}</span>
@@ -1251,49 +1321,36 @@ export function PhotoCutoutStudio({
                           {group.unlocked ? t('오픈', 'OPEN') : `🔒 ${openLabel} ${t('오픈', '')}`.trim()}
                         </span>
                       </p>
-                      <div className="mt-1.5 flex flex-wrap gap-1.5">
-                        {props.map((prop) => {
-                          const active = seasonProp === prop.id;
-                          return (
-                            <button
-                              key={prop.id}
-                              type="button"
-                              aria-pressed={active}
-                              onClick={() => {
-                                if (!group.unlocked) {
-                                  setNotice(
-                                    t(
-                                      `${openLabel} 오픈이에요. 그날 00시에 자동으로 열려요. 지금은 시즌팩 안내에서 소품 모양만 볼 수 있어요.`,
-                                      `Opens ${openLabel}. Preview the shapes in Season packs.`,
-                                    ),
-                                  );
-                                  track('season_prop_locked', { prop: prop.id, pack: group.id });
-                                  return;
-                                }
-                                const next = active ? 'none' : prop.id;
-                                setSeasonProp(next);
-                                setPropSpot('auto');
-                                resetPropTuning();
-                                if (next !== 'none') track('season_prop_select', { prop: prop.id, pack: group.id });
-                              }}
-                              className={clsx(
-                                'inline-flex min-h-8 items-center gap-1 rounded-full border px-2 py-1 text-[10.5px] font-black transition',
-                                active
-                                  ? 'border-primary bg-primary text-white shadow-soft'
-                                  : group.unlocked
-                                    ? 'border-line bg-white text-sub hover:border-primary/50 hover:text-ink'
-                                    : 'border-line/70 bg-white/60 text-sub/60',
-                              )}
-                            >
-                              <span className={clsx('block h-4 w-4', !group.unlocked && 'opacity-45')}>
-                                <SeasonPropArt id={prop.id} />
-                              </span>
-                              {locale === 'en' ? prop.labelEn : prop.label}
-                              {!group.unlocked ? <span aria-hidden="true" className="text-[9px]">🔒</span> : null}
-                            </button>
-                          );
-                        })}
-                      </div>
+
+                      {decorProps.length ? (
+                        <div className="mt-1.5">
+                          <p className="flex items-center gap-1 text-[9.5px] font-black text-mint">
+                            🎁 {t('주변 데코', 'Around the photo')}
+                            <span className="rounded-full bg-mint/10 px-1.5 py-0.5 text-[8.5px] font-black">
+                              {t('추천 · 어떤 사진이든 OK', 'Recommended · any photo')}
+                            </span>
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">{decorProps.map(chip)}</div>
+                        </div>
+                      ) : null}
+
+                      {wearProps.length ? (
+                        <div className="mt-2">
+                          <p className="flex items-center gap-1 text-[9.5px] font-black text-sub">
+                            🎩 {t('머리에 쓰는 소품', 'Worn on the head')}
+                            <span className="rounded-full bg-cream px-1.5 py-0.5 text-[8.5px] font-black text-sub/80">
+                              {t('각도에 민감', 'Angle sensitive')}
+                            </span>
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">{wearProps.map(chip)}</div>
+                          <p className="mt-1 text-[9.5px] leading-relaxed text-sub/80">
+                            {t(
+                              '옆모습·기울어진 사진이면 어색할 수 있어요. 그때는 ✨AI로 입히기나 위의 주변 데코를 써 보세요.',
+                              'Side profiles or tilted photos can look off — then use ✨AI wear or the decor above.',
+                            )}
+                          </p>
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
