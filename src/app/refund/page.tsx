@@ -9,10 +9,7 @@ export default function RefundPage() {
   return (
     <div className="wrap max-w-3xl py-12">
       <h1 className="h2">환불 · 청약철회 정책</h1>
-      <p className="mt-2 text-xs text-sub">작성일: 2026년 11월 4일 · 검토용 초안</p>
-      <div className="mt-5 rounded-xl border-2 border-coral/40 bg-cream p-4 text-sm leading-relaxed text-ink">
-        <strong>운영 전 확인이 필요한 초안입니다.</strong> 사업자·고객센터 정보, 결제·구독 운영 방식과 관계 법령을 검토한 후 시행일을 정해 공지해야 합니다. 법령에 따른 소비자의 권리는 이 안내보다 우선합니다.
-      </div>
+      <p className="mt-2 text-xs text-sub">시행일: 2026년 11월 25일 · 버전 v1.0</p>
       <div className="mt-8 space-y-8 text-sm leading-relaxed text-sub">
         <section>
           <h2 className="text-base font-black text-ink">먼저 확인해 주세요</h2>
