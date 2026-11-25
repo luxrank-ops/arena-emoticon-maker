@@ -1,0 +1,18 @@
+# emotihak.com — 검색 로봇 안내
+User-agent: *
+Allow: /
+
+# 계정·결제·개인 결과물 화면은 색인하지 않는다.
+Disallow: /api/
+Disallow: /admin
+Disallow: /billing
+Disallow: /checkout
+Disallow: /settings
+Disallow: /login
+Disallow: /signup
+Disallow: /reply
+Disallow: /share/
+Disallow: /studio/pack
+Disallow: /studio/packs
+
+Sitemap: https://emotihak.com/sitemap.xml

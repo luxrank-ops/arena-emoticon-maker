@@ -4,6 +4,7 @@ import { SiteHeader } from '@/components/SiteHeader';
 import { SiteFooter } from '@/components/SiteFooter';
 import { BottomNav } from '@/components/BottomNav';
 import { AnalyticsProvider } from '@/components/analytics/AnalyticsProvider';
+import { GoogleAnalytics } from '@/components/analytics/GoogleAnalytics';
 import { PwaRegistration } from '@/components/PwaRegistration';
 import { InviteCapture } from '@/components/referral/InviteCapture';
 import { getLocale } from '@/lib/i18n/server';
@@ -18,6 +19,7 @@ export async function generateMetadata(): Promise<Metadata> {
     'Turn one photo into a personal sticker pack, choose expressions, edit every line, and download your favorites.',
   );
   return {
+  metadataBase: new URL('https://emotihak.com'),
   title,
   description,
   keywords: locale === 'en'
@@ -28,6 +30,26 @@ export async function generateMetadata(): Promise<Metadata> {
     description,
     type: 'website',
     locale: locale === 'en' ? 'en_US' : 'ko_KR',
+    siteName: tr(locale, '이모티학', 'EmotiHak'),
+    url: '/',
+    images: [
+      {
+        url: '/og/emotihak-og.png',
+        width: 1200,
+        height: 630,
+        alt: tr(
+          locale,
+          '이모티학 — 내 사진으로 30초 만에 카카오톡 스티커 만들기',
+          'EmotiHak — Turn your photo into KakaoTalk stickers in 30 seconds',
+        ),
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title,
+    description,
+    images: ['/og/emotihak-og.png'],
   },
   alternates: { languages: { 'ko-KR': '/', 'en-US': '/en' } },
   robots: { index: true, follow: true },
@@ -62,6 +84,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   return (
     <html lang={locale}>
       <head>
+        {/* GA4 — 마케팅 채널·전환 측정 (측정 ID: G-47XFW9HYF9) */}
+        <GoogleAnalytics />
         {/* 이모티콘 대사 레터링 폰트 — 첫 미리보기부터 같은 서체(주아)로 그린다 */}
         <link rel="preload" href="/fonts/EmotiHakRound.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/EmotiHakBrush.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
