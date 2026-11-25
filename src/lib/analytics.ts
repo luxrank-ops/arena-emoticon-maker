@@ -82,6 +82,8 @@ function gaName(event: string) {
 }
 
 function sendGa4(event: string, props: SafeProps) {
+  // PostHog 전용 의사 이벤트($pageview 등)는 GA4 로 보내지 않는다(쓰레기 이벤트 방지).
+  if (event.startsWith('$')) return;
   if (!GA_MEASUREMENT_ID || typeof window === 'undefined') return;
   const gtag = (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag;
   if (typeof gtag !== 'function') return;
