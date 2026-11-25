@@ -3,7 +3,7 @@ import { notFound } from 'next/navigation';
 import { PayPanel } from '@/components/payments/PayPanel';
 import { getCurrentUser } from '@/lib/session';
 import { withPaymentDB } from '@/lib/store';
-import { checkoutSuspended, paymentProvider, paymentsUnavailable } from '@/lib/payments';
+import { checkoutSuspended, paymentProvider, paymentsUnavailable, portoneClientConfig } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
@@ -12,6 +12,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ order
   const user = await getCurrentUser();
   const order = await withPaymentDB((db) => db.orders.find((o) => o.id === orderId && o.userId === user.id) ?? null);
   if (!order) notFound();
+  const portone = portoneClientConfig();
 
   return (
     <div className="wrap max-w-3xl py-12">
@@ -31,6 +32,8 @@ export default async function CheckoutPage({ params }: { params: Promise<{ order
         kind={order.kind}
         provider={paymentProvider()}
         clientKey={process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || ''}
+        storeId={portone?.storeId ?? ''}
+        channelKey={portone?.channelKey ?? ''}
         available={!paymentsUnavailable() && !checkoutSuspended() && order.status === 'PENDING' && order.provider === paymentProvider() && !order.paymentKey}
       />
 

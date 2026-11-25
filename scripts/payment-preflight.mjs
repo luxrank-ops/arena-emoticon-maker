@@ -12,10 +12,21 @@ const pass = (message) => passes.push(message);
 const fail = (message) => failures.push(message);
 const warn = (message) => warnings.push(message);
 
-if (value('PAYMENT_PROVIDER') === 'toss') pass('PAYMENT_PROVIDER=toss');
-else fail('PAYMENT_PROVIDER를 toss로 설정해야 합니다. mock은 운영 결제에 사용할 수 없습니다.');
+const provider = value('PAYMENT_PROVIDER');
+if (provider === 'toss' || provider === 'portone') pass(`PAYMENT_PROVIDER=${provider}`);
+else fail('PAYMENT_PROVIDER를 toss 또는 portone으로 설정해야 합니다. mock은 운영 결제에 사용할 수 없습니다.');
 
-for (const name of ['NEXT_PUBLIC_TOSS_CLIENT_KEY', 'TOSS_SECRET_KEY']) {
+if (provider === 'portone') {
+  for (const name of ['PORTONE_STORE_ID', 'PORTONE_CHANNEL_KEY', 'PORTONE_API_SECRET']) {
+    if (!present(name)) fail(`${name}이 없습니다.`);
+    else if (placeholder(name)) fail(`${name}에 예시·스텁 값을 사용할 수 없습니다.`);
+    else pass(`${name} 확인`);
+  }
+  if (present('PORTONE_STORE_ID') && !value('PORTONE_STORE_ID').startsWith('store-')) fail('PORTONE_STORE_ID 형식이 올바르지 않습니다.');
+  if (present('PORTONE_CHANNEL_KEY') && !value('PORTONE_CHANNEL_KEY').startsWith('channel-key-')) fail('PORTONE_CHANNEL_KEY 형식이 올바르지 않습니다.');
+}
+
+if (provider === 'toss') for (const name of ['NEXT_PUBLIC_TOSS_CLIENT_KEY', 'TOSS_SECRET_KEY']) {
   const expectedPrefix = `${testMode ? 'test' : 'live'}_${name === 'NEXT_PUBLIC_TOSS_CLIENT_KEY' ? 'ck' : 'sk'}_`;
   if (!present(name)) fail(`${name}이 없습니다.`);
   else if (!value(name).startsWith(expectedPrefix)) fail(`${name}의 ${testMode ? '테스트' : '라이브'} 키 종류가 올바르지 않습니다.`);

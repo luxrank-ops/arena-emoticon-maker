@@ -37,6 +37,33 @@ interface TossPayment {
   method?: string;
 }
 
+interface PortOnePayment {
+  id?: string;
+  status?: string;
+  amount?: { total?: number };
+  method?: { type?: string };
+}
+
+/** 포트원 V2 결제 단건 조회로 승인 상태와 금액을 검증한다. */
+async function verifyPortonePayment(input: CheckoutConfirmation) {
+  let response: Response;
+  try {
+    response = await fetch(`https://api.portone.io/payments/${encodeURIComponent(input.paymentKey)}`, {
+      headers: { Authorization: `PortOne ${process.env.PORTONE_API_SECRET}` },
+      signal: AbortSignal.timeout(15_000),
+      cache: 'no-store',
+    });
+  } catch {
+    throw retryError();
+  }
+  if (!response.ok) throw retryError();
+
+  const data = await response.json().catch(() => null) as PortOnePayment | null;
+  if (!data || data.status !== 'PAID' || data.amount?.total !== input.amount || data.id !== input.paymentKey) {
+    throw new CheckoutError('PAYMENT_REVIEW', '결제 상태를 자동 확인할 수 없어요. 고객센터에 주문번호를 알려 주세요.');
+  }
+}
+
 function retryError() {
   return new CheckoutError('PAYMENT_RETRY', '결제 승인 결과를 확인하지 못했어요. 다시 확인하거나 고객센터에 문의해 주세요.', 503);
 }
@@ -94,7 +121,7 @@ export async function confirmCheckout(userId: string, input: CheckoutConfirmatio
     }
     if (order.amount !== input.amount) return { error: 'AMOUNT_MISMATCH' };
     if (!order.consentAt) return { error: 'CONSENT_REQUIRED' };
-    if (order.paymentKey && order.paymentKey !== input.paymentKey) return { error: 'KEY_MISMATCH' };
+    if (order.paymentKey && order.paymentKey !== input.paymentKey && provider !== 'portone') return { error: 'KEY_MISMATCH' };
     if (order.status === 'PAID') return { paid: true, order, balance: db.users.find((user) => user.id === userId)?.credits ?? 0 };
     if (order.status !== 'PENDING') return { error: 'ORDER_UNAVAILABLE' };
     if (!db.users.some((user) => user.id === userId)) return { error: 'ORDER_NOT_FOUND' };
@@ -116,6 +143,8 @@ export async function confirmCheckout(userId: string, input: CheckoutConfirmatio
 
   if (provider === 'toss') {
     await verifyTossPayment(input);
+  } else if (provider === 'portone') {
+    await verifyPortonePayment(input);
   } else if (provider !== 'mock' || process.env.NODE_ENV === 'production' || !input.paymentKey.startsWith('mock_')) {
     throw new CheckoutError('PAYMENT_UNAVAILABLE', '결제 연동이 준비되지 않아 지금은 구매할 수 없어요', 503);
   }

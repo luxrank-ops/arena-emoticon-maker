@@ -7,8 +7,31 @@ import { useRouter } from 'next/navigation';
 import { won } from '@/lib/pricing';
 import { isTWA } from '@/lib/twa';
 
-export function PayPanel({ orderId, amount, title, credits, provider, clientKey, available, kind }: {
-  orderId: string; amount: number; title: string; credits: number; provider: string; clientKey: string; available: boolean; kind: 'subscription' | 'credits' | 'goods' | 'unlock';
+type PortOnePaymentResult = { code?: string; message?: string; paymentId?: string };
+type PortOneRequestPayment = (options: {
+  storeId: string; channelKey: string; paymentId: string; orderName: string;
+  totalAmount: number; currency: 'KRW'; payMethod: 'CARD';
+}) => Promise<PortOnePaymentResult>;
+
+/** 포트원 브라우저 SDK는 결제할 때만 CDN에서 불러온다(의존성·번들 추가 없이). */
+async function loadPortOneRequestPayment(): Promise<PortOneRequestPayment> {
+  const read = () => (window as unknown as { PortOne?: { requestPayment?: PortOneRequestPayment } }).PortOne;
+  if (read()?.requestPayment) return read()!.requestPayment!;
+  await new Promise<void>((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://cdn.portone.io/v2/browser-sdk.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('결제 모듈을 불러오지 못했어요. 새로고침 후 다시 시도해 주세요.'));
+    document.head.appendChild(script);
+  });
+  const loaded = read();
+  if (!loaded?.requestPayment) throw new Error('결제 모듈을 불러오지 못했어요.');
+  return loaded.requestPayment;
+}
+
+export function PayPanel({ orderId, amount, title, credits, provider, clientKey, available, kind, storeId = '', channelKey = '' }: {
+  orderId: string; amount: number; title: string; credits: number; provider: string; clientKey: string; available: boolean; kind: 'subscription' | 'credits' | 'goods' | 'unlock'; storeId?: string; channelKey?: string;
 }) {
   const router = useRouter();
   const [agree, setAgree] = useState(false);
@@ -63,7 +86,26 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
       const prepared = await fetch('/api/checkout/prepare', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId, agreeDigital: true }) });
       const json = await prepared.json();
       if (!prepared.ok) throw new Error(json?.error?.message || '결제 준비에 실패했어요.');
-      if (provider === 'toss' && widgetsRef.current) {
+      if (provider === 'portone') {
+        if (!storeId || !channelKey) throw new Error('결제 설정이 아직 준비되지 않았어요. 고객센터에 문의해 주세요.');
+        // 포트원은 결제 시도마다 고유한 paymentId를 요구하므로 주문번호에 시각을 붙인다.
+        const paymentId = `${orderId}-${Date.now().toString(36)}`;
+        const requestPayment = await loadPortOneRequestPayment();
+        const result = await requestPayment({
+          storeId,
+          channelKey,
+          paymentId,
+          orderName: title,
+          totalAmount: amount,
+          currency: 'KRW',
+          payMethod: 'CARD',
+        });
+        if (!result || result.code) throw new Error(result?.message || '결제가 완료되지 않았어요.');
+        const confirmed = await fetch('/api/checkout/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId, amount, paymentKey: paymentId }) });
+        const data = await confirmed.json();
+        if (!confirmed.ok) throw new Error(data?.error?.message || '결제 승인을 확인하지 못했어요. 고객센터에 문의해 주세요.');
+        router.push('/billing'); router.refresh();
+      } else if (provider === 'toss' && widgetsRef.current) {
         await widgetsRef.current.requestPayment({ orderId, orderName: title, successUrl: `${window.location.origin}/checkout/success`, failUrl: `${window.location.origin}/checkout/fail` });
       } else if (provider === 'mock') {
         const res = await fetch('/api/checkout/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId, amount, paymentKey: `mock_${orderId}` }) });
@@ -81,6 +123,7 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
     </div>
     {!available ? <p role="status" className="mt-4 text-sm font-bold text-coralink">결제를 진행할 수 없는 주문입니다. 결제 내역을 확인하거나 고객센터에 문의해 주세요.</p> : null}
     {available && provider === 'toss' && !twaCreditBlocked ? <><div id="payment-method" className="mt-4" /><div id="payment-agreement" /><p className="mt-2 text-xs text-sub">현재 카드 기반 결제만 지원합니다. 결제수단은 계약 및 설정에 따라 다를 수 있습니다.</p></> : null}
+    {available && provider === 'portone' && !twaCreditBlocked ? <p className="mt-4 text-xs text-sub">KG이니시스 결제창에서 신용·체크카드로 결제합니다. 결제수단은 계약 및 설정에 따라 다를 수 있습니다.</p> : null}
     {available && provider === 'mock' ? <p className="mt-4 text-xs font-bold text-sub">개발용 모의 결제입니다. 실제 결제는 발생하지 않습니다.</p> : null}
     {twaCreditBlocked ? <div className="mt-4 rounded-xl border border-line bg-cream p-4">
       <p className="text-sm font-black">이미 모든 기능이 포함되어 있어요</p>

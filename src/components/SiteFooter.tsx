@@ -45,7 +45,7 @@ export async function SiteFooter() {
             'AI results vary with the photo and selected style. Original photos are not stored; derived face-analysis data is deleted automatically 24 hours after generation.',
           )}
         </p>
-        <details className="text-xs leading-relaxed text-sub">
+        <details className="text-xs leading-relaxed text-sub" open>
           <summary className="cursor-pointer font-bold">{tr(locale, '사업자 정보', 'Business information')}</summary>
           <p className="mt-2">
             {tr(locale, '상호', 'Business')}: {BUSINESS.name} · {tr(locale, '대표', 'Representative')}: {BUSINESS.owner}<br />
