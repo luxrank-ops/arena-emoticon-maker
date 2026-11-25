@@ -36,8 +36,9 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
 }) {
   const router = useRouter();
   const [agree, setAgree] = useState(false);
-  // KG이니시스 V2는 구매자 이메일이 필수 — 회원은 가입 이메일을 기본값으로, 비회원은 직접 입력받는다.
+  // KG이니시스 V2는 구매자 이메일·휴대폰 번호가 필수 — 회원은 가입 이메일을 기본값으로, 나머지는 직접 입력받는다.
   const [email, setEmail] = useState(buyerEmail);
+  const [phone, setPhone] = useState('');
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -93,6 +94,8 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
         if (!storeId || !channelKey) throw new Error('결제 설정이 아직 준비되지 않았어요. 고객센터에 문의해 주세요.');
         const customerEmail = (email || buyerEmail).trim();
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) throw new Error('결제에 필요한 이메일 주소를 정확히 입력해 주세요.');
+        const customerPhone = phone.replace(/[^0-9]/g, '');
+        if (!/^0\d{8,10}$/.test(customerPhone)) throw new Error('결제에 필요한 휴대폰 번호를 정확히 입력해 주세요.');
         // 포트원은 결제 시도마다 고유한 paymentId를 요구하므로 주문번호에 시각을 붙인다.
         const paymentId = `${orderId}-${Date.now().toString(36)}`;
         const requestPayment = await loadPortOneRequestPayment();
@@ -104,7 +107,7 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
           totalAmount: amount,
           currency: 'KRW',
           payMethod: 'CARD',
-          customer: { email: customerEmail, ...(buyerName ? { fullName: buyerName } : {}) },
+          customer: { email: customerEmail, phoneNumber: customerPhone, ...(buyerName ? { fullName: buyerName } : {}) },
         });
         if (!result || result.code) throw new Error(result?.message || '결제가 완료되지 않았어요.');
         const confirmed = await fetch('/api/checkout/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId, amount, paymentKey: paymentId }) });
@@ -130,10 +133,16 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
     {!available ? <p role="status" className="mt-4 text-sm font-bold text-coralink">결제를 진행할 수 없는 주문입니다. 결제 내역을 확인하거나 고객센터에 문의해 주세요.</p> : null}
     {available && provider === 'toss' && !twaCreditBlocked ? <><div id="payment-method" className="mt-4" /><div id="payment-agreement" /><p className="mt-2 text-xs text-sub">현재 카드 기반 결제만 지원합니다. 결제수단은 계약 및 설정에 따라 다를 수 있습니다.</p></> : null}
     {available && provider === 'portone' && !twaCreditBlocked ? <p className="mt-4 text-xs text-sub">KG이니시스 결제창에서 신용·체크카드로 결제합니다. 결제수단은 계약 및 설정에 따라 다를 수 있습니다.</p> : null}
-    {available && provider === 'portone' && !twaCreditBlocked && !buyerEmail ? <label className="mt-3 block text-[11px] font-bold text-sub">결제 확인용 이메일 (필수)
-      <input type="email" inputMode="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm font-medium text-ink" />
-      <span className="mt-1 block font-normal leading-relaxed">결제 영수증·안내를 받을 이메일이에요. 이모티학에 저장하지 않습니다.</span>
-    </label> : null}
+    {available && provider === 'portone' && !twaCreditBlocked ? <div className="mt-3 space-y-2">
+      <p className="text-[11px] font-bold text-sub">결제 확인용 정보 (필수)</p>
+      {!buyerEmail ? <label className="block text-[11px] font-bold text-sub">이메일
+        <input type="email" inputMode="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm font-medium text-ink" />
+      </label> : null}
+      <label className="block text-[11px] font-bold text-sub">휴대폰 번호
+        <input type="tel" inputMode="numeric" autoComplete="tel" required value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="010-0000-0000" className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm font-medium text-ink" />
+      </label>
+      <span className="block text-[10px] leading-relaxed text-sub">결제 영수증·안내를 받을 연락처예요. 이모티학에 저장하지 않습니다.</span>
+    </div> : null}
     {available && provider === 'mock' ? <p className="mt-4 text-xs font-bold text-sub">개발용 모의 결제입니다. 실제 결제는 발생하지 않습니다.</p> : null}
     {twaCreditBlocked ? <div className="mt-4 rounded-xl border border-line bg-cream p-4">
       <p className="text-sm font-black">이미 모든 기능이 포함되어 있어요</p>
