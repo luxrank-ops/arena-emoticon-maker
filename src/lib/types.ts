@@ -357,6 +357,25 @@ export interface Referral {
   rewardedAt?: string;
 }
 
+/**
+ * 사전예약(웨이트리스트) — 런칭 알림 발송용.
+ *  · 이메일 원문 저장 (알림 발송 목적, accounts 와 동일한 취급).
+ *  · utm 은 유입 채널 추적용 스냅샷, refCode 는 초대 코드가 있으면 기록.
+ */
+export interface WaitlistEntry {
+  id: string;
+  email: string;
+  /** 소문자 정규화 이메일의 해시 — 중복 판정 키 (원문 대소문자 변형 방어) */
+  emailHash: string;
+  userId?: string;
+  locale?: Locale;
+  utm?: { source?: string; medium?: string; campaign?: string; content?: string };
+  refCode?: string;
+  /** 알림 발송 완료 시각 (발송 시스템 연동 시 기록) */
+  notifiedAt?: string;
+  createdAt: string;
+}
+
 export interface GoodsOrder extends Order {
   frameId: string;
   frameThumb: string;
