@@ -100,8 +100,9 @@ export function track(event: string, props: Props = {}) {
   sendGa4(event, safe);
 }
 
-export function pageview(path: string) {
-  track('$pageview', { path });
+export function pageview(path: string, opts: { ga?: boolean } = {}) {
+  sendPosthog('$pageview', { path });
+  if (opts.ga === false) return;
   if (!GA_MEASUREMENT_ID || typeof window === 'undefined') return;
   const gtag = (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag;
   if (typeof gtag !== 'function') return;
