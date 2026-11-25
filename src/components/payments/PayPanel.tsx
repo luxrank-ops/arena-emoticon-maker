@@ -38,6 +38,7 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
   const [agree, setAgree] = useState(false);
   // KG이니시스 V2는 구매자 이메일·휴대폰 번호가 필수 — 회원은 가입 이메일을 기본값으로, 나머지는 직접 입력받는다.
   const [email, setEmail] = useState(buyerEmail);
+  const [name, setName] = useState(buyerName);
   const [phone, setPhone] = useState('');
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -96,6 +97,8 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
         if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(customerEmail)) throw new Error('결제에 필요한 이메일 주소를 정확히 입력해 주세요.');
         const customerPhone = phone.replace(/[^0-9]/g, '');
         if (!/^0\d{8,10}$/.test(customerPhone)) throw new Error('결제에 필요한 휴대폰 번호를 정확히 입력해 주세요.');
+        const customerName = (name || buyerName).trim();
+        if (customerName.length < 2) throw new Error('결제에 필요한 이름을 입력해 주세요.');
         // 포트원은 결제 시도마다 고유한 paymentId를 요구하므로 주문번호에 시각을 붙인다.
         const paymentId = `${orderId}-${Date.now().toString(36)}`;
         const requestPayment = await loadPortOneRequestPayment();
@@ -107,7 +110,7 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
           totalAmount: amount,
           currency: 'KRW',
           payMethod: 'CARD',
-          customer: { email: customerEmail, phoneNumber: customerPhone, ...(buyerName ? { fullName: buyerName } : {}) },
+          customer: { email: customerEmail, phoneNumber: customerPhone, fullName: customerName },
         });
         if (!result || result.code) throw new Error(result?.message || '결제가 완료되지 않았어요.');
         const confirmed = await fetch('/api/checkout/confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ orderId, amount, paymentKey: paymentId }) });
@@ -135,6 +138,9 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
     {available && provider === 'portone' && !twaCreditBlocked ? <p className="mt-4 text-xs text-sub">KG이니시스 결제창에서 신용·체크카드로 결제합니다. 결제수단은 계약 및 설정에 따라 다를 수 있습니다.</p> : null}
     {available && provider === 'portone' && !twaCreditBlocked ? <div className="mt-3 space-y-2">
       <p className="text-[11px] font-bold text-sub">결제 확인용 정보 (필수)</p>
+      {!buyerName ? <label className="block text-[11px] font-bold text-sub">이름
+        <input type="text" autoComplete="name" required value={name} onChange={(e) => setName(e.target.value)} placeholder="이춘학" className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm font-medium text-ink" />
+      </label> : null}
       {!buyerEmail ? <label className="block text-[11px] font-bold text-sub">이메일
         <input type="email" inputMode="email" autoComplete="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="you@example.com" className="mt-1 w-full rounded-xl border border-line bg-white px-3 py-2 text-sm font-medium text-ink" />
       </label> : null}
