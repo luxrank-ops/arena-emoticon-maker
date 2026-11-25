@@ -15,6 +15,7 @@ export type NavKey =
   | 'menu'
   | 'quotes'
   | 'presets'
+  | 'season'
   | 'brief'
   | 'goods'
   | 'pricing'
@@ -37,6 +38,7 @@ export const NAV_ITEMS: Record<NavKey, NavItem> = {
   menu: { key: 'menu', href: '/studio', ko: '전체메뉴', en: 'Menu', primary: true },
   quotes: { key: 'quotes', href: '/quotes', ko: '대사', en: 'Quotes', primary: false },
   presets: { key: 'presets', href: '/presets', ko: '프리셋 150', en: 'Presets 150', primary: false },
+  season: { key: 'season', href: '/season', ko: '시즌팩', en: 'Season packs', primary: false },
   brief: { key: 'brief', href: '/brief', ko: '오늘의 브리핑', en: 'Daily brief', primary: false },
   goods: { key: 'goods', href: '/goods', ko: '굿즈', en: 'Goods', primary: false },
   pricing: { key: 'pricing', href: '/pricing', ko: '요금제', en: 'Pricing', primary: false },
@@ -116,6 +118,15 @@ export const MENU_SHEET: MenuEntry[] = [
     descEn: '150 expressions, poses and lines',
   },
   {
+    key: 'season',
+    href: '/season',
+    emoji: '🎄',
+    ko: '시즌팩',
+    en: 'Season packs',
+    descKo: '크리스마스·새해·설날 커밍순 카운트다운',
+    descEn: 'Christmas, New Year and Lunar packs — coming soon',
+  },
+  {
     key: 'brief',
     href: '/brief',
     emoji: '☀️',
@@ -184,6 +195,7 @@ export const MENU_SHEET: MenuEntry[] = [
 const MENU_SHEET_PATHS: string[] = [
   '/quotes',
   '/presets',
+  '/season',
   '/brief',
   '/goods',
   '/pricing',
@@ -226,6 +238,8 @@ export function isNavActive(key: NavKey, pathname: string): boolean {
       return path === '/quotes' || path.startsWith('/quotes/');
     case 'presets':
       return path === '/presets' || path.startsWith('/presets/');
+    case 'season':
+      return path === '/season' || path.startsWith('/season/');
     case 'brief':
       return path === '/brief' || path.startsWith('/brief/');
     case 'goods':

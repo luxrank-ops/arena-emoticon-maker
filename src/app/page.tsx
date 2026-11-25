@@ -7,6 +7,8 @@ import { getCurrentUser } from '@/lib/session';
 import { aiAccess, canUseAiGeneration } from '@/lib/admin-access';
 import { PRICE_TIERS } from '@/lib/pricing';
 import { RainFloat } from '@/components/home/RainFloat';
+import { SeasonTeaser } from '@/components/season/SeasonTeaser';
+import { seasonQueryString, seasonTeaserViews, seasonTimeContext } from '@/lib/season';
 
 const samples = [
   { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
@@ -29,9 +31,21 @@ const questions = [
   { q: '카카오톡에서 사용할 수 있나요?', a: '내려받은 PNG나 GIF를 채팅방에 사진으로 보낼 수 있습니다. 카카오 이모티콘 스토어 정식 출품과 심사 통과는 별개이며 보장되지 않습니다.' },
 ];
 
-export default async function LandingPage() {
-  const locale = await getLocale();
-  const user = await getCurrentUser();
+export default async function LandingPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ preview?: string; at?: string }>;
+} = {}) {
+  const [locale, user, params] = await Promise.all([
+    getLocale(),
+    getCurrentUser(),
+    searchParams ?? Promise.resolve({} as { preview?: string; at?: string }),
+  ]);
+  // 시즌팩 커밍순 — 오픈 전에는 D-day 카운트다운, 오픈일 00:00(KST)부터 자동으로 '오픈'.
+  const seasonTime = seasonTimeContext(params);
+  const seasonViews = seasonTeaserViews(seasonTime.now, seasonTime.preview);
+  const seasonQuery = seasonQueryString(seasonTime);
+  const seasonNowIso = seasonTime.now.toISOString();
   // AI 스튜디오가 관리자 전용으로 잠겨 있는 동안에는 첫 화면이 막다른 길이 되지 않게
   // 지금 100% 동작하는 대사 스튜디오로 주 CTA 를 안내한다.
   const aiEnabled = canUseAiGeneration(user);
@@ -41,6 +55,7 @@ export default async function LandingPage() {
     return (
       <>
         <EnglishLanding aiEnabled={aiEnabled} />
+        <SeasonTeaser views={seasonViews} nowIso={seasonNowIso} locale="en" query={seasonQuery} />
         <RainFloat locale="en" />
       </>
     );
@@ -210,6 +225,9 @@ export default async function LandingPage() {
           <p className="mt-3 text-[10.5px] leading-relaxed text-sub/90">원본 사진은 서버에 저장하지 않아요 · 생성 결과는 사진과 다를 수 있어요</p>
         </div>
       </section>
+
+      {/* ── 시즌팩 커밍순 티저 ───────────────────────────────────── */}
+      <SeasonTeaser views={seasonViews} nowIso={seasonNowIso} locale="ko" query={seasonQuery} />
 
       {/* ── 화풍 예시 (짧게) ─────────────────────────────────────── */}
       <section className="wrap py-8 sm:py-11" aria-labelledby="tone-title">

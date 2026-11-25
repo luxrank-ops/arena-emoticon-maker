@@ -28,6 +28,7 @@ export function FrameEditor({
   index,
   total,
   aiPack,
+  seasonAccessories = [],
   unlimited = false,
 }: {
   frame: FrameView;
@@ -38,6 +39,8 @@ export function FrameEditor({
   total: number;
   /** AI 생성 팩이면 대사·표정 변경 시 컷을 다시 그린다 */
   aiPack: boolean;
+  /** 오픈한 시즌팩의 AI 악세사리 — 오픈 전에는 빈 배열 */
+  seasonAccessories?: { id: string; name: string; emoji: string }[];
   unlimited?: boolean;
 }) {
   const [frame, setFrame] = useState(initial);
@@ -360,6 +363,33 @@ export function FrameEditor({
                 );
               })}
             </div>
+
+            {/* 시즌 악세사리 — 오픈일이 지난 시즌팩만 서버가 넘겨준다 */}
+            {seasonAccessories.length ? (
+              <div className="mt-3 rounded-xl border border-primary/20 bg-primary/[0.04] p-2.5">
+                <p className="text-[11px] font-black text-primary-dark">🎄 시즌 악세사리 (오픈)</p>
+                <div className="mt-1.5 grid grid-cols-2 gap-2" role="group" aria-label="시즌 악세사리 선택">
+                  {seasonAccessories.map((accessory) => {
+                    const selected = selectedAccessories.includes(accessory.id);
+                    return (
+                      <button
+                        key={accessory.id}
+                        type="button"
+                        aria-pressed={selected}
+                        disabled={redrawing || (!selected && selectedAccessories.length >= 3)}
+                        onClick={() => toggleAccessory(accessory.id)}
+                        className={clsx(
+                          'rounded-xl border-2 px-3 py-2.5 text-left text-xs font-bold transition disabled:opacity-50',
+                          selected ? 'border-ink bg-lemon/50 text-ink' : 'border-line bg-paper text-sub hover:border-ink',
+                        )}
+                      >
+                        <span aria-hidden="true" className="mr-2 text-base">{accessory.emoji}</span>{accessory.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : null}
           </div>
         ) : null}
 

@@ -19,6 +19,15 @@ import { EMOTIONS } from '@/lib/art/sticker';
 import { LAYER_EFFECTS, TEXT_STYLES } from '@/lib/studio/layers';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
+import { SeasonPropArt } from '@/components/season/SeasonPropArt';
+import {
+  seasonPropById,
+  seasonPropsForPack,
+  SEASON_PROP_SPOTS,
+  SEASON_PROP_SPOT_LABELS,
+  type SeasonPropPlacement,
+  type SeasonPropSpot,
+} from '@/lib/studio/season-props';
 import {
   MOTION_TEMPLATES,
   motionById,
@@ -131,7 +140,30 @@ function styleKeyOf(cut: Cutout, outline: number): string {
   return JSON.stringify([cut.rev, cut.crop, cut.style, outline]);
 }
 
-export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
+/** 시즌 소품 묶음 — 서버가 오픈 여부를 판정해 넘긴다(props 는 소품 id 목록) */
+export interface SeasonPropGroup {
+  id: string;
+  emoji: string;
+  title: string;
+  titleEn: string;
+  /** 오픈일이 지나 잠금이 풀렸는가 */
+  unlocked: boolean;
+  /** '12월 11일' — 잠금 안내에 쓴다 */
+  openLabel: string;
+  openLabelEn: string;
+  propIds: string[];
+}
+
+export function PhotoCutoutStudio({
+  locale = 'ko',
+  seasonGroups = [],
+  seasonFocus = null,
+}: {
+  locale?: Locale;
+  seasonGroups?: SeasonPropGroup[];
+  /** ?season=christmas 로 들어왔을 때 그 팩을 먼저 보여 준다 */
+  seasonFocus?: string | null;
+}) {
   const t = (ko: string, en: string) => tr(locale, ko, en);
   const lp = (href: string) => localizedPath(locale, href);
 
@@ -147,6 +179,21 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
+  // 시즌 소품 — 오픈한 팩의 소품만 고를 수 있고, 고른 소품은 모든 컷에 같이 얹힌다.
+  const [seasonProp, setSeasonProp] = useState<string>('none');
+  const [propSpot, setPropSpot] = useState<SeasonPropSpot | 'auto'>('auto');
+
+  const orderedSeasonGroups = useMemo(() => {
+    if (!seasonFocus) return seasonGroups;
+    return [...seasonGroups].sort((a, b) => (a.id === seasonFocus ? -1 : b.id === seasonFocus ? 1 : 0));
+  }, [seasonGroups, seasonFocus]);
+  const seasonPlacement = useMemo<SeasonPropPlacement | null>(() => {
+    if (seasonProp === 'none') return null;
+    const prop = seasonPropById(seasonProp);
+    if (!prop) return null;
+    return { id: prop.id, spot: propSpot === 'auto' ? prop.spot : propSpot };
+  }, [seasonProp, propSpot]);
+  const seasonPropKey = seasonPlacement ? `${seasonPlacement.id}@${seasonPlacement.spot ?? 'auto'}` : '';
 
   const cutsRef = useRef<Cutout[]>([]);
   const renderedRef = useRef(new Map<string, string>());
@@ -172,10 +219,10 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     cutsRef.current = cuts;
   }, [cuts]);
 
-  // 컷 하나를 그린다 — 누끼 + 외곽선 + 레이어 합성
+  // 컷 하나를 그린다 — 누끼 + 외곽선 + 시즌 소품 + 레이어 합성
   const renderCut = useCallback(
     async (cut: Cutout) => {
-      const key = styleKeyOf(cut, outline);
+      const key = `${styleKeyOf(cut, outline)}|${seasonPropKey}`;
       if (renderedRef.current.get(cut.id) === key) return;
       setRendering((prev) => (prev.includes(cut.id) ? prev : [...prev, cut.id]));
       try {
@@ -186,12 +233,13 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
           outline,
           preciseMatte: true,
           matteEngine: 'auto',
+          seasonProp: seasonPlacement,
           onMatte: (next) => {
             info = next;
           },
         });
         const latest = cutsRef.current.find((item) => item.id === cut.id);
-        if (latest && styleKeyOf(latest, outline) !== key) return;
+        if (latest && `${styleKeyOf(latest, outline)}|${seasonPropKey}` !== key) return;
         renderedRef.current.set(cut.id, key);
         baseCanvasesRef.current.set(cut.id, canvas);
         const preview = canvas.toDataURL('image/png');
@@ -203,6 +251,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
             outline,
             preciseMatte: true,
             matteEngine: 'auto',
+            seasonProp: seasonPlacement,
           });
           videoCanvasesRef.current.set(cut.id, vCanvases);
         }
@@ -214,9 +263,10 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
         setRendering((prev) => prev.filter((id) => id !== cut.id));
       }
     },
-    [outline, locale, t],
+    [outline, locale, t, seasonPlacement, seasonPropKey],
   );
 
+  // 소품을 바꾸면 모든 컷을 다시 그린다 — 미리보기가 곧 저장 결과와 같아야 한다.
   const enqueue = useCallback(
     (cut: Cutout) => {
       queueRef.current = queueRef.current
@@ -246,6 +296,16 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [outline]);
+
+  // 시즌 소품 변경 시 전체 재렌더링 (외곽선과 같은 방식 — 미리보기 = 저장 결과)
+  useEffect(() => {
+    if (cuts.length === 0) return;
+    const timer = window.setTimeout(() => {
+      for (const cut of cutsRef.current) enqueue(cut);
+    }, 200);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [seasonPropKey]);
 
   // ── 실시간 60FPS 모션 미리보기 루프 (Canvas) ───────────────────────
   useEffect(() => {
@@ -444,7 +504,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
       const index = cutsRef.current.findIndex((cut) => cut.id === selected.id);
       const safeIndex = index < 0 ? 0 : index;
       const spec = cutoutSpec({ photo: selected.photo, style: selected.style, seed: cutoutSeed(selected.id) });
-      const baseOpts = { size: CUTOUT_SIZE, outline, preciseMatte: true, matteEngine: 'auto' as const };
+      const baseOpts = { size: CUTOUT_SIZE, outline, preciseMatte: true, matteEngine: 'auto' as const, seasonProp: seasonPlacement };
       const isVideo = (selected.videoFrames?.length ?? 0) > 1;
       const motion = selected.style.motion ?? 'none';
 
@@ -511,6 +571,7 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
         outline,
         preciseMatte: true,
         matteEngine: 'auto',
+        seasonProp: seasonPlacement,
         motion: isPackAnimated ? 'bounce' : 'none',
         animationFormat: packFormat === 'gif' ? 'gif' : 'apng',
       });
@@ -1120,6 +1181,133 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
                 </button>
               ))}
             </div>
+
+            {/* 시즌 소품 — 크리스마스·새해·설날. 오픈일 전에는 잠금 배지로만 보인다. */}
+            {orderedSeasonGroups.length ? (
+              <div className="mt-4 rounded-2xl border border-line bg-cream/40 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-black text-ink">🎄 {t('시즌 소품', 'Season props')}</p>
+                  <span className="text-[10px] font-bold text-sub">
+                    {t('사진 위에 얹어 바로 저장', 'Overlay and save')}
+                  </span>
+                </div>
+                {orderedSeasonGroups.map((group) => {
+                  const props = group.propIds.map((id) => seasonPropById(id)).filter((prop): prop is NonNullable<typeof prop> => Boolean(prop));
+                  const openLabel = locale === 'en' ? group.openLabelEn : group.openLabel;
+                  return (
+                    <div key={group.id} className="mt-2.5">
+                      <p className="flex flex-wrap items-center gap-1.5 text-[10.5px] font-black text-sub">
+                        <span aria-hidden="true">{group.emoji}</span>
+                        <span>{locale === 'en' ? group.titleEn : group.title}</span>
+                        <span
+                          className={clsx(
+                            'rounded-full px-1.5 py-0.5 text-[9px] font-black',
+                            group.unlocked ? 'bg-mint/10 text-mint' : 'bg-primary/[0.07] text-primary-dark',
+                          )}
+                        >
+                          {group.unlocked ? t('오픈', 'OPEN') : `🔒 ${openLabel} ${t('오픈', '')}`.trim()}
+                        </span>
+                      </p>
+                      <div className="mt-1.5 flex flex-wrap gap-1.5">
+                        {props.map((prop) => {
+                          const active = seasonProp === prop.id;
+                          return (
+                            <button
+                              key={prop.id}
+                              type="button"
+                              aria-pressed={active}
+                              onClick={() => {
+                                if (!group.unlocked) {
+                                  setNotice(
+                                    t(
+                                      `${openLabel} 오픈이에요. 그날 00시에 자동으로 열려요. 지금은 시즌팩 안내에서 소품 모양만 볼 수 있어요.`,
+                                      `Opens ${openLabel}. Preview the shapes in Season packs.`,
+                                    ),
+                                  );
+                                  track('season_prop_locked', { prop: prop.id, pack: group.id });
+                                  return;
+                                }
+                                const next = active ? 'none' : prop.id;
+                                setSeasonProp(next);
+                                setPropSpot('auto');
+                                if (next !== 'none') track('season_prop_select', { prop: prop.id, pack: group.id });
+                              }}
+                              className={clsx(
+                                'inline-flex min-h-8 items-center gap-1 rounded-full border px-2 py-1 text-[10.5px] font-black transition',
+                                active
+                                  ? 'border-primary bg-primary text-white shadow-soft'
+                                  : group.unlocked
+                                    ? 'border-line bg-white text-sub hover:border-primary/50 hover:text-ink'
+                                    : 'border-line/70 bg-white/60 text-sub/60',
+                              )}
+                            >
+                              <span className={clsx('block h-4 w-4', !group.unlocked && 'opacity-45')}>
+                                <SeasonPropArt id={prop.id} />
+                              </span>
+                              {locale === 'en' ? prop.labelEn : prop.label}
+                              {!group.unlocked ? <span aria-hidden="true" className="text-[9px]">🔒</span> : null}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  );
+                })}
+
+                {seasonPlacement ? (
+                  <div className="mt-3 rounded-xl border border-line bg-white p-2.5">
+                    <p className="text-[10px] font-black text-sub">{t('소품 위치', 'Prop position')}</p>
+                    <div className="mt-1.5 flex flex-wrap gap-1">
+                      <button
+                        type="button"
+                        aria-pressed={propSpot === 'auto'}
+                        onClick={() => setPropSpot('auto')}
+                        className={clsx(
+                          'min-h-8 rounded-full border px-2.5 text-[10px] font-black transition',
+                          propSpot === 'auto' ? 'border-primary bg-primary/10 text-primary-dark' : 'border-line bg-white text-sub hover:text-ink',
+                        )}
+                      >
+                        {t('기본 자리', 'Default')}
+                      </button>
+                      {SEASON_PROP_SPOT_LABELS.map((spot) => (
+                        <button
+                          key={spot.id}
+                          type="button"
+                          aria-pressed={propSpot === spot.id}
+                          onClick={() => setPropSpot(spot.id)}
+                          className={clsx(
+                            'min-h-8 rounded-full border px-2.5 text-[10px] font-black transition',
+                            propSpot === spot.id ? 'border-primary bg-primary/10 text-primary-dark' : 'border-line bg-white text-sub hover:text-ink',
+                          )}
+                        >
+                          {locale === 'en' ? spot.labelEn : spot.label}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setSeasonProp('none')}
+                        className="min-h-8 rounded-full border border-line bg-white px-2.5 text-[10px] font-black text-sub hover:text-coralink"
+                      >
+                        {t('소품 빼기', 'Remove')}
+                      </button>
+                    </div>
+                    <p className="mt-1.5 text-[10px] leading-relaxed text-sub/80">
+                      {t(
+                        '미리보기와 내려받기 결과가 같아요. 소품은 사진 위·글자 아래에 벡터로 얹혀 화질 손실이 없어요.',
+                        'Preview matches the download. Props sit above the photo, below the lettering, as vectors.',
+                      )}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-[10px] leading-relaxed text-sub">
+                    {t('시즌 소품은 오픈일 00시에 자동으로 열려요.', 'Season props unlock automatically at 00:00 KST on opening day.')}{' '}
+                    <Link href={lp('/season')} className="font-black text-primary-dark underline underline-offset-2">
+                      {t('시즌팩 미리 보기 →', 'Preview season packs →')}
+                    </Link>
+                  </p>
+                )}
+              </div>
+            ) : null}
 
             {/* 흰 스티커 외곽선 */}
             <div className="mt-4 rounded-xl border border-line bg-cream/50 p-3">

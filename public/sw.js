@@ -1,4 +1,4 @@
-const CACHE = 'emotihak-static-v5';
+const CACHE = 'emotihak-static-v6';
 const OFFLINE = '/offline.html';
 const PRECACHE = [OFFLINE, '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png', '/icons/icon-maskable-512.png'];
 

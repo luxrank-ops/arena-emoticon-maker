@@ -1,4 +1,4 @@
-import { ACCESSORIES } from '@/lib/accessories';
+import { accessoryById } from '@/lib/accessories';
 import { createHash } from 'node:crypto';
 import { AI_ADMIN_ONLY_MESSAGE, aiAccess, bypassesRateLimit, isUnlimited } from '@/lib/admin-access';
 import { consumeTrialImage, TRIAL_MESSAGES, TRIAL_VARIANT_KEYS, trialIpHash, trialToneAllowed } from '@/lib/free-trial';
@@ -56,7 +56,7 @@ const schema = z.object({
       force: z.boolean().optional(),
       /** 잠금 해제한 미리보기 팩을 고화질로 다시 그린다 — 추가 크레딧 없음 */
       finalize: z.boolean().optional(),
-      accessoryIds: z.array(z.string().refine((id) => ACCESSORIES.some((a) => a.id === id), '알 수 없는 악세사리입니다'))
+      accessoryIds: z.array(z.string().refine((id) => Boolean(accessoryById(id)), '알 수 없는 악세사리입니다'))
         .max(3).refine((ids) => new Set(ids).size === ids.length, '중복된 악세사리입니다').optional(),
     }),
     z.object({
@@ -301,7 +301,7 @@ export async function POST(req: Request) {
 
       // 3) Gemini 생성 (DB 잠금 밖에서 수행)
       const accessoryPrompts = plan.accessoryIds
-        .map((id) => ACCESSORIES.find((a) => a.id === id)?.promptAddition)
+        .map((id) => accessoryById(id)?.promptAddition)
         .filter(Boolean) as string[];
 
       // 원본 사진을 우선하고, 팩에 고정된 시안을 모든 컷의 스타일 기준으로 사용한다.

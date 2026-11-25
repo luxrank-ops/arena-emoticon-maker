@@ -7,6 +7,7 @@ import { applyMask, applyWhiteOutline, computeAlphaMask, outlineSilhouette } fro
 import { aiSubjectAlpha, type AiMatteModel } from '@/lib/studio/ai-matte';
 import { applyAlphaToPixels, planMatteEngine, type MatteReason } from '@/lib/studio/ai-matte-core';
 import { assembleApng } from '@/lib/studio/apng';
+import { drawSeasonProp, type SeasonPropPlacement } from '@/lib/studio/season-props';
 import { drawLayers, normalizeLayers, type TextLayer } from '@/lib/studio/layers';
 import { captionFontCss, ensureCaptionFonts } from '@/lib/svg-fonts';
 import {
@@ -57,6 +58,12 @@ export interface ExportOptions {
   preciseMatte?: boolean;
   /** 글자 레이어 (없으면 spec.textLayers 사용) */
   layers?: TextLayer[];
+  /**
+   * 시즌 소품 — 오픈한 시즌팩(크리스마스·새해·설날)의 벡터 소품을 사진 위에 얹는다.
+   *  · 사진 위·글자 아래 순서로 합성해 캘리그라피가 소품을 깔끔하게 정리한다.
+   *  · 잠금 판정은 화면(/studio/photo)에서 하고, 여기는 배치만 받는다.
+   */
+  seasonProp?: SeasonPropPlacement | null;
 }
 
 function svgUrl(svg: string) {
@@ -223,6 +230,9 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
     ctx.drawImage(ring, 0, 0);
   }
   ctx.drawImage(figure, 0, 0);
+
+  // 2.5) 시즌 소품 — 사진 위, 글자 아래. 오픈한 시즌팩 소품만 화면에서 넘어온다.
+  if (opts.seasonProp) drawSeasonProp(ctx, opts.seasonProp, size);
 
   // 3) 글자·이펙트 레이어
   if (layers.length) drawLayers(ctx, layers, size, { emotion: spec.emotion });
