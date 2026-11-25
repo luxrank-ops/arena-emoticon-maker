@@ -108,7 +108,9 @@ const ctx3 = seasonTimeContext({ at: '2026-12-05' });
 check('?at=날짜 → KST 00:00', ctx3.simulated && ctx3.now.toISOString() === '2026-12-04T15:00:00.000Z');
 const ctx4 = seasonTimeContext({ at: 'garbage' });
 check('잘못된 at 은 무시', ctx4.simulated === false && ctx4.invalidAt === true);
-check('검수 링크 파라미터 유지', seasonQueryString({ ...ctx2, simulated: true }) === `?preview=${SEASON_PREVIEW_VALUE}&at=2026-11-25`);
+// 날짜에 의존하지 않도록 기대값을 컨텍스트의 KST 날짜로 계산한다.
+const ctx2KstDate = new Date(ctx2.now.getTime() + 9 * 3600_000).toISOString().slice(0, 10);
+check('검수 링크 파라미터 유지', seasonQueryString({ ...ctx2, simulated: true }) === `?preview=${SEASON_PREVIEW_VALUE}&at=${ctx2KstDate}`);
 
 console.log('\n[4] AI 프롬프트 — 복장·소품·배경·포즈');
 for (const pack of SEASON_PACKS) {
