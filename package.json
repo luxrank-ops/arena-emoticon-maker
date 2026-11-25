@@ -8,6 +8,8 @@
     "build": "next build",
     "start": "next start -H 0.0.0.0 -p 3000",
     "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
     "test": "tsx scripts/test-recommend-optimization.ts && node scripts/test-launch-readiness.mjs && tsx scripts/test-presets-150.ts && tsx scripts/test-free-trial.ts && tsx scripts/test-play-billing.ts && tsx scripts/test-studio-upgrade.ts && tsx scripts/test-pack-formats-flow.ts && tsx scripts/test-curation-packages.ts && tsx scripts/test-sample-cuts.ts && tsx scripts/test-paywall-unlock.ts && tsx scripts/test-referral.ts && tsx scripts/test-killer-packs.ts && tsx scripts/test-reviewer-sheet.ts && tsx scripts/test-drip-themes.ts && tsx scripts/test-ai-matte.ts && tsx scripts/test-photo-cutout.ts && tsx scripts/test-season-packs.ts",
     "smoke": "node scripts/smoke.mjs",
     "test:payments": "node scripts/test-payment-readiness.cjs",
@@ -45,7 +47,7 @@
   "dependencies": {
     "@cloudflare/workers-response-store": "^1.1.5",
     "@mediapipe/tasks-vision": "^1.2.0",
-    "@sentry/nextjs": "^11.10.0",
+    "@sentry/nextjs": "^11.17.0",
     "@tosspayments/tosspayments-sdk": "^2.10.0",
     "@vinext/cloudflare": "^1.3.3",
     "clsx": "2.1.1",
@@ -58,7 +60,7 @@
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
     "react-server-dom-webpack": "^19.3.1",
-    "sharp": "^0.33.5",
+    "sharp": "^0.35.5",
     "tailwind-merge": "2.5.4",
     "vinext": "^1.4.3",
     "zod": "3.23.8",
@@ -74,11 +76,13 @@
     "@vitejs/plugin-rsc": "^0.5.38",
     "autoprefixer": "10.4.20",
     "cf": "^1.0.0-beta.27",
-    "postcss": "8.4.47",
+    "eslint": "^9.39.5",
+    "eslint-config-next": "^16.4.6",
+    "postcss": "^8.5.33",
     "tailwindcss": "3.4.13",
     "tsx": "^4.23.15",
     "typescript": "5.6.3",
-    "vite": "^8.3.0"
+    "vite": "^8.3.8"
   },
   "type": "module"
 }

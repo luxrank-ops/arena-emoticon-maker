@@ -30,6 +30,8 @@ export function PlayBillingButton({
   useEffect(() => {
     let alive = true;
     if (!digitalGoodsAvailable()) {
+      // Digital Goods API 지원 여부는 브라우저에서만 알 수 있어 마운트 후에 반영한다.
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저 전용 API 결과를 마운트 후 반영
       setSupported(false);
       return () => { alive = false; };
     }

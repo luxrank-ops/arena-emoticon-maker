@@ -32,6 +32,8 @@ export function BottomNav({ locale }: { locale: Locale }) {
 
   // 화면을 옮기면 시트는 닫는다.
   useEffect(() => {
+    // 라우트(pathname)가 바뀌면 시트를 닫는 동기화 — 렌더 파생으로 옮기면 스크롤 잠금 해제 시점이 어긋난다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 경로 변경에 맞춘 UI 상태 동기화
     setMenuOpen(false);
   }, [pathname]);
 

@@ -17,6 +17,8 @@ export default async function GoodsPage({ searchParams }: { searchParams: Promis
     if (!pack) return null;
     const identity = identityOf(db, pack);
     if (!identity) return null;
+    // 서버 컴포넌트(요청마다 실행) 안에서의 현재 시각 — 렌더 중 호출이 정상이다.
+    // eslint-disable-next-line react-hooks/purity -- 서버 컴포넌트 렌더, 클라이언트 하이드레이션 대상 아님
     const now = Date.now();
     const ready = pack.frames.filter((f) => (pack.renderer === 'ai' ? !!f.imageId : f.readyAt <= now));
     const wanted = (params.frames ?? '').split(',').filter(Boolean);

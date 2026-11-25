@@ -21,6 +21,8 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
   const methodRef = useRef<WidgetPaymentMethodWidget | null>(null);
 
   useEffect(() => {
+    // TWA 여부는 브라우저에서만 알 수 있어 마운트 후에 반영한다(SSR 값으로 넣으면 하이드레이션이 어긋난다).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 브라우저 전용 API 결과를 마운트 후 반영
     setInTWA(isTWA());
   }, []);
 

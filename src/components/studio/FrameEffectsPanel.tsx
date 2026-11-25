@@ -59,6 +59,8 @@ export function FrameEffectsPanel({
   // 레이어·외곽선이 바뀌면 합성 베이스를 다시 만든다.
   useEffect(() => {
     let cancelled = false;
+    // 레이어·외곽선이 바뀌면 이전 합성 결과의 매트 정보는 즉시 지운다(다시 계산될 때까지).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 입력 변경 시 이전 파생 결과 초기화
     setMatte(null);
     void (async () => {
       try {

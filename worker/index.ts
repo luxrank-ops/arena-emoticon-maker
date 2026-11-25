@@ -1,6 +1,6 @@
 import vinextHandler from "vinext/server/fetch-handler";
 
-export default {
+const worker = {
   async fetch(request: Request, env: any, ctx: any) {
     if (env) {
       (globalThis as any).CLOUDFLARE_ENV = env;
@@ -16,3 +16,5 @@ export default {
     return (vinextHandler as any).fetch(request, env, ctx);
   },
 };
+
+export default worker;
