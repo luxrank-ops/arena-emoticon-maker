@@ -23,6 +23,7 @@ const COPY = {
     copied: '복사됨!',
     kakao: '카톡으로 공유',
     count: (n: number) => `${n.toLocaleString('ko-KR')}명이 사전예약 중`,
+    first: '아직 1등 자리가 비어 있어요 — 지금 신청하면 가장 먼저 알려드려요',
     invalid: '이메일 주소를 확인해 주세요.',
     error: '잠시 후 다시 시도해 주세요.',
   },
@@ -39,6 +40,7 @@ const COPY = {
     copied: 'Copied!',
     kakao: 'Share via KakaoTalk',
     count: (n: number) => `${n.toLocaleString('en-US')} people waiting`,
+    first: 'Nobody has claimed the first spot yet — register to hear first',
     invalid: 'Please check your email address.',
     error: 'Please try again in a moment.',
   },
@@ -125,7 +127,14 @@ export function WaitlistForm({ locale, initialTotal }: Props) {
 
   return (
     <div>
-      <p role="status" className="text-center text-sm font-black text-primary-dark">{t.count(total)}</p>
+      {total > 0 ? (
+        <p role="status" className="text-center text-sm font-black text-primary-dark">{t.count(total)}</p>
+      ) : (
+        // 0명일 때는 숫자 대신 첫 신청을 권한다 — 빈 카운터는 신뢰를 깎는다.
+        <p role="status" className="text-center text-sm font-black text-primary-dark">
+          {t.first}
+        </p>
+      )}
       {!done ? (
         <form
           className="mt-4 flex flex-col gap-3 sm:flex-row"

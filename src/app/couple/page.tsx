@@ -16,7 +16,6 @@ export async function generateMetadata(): Promise<Metadata> {
     keywords: locale === 'en'
       ? ['couple stickers', 'anniversary gift', 'photo gift']
       : ['커플 이모티콘', '커플 선물', '기념일 선물', '커플 짤'],
-    alternates: { canonical: '/couple' },
     openGraph: {
       title, description, type: 'website', url: '/couple',
       images: [{ url: '/og/emotihak-og.png', width: 1200, height: 630, alt: title }],
