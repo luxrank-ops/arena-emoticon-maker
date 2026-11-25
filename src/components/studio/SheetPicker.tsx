@@ -122,7 +122,6 @@ export function SheetPicker({
     if (!trial || chosen) return;
     const ready = variants.find((variant) => images[variant.key])?.key;
     if (ready) setChosen(ready);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [trial, chosen, images, variants]);
 
   // 처음 열렸을 때, 그리고 사진을 다시 올렸을 때 아직 없는 시안을 생성한다

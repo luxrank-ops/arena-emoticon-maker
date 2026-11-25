@@ -82,6 +82,9 @@ export function QuoteShop({
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
+  // 팩·세부 테마·대사가 바뀌면 고른 값이 그 목록에 없을 때 첫 항목으로 되돌린다.
+  // (사용자가 고른 상태를 유지하려는 의도적 동기화 — 렌더 파생으로 바꾸면 선택이 풀린다.)
+  /* eslint-disable react-hooks/set-state-in-effect -- 팩·목록 변경에 맞춘 선택값 보정 */
   useEffect(() => {
     if (!currentPack) return;
     // 팩이 바뀌면 그 팩에 없는 세부 테마는 푼다.
@@ -96,6 +99,7 @@ export function QuoteShop({
   useEffect(() => {
     if (selectedLine) setEmotion(selectedLine.emotion);
   }, [selectedLine]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   const owned = !!currentPack && (unlimited || currentPack.priceCredits === 0 || ownedIds.includes(currentPack.id));
   const currentWatermark = unlimited || (currentPack?.priceCredits > 0 && owned) ? false : watermark;

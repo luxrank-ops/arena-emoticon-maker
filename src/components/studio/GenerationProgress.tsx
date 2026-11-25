@@ -27,6 +27,8 @@ export function GenerationProgress({
   ];
 
   useEffect(() => {
+    // 안내 문구 회전의 시작점을 맞춘다(타이머 구독과 함께 1회).
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- 타이머 시작 시 회전 상태 초기화
     setTipIndex(0);
     setTipVisible(true);
     let swapTimer: ReturnType<typeof setTimeout> | null = null;

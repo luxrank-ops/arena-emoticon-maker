@@ -120,6 +120,8 @@ export function UploadFlow({
   const [currentStep, setCurrentStep] = useState<'photo' | 'settings'>(step);
 
   useEffect(() => {
+    // 스튜디오 단계는 URL(?step=)에서 오는 값이라, 뒤로가기로 URL이 바뀌면 화면도 따라간다.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- URL 기반 단계 동기화
     setCurrentStep(step);
   }, [step]);
 
@@ -161,6 +163,8 @@ export function UploadFlow({
       const saved = JSON.parse(sessionStorage.getItem(DRAFT_KEY) || 'null');
       const draftPhoto = loadPhoto('draft');
       if (saved?.analysis && saved.photoId && saved.photoId === photoScopeId('draft') && draftPhoto) {
+        // 마운트 1회, sessionStorage 에 남은 드래프트를 상태로 복원한다(서버 렌더에는 없는 값).
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 시 저장된 드래프트 복원
         setAnalysis(saved.analysis);
         setPhotoPreview(draftPhoto);
         setFileName(saved.fileName || '');

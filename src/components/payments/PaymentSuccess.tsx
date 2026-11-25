@@ -44,7 +44,13 @@ export function PaymentSuccess() {
     } else {
       try { data = JSON.parse(sessionStorage.getItem(KEY) || 'null') as Payload | null; } catch { /* 무시 */ }
     }
-    if (!data) { setState('error'); setMessage('결제 정보가 없습니다. 결제 내역을 확인해 주세요.'); return; }
+    if (!data) {
+      // 결제 정보가 없을 때만 첫 렌더 뒤 오류 화면으로 전환한다( 마운트 1회 확인 ).
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- 마운트 1회 결제 확인 결과 반영
+      setState('error');
+      setMessage('결제 정보가 없습니다. 결제 내역을 확인해 주세요.');
+      return;
+    }
     setPayload(data); void confirm(data);
   }, [confirm]);
   return <div className="wrap max-w-xl py-16"><div className="card p-6">

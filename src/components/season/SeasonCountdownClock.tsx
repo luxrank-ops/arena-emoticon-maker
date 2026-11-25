@@ -28,6 +28,8 @@ export function SeasonCountdownClock({
   }, [targetIso]);
   const startMs = useMemo(() => {
     const parsed = Date.parse(nowIso);
+    // nowIso 는 서버가 렌더마다 넘겨 주는 값이고, 아래 fallback 은 형식이 깨졌을 때만 쓰인다.
+    // eslint-disable-next-line react-hooks/purity -- 서버 값 파싱 실패 시에만 쓰는 폴백
     return Number.isFinite(parsed) ? parsed : Date.now();
   }, [nowIso]);
   const [nowMs, setNowMs] = useState(startMs);
