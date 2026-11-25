@@ -7,7 +7,7 @@ import { applyMask, applyWhiteOutline, computeAlphaMask, outlineSilhouette } fro
 import { aiSubjectAlpha, type AiMatteModel } from '@/lib/studio/ai-matte';
 import { applyAlphaToPixels, planMatteEngine, type MatteReason } from '@/lib/studio/ai-matte-core';
 import { assembleApng } from '@/lib/studio/apng';
-import { drawSeasonProp, type SeasonPropPlacement } from '@/lib/studio/season-props';
+import { drawSeasonProp, computeSubjectMetrics, planFigureScale, scaleSubjectMetrics, seasonPropById, type SeasonPropPlacement } from '@/lib/studio/season-props';
 import { drawLayers, normalizeLayers, type TextLayer } from '@/lib/studio/layers';
 import { captionFontCss, ensureCaptionFonts } from '@/lib/svg-fonts';
 import {
@@ -222,17 +222,48 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
 
   // 2) 흰색 외곽선 → 그림 뒤에 깔기
   const outline = Math.max(0, Math.round(opts.outline ?? 0));
+  // 2-1) 시즌 소품 자동 맞춤: 누끼 결과의 알파에서 피사체 비율(정수리·머리 너비)을 잰다.
+  //      머리 소품이 위쪽에서 잘릴 상황이면 사진을 살짝 줄여(아래변 고정) 자리를 만든다.
+  const seasonProp = opts.seasonProp ?? null;
+  const seasonPropDef = seasonProp ? seasonPropById(seasonProp.id) : undefined;
+  const rawSubject = seasonPropDef
+    ? computeSubjectMetrics(fctx.getImageData(0, 0, size, size).data, size)
+    : null;
+  const figureScale = seasonPropDef && seasonProp
+    ? planFigureScale(seasonPropDef, seasonProp, rawSubject, size)
+    : 1;
+  const subject = rawSubject && figureScale !== 1
+    ? scaleSubjectMetrics(rawSubject, figureScale, size)
+    : rawSubject;
+  if (seasonProp && typeof window !== 'undefined' && (window as unknown as { __SEASON_DEBUG?: boolean }).__SEASON_DEBUG) {
+    console.log('[season-metrics]', JSON.stringify({ raw: rawSubject, figureScale, subject }));
+  }
+
+  const paintFigure = (source: HTMLCanvasElement) => {
+    if (figureScale === 1) {
+      ctx.drawImage(source, 0, 0);
+      return;
+    }
+    ctx.save();
+    ctx.translate(size / 2, size);
+    ctx.scale(figureScale, figureScale);
+    ctx.translate(-size / 2, -size);
+    ctx.drawImage(source, 0, 0);
+    ctx.restore();
+  };
+
   if (outline > 0) {
     const image = fctx.getImageData(0, 0, size, size);
     const silhouette = outlineSilhouette(image.data, size, size, outline);
     const ring = canvasOf(size);
     ring.getContext('2d')!.putImageData(new ImageData(silhouette, size, size), 0, 0);
-    ctx.drawImage(ring, 0, 0);
+    paintFigure(ring);
   }
-  ctx.drawImage(figure, 0, 0);
+  paintFigure(figure);
 
   // 2.5) 시즌 소품 — 사진 위, 글자 아래. 오픈한 시즌팩 소품만 화면에서 넘어온다.
-  if (opts.seasonProp) drawSeasonProp(ctx, opts.seasonProp, size);
+  //      미리보기와 내려받기가 같은 PNG 에셋·같은 배치 계산을 쓴다.
+  if (seasonProp) await drawSeasonProp(ctx, seasonProp, size, subject);
 
   // 3) 글자·이펙트 레이어
   if (layers.length) drawLayers(ctx, layers, size, { emotion: spec.emotion });

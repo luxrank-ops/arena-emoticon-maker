@@ -1,10 +1,10 @@
 // ─────────────────────────────────────────────────────────────
-// 시즌 누끼 소품 10종 — 벡터(경로) 데이터 하나로 화면(SVG)과 저장(Canvas)을 같이 그린다.
-//  · 좌표계는 반지름 1 기준 정규화 박스. x·y 모두 -1~1 안에 들어오게 그린다.
-//  · 색은 한 소품에 2~3톤만 — 기존 데코(decor.ts)의 '절제된 톤온톤' 규칙을 따른다.
-//    (산타 베리레드 + 크림 + 골드 / 눈·얼음은 슬레이트 블루 / 한복은 라벤더 + 골드)
-//  · 화면에서는 <SeasonPropArt> 가 parts 를 그대로 <path> 로 그리고,
-//    저장(내려받기)에서는 drawSeasonProp 이 같은 path 문자열을 Path2D 로 채운다 → 100% 같은 그림.
+// 시즌 소품 11종 — 실사풍 입체 PNG 에셋 하나를 화면(<img>)과 저장(Canvas)이 같이 쓴다.
+//  · 에셋: public/props/season/*.png (투명 PNG, 512px, 팔레트 256색) — 생성 이미지를
+//    순백 배경 누끼(테두리 플러드필 + 봉인 구멍 제거 + 흰 테두리 언프리멀티플라이)로 다듬었다.
+//  · 배치: 누끼 사진의 알파에서 피사체 바운딩박스·머리 너비를 재서 '머리 비율'에 맞춰
+//    자동 스케일·배치하고, 사용자는 크기·좌우·상하를 슬라이더로 바로 다듬는다.
+//  · 미리보기와 내려받기(PNG·GIF·APNG·ZIP)는 같은 에셋·같은 배치 계산을 쓴다.
 //  · 오픈 전에는 이 데이터를 쓰지 않고 잠금 배지로만 보여 준다(판정은 src/lib/season.ts).
 // ─────────────────────────────────────────────────────────────
 
@@ -21,17 +21,17 @@ export type SeasonPropId =
   | 'bokjumeoni'
   | 'hanbokBow';
 
-/** 소품을 얹는 자리 — 사진마다 얼굴·몸 위치가 달라 네 곳 중에서 고른다 */
+/** 소품을 얹는 자리 — 사진마다 얼굴·몸 위치가 달라 자리를 고를 수 있다 */
 export type SeasonPropSpot = 'top' | 'center' | 'topRight' | 'left' | 'right' | 'bottomLeft' | 'bottomRight';
 
-export interface SeasonPropPart {
-  /** SVG path 문자열 (M/L/Q/C/Z) */
-  d: string;
-  fill?: string;
-  stroke?: string;
-  /** stroke 두께 (정규화 단위) */
-  strokeWidth?: number;
-}
+/**
+ * 자동 맞춤 기준
+ *  · head  — 정수리 위. 크기는 '머리 너비'에 비례하고 챙이 눈을 덮지 않는다(산타 모자·뿔).
+ *  · face  — 얼굴 가운데(코 자리). 머리 너비 기준.
+ *  · chest — 가슴 높이. 피사체 너비 기준(한복 고름).
+ *  · free  — 피사체가 비워 둔 여백에 맞춰 넣는다(선물보따리·썰매·눈결정·폭죽…).
+ */
+export type SeasonPropFit = 'head' | 'face' | 'chest' | 'free';
 
 export interface SeasonProp {
   id: SeasonPropId;
@@ -39,423 +39,25 @@ export interface SeasonProp {
   labelEn: string;
   emoji: string;
   packId: 'christmas' | 'newyear' | 'lunar';
-  /** 얹었을 때 기본 자리 */
+  /** 기본 자리 — 사용자가 자리를 바꾸면 free 배치로 계산한다 */
   spot: SeasonPropSpot;
-  /** 기본 크기 (캔버스 한 변 대비 반지름) */
+  fit: SeasonPropFit;
+  /**
+   * 기본 크기
+   *  · head·face — 머리 너비 대비 배율
+   *  · chest — 피사체 너비 대비 배율
+   *  · free — 남은 여백 대비 배율
+   */
   scale: number;
-  parts: SeasonPropPart[];
+  /** head 전용: 정수리에서 챙 아래끝까지 내려 얹는 정도(머리 너비 대비) */
+  overlap?: number;
+  /** 투명 PNG 경로 */
+  asset: string;
+  /** 에셋 가로/세로 (px 는 배치 계산에 쓰지 않고 비율만 쓴다) */
+  aspect: number;
 }
 
-// ── 톤 ────────────────────────────────────────────────────────
-const BERRY = '#C2405A';
-const BERRY_DARK = '#96283F';
-const CREAM = '#FFF4E8';
-const CREAM_DIM = '#F0E2D2';
-const GOLD = '#E0B45C';
-const GOLD_LIGHT = '#F4DFAE';
-const SLATE = '#6B87B0';
-const SLATE_LIGHT = '#C0CEE0';
-const LAVENDER = '#8C7BC8';
-const LAVENDER_LIGHT = '#CFC6EC';
-const CORAL = '#E46B7A';
-const WOOD = '#A9764B';
-const WOOD_LIGHT = '#D8B283';
-const CHARCOAL = '#4B5263';
-const SNOW_WHITE = '#FFFFFF';
-
-// ── 경로 도우미 ───────────────────────────────────────────────
-type Cmd = ['M' | 'L', number, number] | ['Q', number, number, number, number] | ['C', number, number, number, number, number, number] | ['Z'];
-
-const KAPPA = 0.5522847498;
-
-function ellipse(cx: number, cy: number, rx: number, ry: number): Cmd[] {
-  const ox = rx * KAPPA;
-  const oy = ry * KAPPA;
-  return [
-    ['M', cx - rx, cy],
-    ['C', cx - rx, cy - oy, cx - ox, cy - ry, cx, cy - ry],
-    ['C', cx + ox, cy - ry, cx + rx, cy - oy, cx + rx, cy],
-    ['C', cx + rx, cy + oy, cx + ox, cy + ry, cx, cy + ry],
-    ['C', cx - ox, cy + ry, cx - rx, cy + oy, cx - rx, cy],
-    ['Z'],
-  ];
-}
-
-function circle(cx: number, cy: number, r: number): Cmd[] {
-  return ellipse(cx, cy, r, r);
-}
-
-function roundedRect(x0: number, y0: number, x1: number, y1: number, radius: number): Cmd[] {
-  const r = Math.min(radius, Math.abs(x1 - x0) / 2, Math.abs(y1 - y0) / 2);
-  return [
-    ['M', x0 + r, y0],
-    ['L', x1 - r, y0],
-    ['Q', x1, y0, x1, y0 + r],
-    ['L', x1, y1 - r],
-    ['Q', x1, y1, x1 - r, y1],
-    ['L', x0 + r, y1],
-    ['Q', x0, y1, x0, y1 - r],
-    ['L', x0, y0 + r],
-    ['Q', x0, y0, x0 + r, y0],
-    ['Z'],
-  ];
-}
-
-function mapCmds(d: Cmd[], fn: (x: number, y: number) => [number, number]): Cmd[] {
-  return d.map((cmd) => {
-    if (cmd[0] === 'Z') return ['Z'] as Cmd;
-    const n = cmd as unknown as number[];
-    const out: number[] = [];
-    for (let i = 1; i < n.length; i += 2) {
-      const [x, y] = fn(n[i], n[i + 1]);
-      out.push(x, y);
-    }
-    return [cmd[0], ...out] as Cmd;
-  });
-}
-
-const moved = (d: Cmd[], dx: number, dy: number) => mapCmds(d, (x, y) => [x + dx, y + dy]);
-const scaled = (d: Cmd[], s: number) => mapCmds(d, (x, y) => [x * s, y * s]);
-const mirrored = (d: Cmd[]) => mapCmds(d, (x, y) => [-x, y]);
-const spun = (d: Cmd[], deg: number, cx = 0, cy = 0) => {
-  const rad = (deg * Math.PI) / 180;
-  const cos = Math.cos(rad);
-  const sin = Math.sin(rad);
-  return mapCmds(d, (x, y) => [cx + (x - cx) * cos - (y - cy) * sin, cy + (x - cx) * sin + (y - cy) * cos]);
-};
-
-/** Cmd[] → SVG path 문자열 */
-export function seasonPathData(d: Cmd[]): string {
-  return d
-    .map((cmd) => {
-      if (cmd[0] === 'Z') return 'Z';
-      const n = cmd as unknown as number[];
-      const nums = n.slice(1).map((value) => Math.round(value * 1000) / 1000);
-      return `${cmd[0]}${nums.join(' ')}`;
-    })
-    .join(' ');
-}
-
-const fill = (d: Cmd[], color: string): SeasonPropPart => ({ d: seasonPathData(d), fill: color });
-const line = (d: Cmd[], color: string, width = 0.14): SeasonPropPart => ({
-  d: seasonPathData(d),
-  stroke: color,
-  strokeWidth: width,
-});
-
-// ── 크리스마스 ────────────────────────────────────────────────
-
-function santaHatParts(): SeasonPropPart[] {
-  // 챙이 아래로 살짝 기운 산타 모자 — 원뿔은 오른쪽 위로 젖혀진다.
-  const cone: Cmd[] = [
-    ['M', -0.82, 0.16],
-    ['C', -0.66, -0.28, -0.3, -0.82, 0.24, -1.0],
-    ['C', 0.52, -0.62, 0.72, -0.24, 0.86, 0.1],
-    ['C', 0.36, 0.3, -0.36, 0.32, -0.82, 0.16],
-    ['Z'],
-  ];
-  const brim: Cmd[] = [
-    ['M', -0.94, 0.0],
-    ['C', -0.94, -0.16, -0.86, -0.24, -0.68, -0.24],
-    ['L', 0.72, -0.16],
-    ['C', 0.9, -0.15, 0.98, -0.06, 0.98, 0.1],
-    ['C', 0.98, 0.28, 0.88, 0.36, 0.68, 0.36],
-    ['L', -0.66, 0.3],
-    ['C', -0.86, 0.29, -0.94, 0.18, -0.94, 0.0],
-    ['Z'],
-  ];
-  return [
-    fill(cone, BERRY),
-    fill([...moved(shrunkConeFold(), 0.06, 0.02)], BERRY_DARK),
-    fill(brim, CREAM),
-    fill(circle(0.35, -0.97, 0.21), CREAM),
-    fill(ellipse(0.29, -1.02, 0.09, 0.06), CREAM_DIM),
-  ];
-}
-
-/** 모자 원뿔의 접힘 그림자 — 아주 옅은 한 겹(베리 다크) */
-function shrunkConeFold(): Cmd[] {
-  return [
-    ['M', -0.2, 0.1],
-    ['C', -0.06, -0.2, 0.06, -0.52, 0.24, -0.78],
-    ['C', 0.44, -0.5, 0.58, -0.2, 0.68, 0.06],
-    ['C', 0.4, 0.14, 0.04, 0.16, -0.2, 0.1],
-    ['Z'],
-  ];
-}
-
-function reindeerAntlerParts(): SeasonPropPart[] {
-  // 한쪽 뿔(왼쪽) — 줄기 하나에 가지 셋. 반대쪽은 좌우 반전으로 그린다.
-  const stem: Cmd[] = [
-    ['M', -0.2, 0.86],
-    ['C', -0.34, 0.44, -0.44, 0.02, -0.46, -0.34],
-    ['C', -0.48, -0.58, -0.56, -0.78, -0.72, -0.92],
-  ];
-  const branchOuter: Cmd[] = [
-    ['M', -0.46, -0.3],
-    ['C', -0.62, -0.42, -0.74, -0.5, -0.9, -0.56],
-  ];
-  const branchInner: Cmd[] = [
-    ['M', -0.33, -0.02],
-    ['C', -0.2, -0.2, -0.12, -0.3, -0.02, -0.36],
-  ];
-  const branchTip: Cmd[] = [
-    ['M', -0.52, -0.66],
-    ['C', -0.62, -0.7, -0.7, -0.72, -0.8, -0.72],
-  ];
-  const parts: SeasonPropPart[] = [];
-  for (const side of [1, -1] as const) {
-    const flip = (d: Cmd[]) => (side === 1 ? d : mirrored(d));
-    parts.push(
-      line(flip(stem), WOOD, 0.15),
-      line(flip(branchOuter), WOOD, 0.12),
-      line(flip(branchInner), WOOD, 0.12),
-      line(flip(branchTip), WOOD, 0.1),
-    );
-  }
-  // 머리띠 — 아래쪽 가는 호. 뿔이 '달린' 느낌을 준다.
-  parts.push(line(
-    [
-      ['M', -0.62, 0.86],
-      ['C', -0.28, 1.0, 0.28, 1.0, 0.62, 0.86],
-    ],
-    BERRY,
-    0.13,
-  ));
-  parts.push(fill(circle(-0.66, 0.86, 0.09), GOLD_LIGHT), fill(circle(0.66, 0.86, 0.09), GOLD_LIGHT));
-  return parts;
-}
-
-function rudolphNoseParts(): SeasonPropPart[] {
-  return [
-    fill(circle(0, 0, 0.74), BERRY),
-    fill(ellipse(-0.24, -0.26, 0.26, 0.18), '#E77A8C'),
-    fill(ellipse(-0.3, -0.34, 0.1, 0.06), SNOW_WHITE),
-    fill(spun(ellipse(0.52, 0.46, 0.12, 0.07), -30), GOLD_LIGHT),
-  ];
-}
-
-function giftSackParts(): SeasonPropPart[] {
-  const body: Cmd[] = [
-    ['M', -0.42, -0.28],
-    ['C', -0.92, -0.02, -0.96, 0.62, -0.56, 0.86],
-    ['C', -0.2, 1.06, 0.24, 1.04, 0.58, 0.82],
-    ['C', 0.96, 0.58, 0.94, -0.04, 0.44, -0.28],
-    ['C', 0.12, -0.42, -0.12, -0.42, -0.42, -0.28],
-    ['Z'],
-  ];
-  const neck: Cmd[] = [
-    ['M', -0.42, -0.28],
-    ['C', -0.2, -0.44, 0.2, -0.44, 0.44, -0.28],
-    ['C', 0.26, -0.14, -0.24, -0.14, -0.42, -0.28],
-    ['Z'],
-  ];
-  const bow: Cmd[] = [
-    ['M', 0.0, -0.34],
-    ['C', -0.2, -0.6, -0.44, -0.62, -0.5, -0.44],
-    ['C', -0.56, -0.24, -0.24, -0.2, 0.0, -0.34],
-    ['Z'],
-    ['M', 0.0, -0.34],
-    ['C', 0.2, -0.6, 0.44, -0.62, 0.5, -0.44],
-    ['C', 0.56, -0.24, 0.24, -0.2, 0.0, -0.34],
-    ['Z'],
-  ];
-  return [
-    fill(body, BERRY),
-    fill(ellipse(-0.34, 0.2, 0.16, 0.28), BERRY_DARK),
-    fill(neck, BERRY_DARK),
-    fill(bow, GOLD),
-    fill(circle(0, -0.34, 0.08), GOLD_LIGHT),
-    fill(roundedRect(-0.5, 0.06, 0.5, 0.16, 0.05), GOLD_LIGHT),
-  ];
-}
-
-function snowSledParts(): SeasonPropPart[] {
-  const deck: Cmd[] = [
-    ['M', -0.86, -0.02],
-    ['C', -0.5, -0.14, 0.24, -0.14, 0.62, -0.04],
-    ['C', 0.66, 0.1, 0.6, 0.2, 0.5, 0.2],
-    ['L', -0.8, 0.16],
-    ['C', -0.9, 0.16, -0.92, 0.06, -0.86, -0.02],
-    ['Z'],
-  ];
-  const runner: Cmd[] = [
-    ['M', -0.9, 0.42],
-    ['C', -0.9, 0.2, -0.78, 0.08, -0.6, 0.08],
-    ['L', 0.5, 0.08],
-    ['C', 0.66, 0.08, 0.78, 0.18, 0.9, 0.34],
-  ];
-  const posts: Cmd[] = [
-    ['M', -0.56, 0.06],
-    ['L', -0.6, 0.34],
-    ['M', 0.26, 0.06],
-    ['L', 0.3, 0.3],
-  ];
-  return [
-    fill(deck, WOOD),
-    fill(roundedRect(-0.58, -0.12, 0.06, -0.02, 0.03), WOOD_LIGHT),
-    fill(roundedRect(0.14, -0.12, 0.5, -0.02, 0.03), WOOD_LIGHT),
-    line(posts, WOOD, 0.09),
-    line(runner, CHARCOAL, 0.13),
-    fill(circle(-0.6, 0.42, 0.07), GOLD_LIGHT),
-  ];
-}
-
-function snowflakeParts(): SeasonPropPart[] {
-  const spokes: Cmd[] = [];
-  for (let i = 0; i < 6; i += 1) {
-    const deg = i * 60;
-    spokes.push(...spun([['M', 0, 0], ['L', 0, -0.96]] as Cmd[], deg));
-  }
-  const branches: Cmd[] = [];
-  for (let i = 0; i < 6; i += 1) {
-    const deg = i * 60;
-    branches.push(
-      ...spun([['M', 0, -0.62], ['L', -0.22, -0.82]] as Cmd[], deg),
-      ...spun([['M', 0, -0.62], ['L', 0.22, -0.82]] as Cmd[], deg),
-      ...spun([['M', 0, -0.34], ['L', -0.16, -0.5]] as Cmd[], deg),
-      ...spun([['M', 0, -0.34], ['L', 0.16, -0.5]] as Cmd[], deg),
-    );
-  }
-  const dots: Cmd[] = [];
-  for (let i = 0; i < 6; i += 1) {
-    dots.push(...spun(circle(0, -0.96, 0.08), i * 60));
-  }
-  return [line(spokes, SLATE, 0.11), line(branches, SLATE_LIGHT, 0.07), fill(dots, SLATE_LIGHT), fill(circle(0, 0, 0.12), SLATE)];
-}
-
-// ── 새해 ──────────────────────────────────────────────────────
-
-function fireworkParts(): SeasonPropPart[] {
-  const rays: Cmd[] = [];
-  const tips: Cmd[] = [];
-  const accents: Cmd[] = [];
-  for (let i = 0; i < 10; i += 1) {
-    const deg = i * 36;
-    const inner = 0.24;
-    const outer = i % 2 === 0 ? 0.98 : 0.8;
-    rays.push(...spun([['M', 0, -inner], ['L', 0, -outer]] as Cmd[], deg));
-    tips.push(...spun(i % 2 === 0 ? circle(0, -outer, 0.1) : circle(0, -outer, 0.07), deg));
-    if (i % 3 === 0) accents.push(...spun(circle(0, -(outer - 0.18), 0.05), deg));
-  }
-  return [line(rays, GOLD, 0.1), fill(tips, CORAL), fill(accents, LAVENDER_LIGHT), fill(circle(0, 0, 0.16), GOLD_LIGHT)];
-}
-
-function partyPopperParts(): SeasonPropPart[] {
-  const cone: Cmd[] = [
-    ['M', -0.66, 0.86],
-    ['L', -0.06, -0.18],
-    ['C', 0.1, -0.42, 0.42, -0.34, 0.5, -0.08],
-    ['L', -0.1, 0.9],
-    ['C', -0.24, 1.0, -0.56, 0.98, -0.66, 0.86],
-    ['Z'],
-  ];
-  const streamer: Cmd[] = [
-    ['M', 0.28, -0.34],
-    ['C', 0.56, -0.56, 0.5, -0.86, 0.78, -0.98],
-  ];
-  const bits: Cmd[] = [
-    ...moved(spun(roundedRect(-0.06, -0.18, 0.06, 0.18, 0.04), 28), -0.34, -0.66),
-    ...moved(spun(roundedRect(-0.05, -0.14, 0.05, 0.14, 0.03), -24), 0.06, -0.86),
-    ...moved(spun(roundedRect(-0.05, -0.15, 0.05, 0.15, 0.03), 62), 0.5, -0.5),
-    ...circle(-0.5, -0.42, 0.08),
-    ...circle(0.22, -0.56, 0.07),
-    ...circle(0.7, -0.72, 0.06),
-  ];
-  return [
-    fill(cone, GOLD),
-    fill(roundedRect(-0.64, 0.6, 0.06, 0.94, 0.1), BERRY_DARK),
-    line(streamer, CORAL, 0.09),
-    fill(bits, LAVENDER),
-  ];
-}
-
-function confettiBurstParts(): SeasonPropPart[] {
-  const a: Cmd[] = [];
-  const b: Cmd[] = [];
-  const c: Cmd[] = [];
-  const bits: [number, number, number, number][] = [
-    [-0.62, -0.5, 22, 1],
-    [-0.14, -0.78, -18, 0.9],
-    [0.42, -0.62, 48, 0.95],
-    [0.74, -0.12, -32, 0.85],
-    [-0.78, 0.14, 70, 0.8],
-    [-0.24, 0.34, -12, 0.9],
-    [0.26, 0.52, 34, 0.8],
-    [0.6, 0.66, -46, 0.75],
-    [-0.5, 0.76, 16, 0.7],
-  ];
-  bits.forEach(([cx, cy, deg, s], i) => {
-    const piece = moved(spun(roundedRect(-0.07 * s, -0.26 * s, 0.07 * s, 0.26 * s, 0.04 * s), deg), cx, cy);
-    (i % 3 === 0 ? a : i % 3 === 1 ? b : c).push(...piece);
-  });
-  return [fill(a, GOLD), fill(b, LAVENDER), fill(c, CORAL)];
-}
-
-// ── 설날 ──────────────────────────────────────────────────────
-
-function bokjumeoniParts(): SeasonPropPart[] {
-  const body: Cmd[] = [
-    ['M', -0.34, -0.16],
-    ['C', -0.78, 0.12, -0.84, 0.62, -0.5, 0.86],
-    ['C', -0.2, 1.06, 0.2, 1.06, 0.5, 0.86],
-    ['C', 0.84, 0.62, 0.78, 0.12, 0.34, -0.16],
-    ['C', 0.14, -0.28, -0.14, -0.28, -0.34, -0.16],
-    ['Z'],
-  ];
-  const tie: Cmd[] = [
-    ['M', -0.36, -0.18],
-    ['C', -0.16, -0.32, 0.16, -0.32, 0.36, -0.18],
-    ['C', 0.2, -0.04, -0.2, -0.04, -0.36, -0.18],
-    ['Z'],
-  ];
-  const tassel: Cmd[] = [
-    ['M', 0, 0.92],
-    ['L', 0, 1.16],
-    ['M', -0.12, 0.92],
-    ['L', -0.16, 1.12],
-    ['M', 0.12, 0.92],
-    ['L', 0.16, 1.12],
-  ];
-  return [
-    fill(body, BERRY),
-    fill(ellipse(-0.3, 0.3, 0.14, 0.26), BERRY_DARK),
-    fill(tie, GOLD),
-    line(tassel, GOLD, 0.08),
-    fill(spun(ellipse(0.34, 0.36, 0.1, 0.06), -24), GOLD_LIGHT),
-  ];
-}
-
-function hanbokBowParts(): SeasonPropPart[] {
-  const loops: Cmd[] = [
-    ['M', 0.0, 0.0],
-    ['C', -0.34, -0.34, -0.82, -0.3, -0.84, 0.06],
-    ['C', -0.86, 0.4, -0.4, 0.42, 0.0, 0.06],
-    ['Z'],
-    ['M', 0.0, 0.0],
-    ['C', 0.34, -0.34, 0.82, -0.3, 0.84, 0.06],
-    ['C', 0.86, 0.4, 0.4, 0.42, 0.0, 0.06],
-    ['Z'],
-  ];
-  const ribbons: Cmd[] = [
-    ['M', -0.12, 0.1],
-    ['C', -0.3, 0.44, -0.36, 0.74, -0.26, 0.94],
-    ['C', -0.1, 0.86, 0.0, 0.6, 0.02, 0.3],
-    ['Z'],
-    ['M', 0.12, 0.1],
-    ['C', 0.3, 0.44, 0.36, 0.74, 0.26, 0.94],
-    ['C', 0.1, 0.86, 0.0, 0.6, -0.02, 0.3],
-    ['Z'],
-  ];
-  return [
-    fill(loops, CORAL),
-    fill(ribbons, BERRY),
-    fill(circle(0, 0.04, 0.16), GOLD),
-    fill(ellipse(-0.04, -0.02, 0.06, 0.04), GOLD_LIGHT),
-  ];
-}
-
-// ── 목록 ──────────────────────────────────────────────────────
+const ASSET_DIR = '/props/season';
 
 export const SEASON_PROPS: SeasonProp[] = [
   {
@@ -465,8 +67,11 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎅',
     packId: 'christmas',
     spot: 'top',
-    scale: 0.18,
-    parts: santaHatParts(),
+    fit: 'head',
+    scale: 1.32,
+    overlap: 0.1,
+    asset: `${ASSET_DIR}/santa-hat.png`,
+    aspect: 1.1636,
   },
   {
     id: 'reindeerAntlers',
@@ -475,8 +80,11 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🦌',
     packId: 'christmas',
     spot: 'top',
-    scale: 0.16,
-    parts: reindeerAntlerParts(),
+    fit: 'head',
+    scale: 1.62,
+    overlap: 0,
+    asset: `${ASSET_DIR}/reindeer-antlers.png`,
+    aspect: 1.0492,
   },
   {
     id: 'rudolphNose',
@@ -485,8 +93,10 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🔴',
     packId: 'christmas',
     spot: 'center',
-    scale: 0.07,
-    parts: rudolphNoseParts(),
+    fit: 'face',
+    scale: 0.34,
+    asset: `${ASSET_DIR}/rudolph-nose.png`,
+    aspect: 0.9902,
   },
   {
     id: 'giftSack',
@@ -495,8 +105,10 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎁',
     packId: 'christmas',
     spot: 'bottomRight',
-    scale: 0.15,
-    parts: giftSackParts(),
+    fit: 'free',
+    scale: 0.95,
+    asset: `${ASSET_DIR}/gift-sack.png`,
+    aspect: 0.9863,
   },
   {
     id: 'snowSled',
@@ -505,8 +117,10 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🛷',
     packId: 'christmas',
     spot: 'bottomLeft',
-    scale: 0.16,
-    parts: snowSledParts(),
+    fit: 'free',
+    scale: 0.95,
+    asset: `${ASSET_DIR}/snow-sled.png`,
+    aspect: 2.4381,
   },
   {
     id: 'snowflake',
@@ -515,8 +129,10 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '❄️',
     packId: 'christmas',
     spot: 'topRight',
-    scale: 0.075,
-    parts: snowflakeParts(),
+    fit: 'free',
+    scale: 0.85,
+    asset: `${ASSET_DIR}/snowflake.png`,
+    aspect: 0.8906,
   },
   {
     id: 'firework',
@@ -525,8 +141,10 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎆',
     packId: 'newyear',
     spot: 'topRight',
-    scale: 0.15,
-    parts: fireworkParts(),
+    fit: 'free',
+    scale: 1,
+    asset: `${ASSET_DIR}/firework.png`,
+    aspect: 1.0364,
   },
   {
     id: 'partyPopper',
@@ -535,8 +153,10 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎉',
     packId: 'newyear',
     spot: 'bottomLeft',
-    scale: 0.14,
-    parts: partyPopperParts(),
+    fit: 'free',
+    scale: 0.95,
+    asset: `${ASSET_DIR}/party-popper.png`,
+    aspect: 0.9199,
   },
   {
     id: 'confettiBurst',
@@ -545,8 +165,10 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎊',
     packId: 'newyear',
     spot: 'top',
-    scale: 0.2,
-    parts: confettiBurstParts(),
+    fit: 'free',
+    scale: 1,
+    asset: `${ASSET_DIR}/confetti-burst.png`,
+    aspect: 0.9863,
   },
   {
     id: 'bokjumeoni',
@@ -555,8 +177,10 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🧧',
     packId: 'lunar',
     spot: 'bottomRight',
-    scale: 0.14,
-    parts: bokjumeoniParts(),
+    fit: 'free',
+    scale: 0.95,
+    asset: `${ASSET_DIR}/bokjumeoni.png`,
+    aspect: 0.8125,
   },
   {
     id: 'hanbokBow',
@@ -564,9 +188,11 @@ export const SEASON_PROPS: SeasonProp[] = [
     labelEn: 'Hanbok bow',
     emoji: '🎀',
     packId: 'lunar',
-    spot: 'top',
-    scale: 0.1,
-    parts: hanbokBowParts(),
+    spot: 'center',
+    fit: 'chest',
+    scale: 0.26,
+    asset: `${ASSET_DIR}/hanbok-bow.png`,
+    aspect: 1.0261,
   },
 ];
 
@@ -580,7 +206,146 @@ export function seasonPropsForPack(packId: string): SeasonProp[] {
   return SEASON_PROPS.filter((prop) => prop.packId === packId);
 }
 
-/** 자리별 중심 좌표·기본 크기 (캔버스 한 변 대비 비율) */
+// ─────────────────────────────────────────────────────────────
+// 피사체 비율 — 누끼 결과의 알파에서 잰다
+// ─────────────────────────────────────────────────────────────
+
+export interface SubjectMetrics {
+  /** 정규화(0~1) 바운딩박스 */
+  top: number;
+  bottom: number;
+  left: number;
+  right: number;
+  width: number;
+  height: number;
+  centerX: number;
+  /** 머리(위쪽 18% 구간에서 가장 넓은 줄) 너비·중심 */
+  headWidth: number;
+  headCenterX: number;
+  /** 코 높이 추정 — 정수리에서 머리 너비의 1.05배 아래(이마·미간을 지나 콧등) */
+  noseY: number;
+  /** 정수리 y (= top) */
+  headTop: number;
+}
+
+/**
+ * 알파 채널에서 피사체 비율을 잰다.
+ *  · 머리 너비 = 위쪽 18% 구간에서 가장 넓은 줄의 폭 (모자·뿔 크기의 기준)
+ *  · 어깨가 프레임을 가득 채운 클로즈업이면 그 줄 자체가 머리 폭이 된다 — 그게 맞다.
+ *  · 피사체를 못 찾으면 null (배치가 옛 고정 자리로 폴백).
+ */
+export function computeSubjectMetrics(
+  data: Uint8ClampedArray | Uint8Array,
+  size: number,
+  alphaThreshold = 16,
+): SubjectMetrics | null {
+  if (!(size > 0) || data.length < size * size * 4) return null;
+  let top = size;
+  let bottom = -1;
+  let left = size;
+  let right = -1;
+  const rowMin = new Int32Array(size).fill(size);
+  const rowMax = new Int32Array(size).fill(-1);
+
+  for (let y = 0; y < size; y += 1) {
+    const rowStart = y * size * 4;
+    for (let x = 0; x < size; x += 1) {
+      if (data[rowStart + x * 4 + 3] > alphaThreshold) {
+        if (x < rowMin[y]) rowMin[y] = x;
+        if (x > rowMax[y]) rowMax[y] = x;
+        if (y < top) top = y;
+        if (y > bottom) bottom = y;
+        if (x < left) left = x;
+        if (x > right) right = x;
+      }
+    }
+  }
+  if (bottom < top || right < left) return null;
+
+  const height = bottom - top + 1;
+  const width = right - left + 1;
+  const bandEnd = Math.min(bottom, top + Math.max(3, Math.round(height * 0.18)));
+  let headWidthPx = 0;
+  let headCenterPx = (left + right) / 2;
+  for (let y = top; y <= bandEnd; y += 1) {
+    if (rowMax[y] < 0) continue;
+    const span = rowMax[y] - rowMin[y] + 1;
+    if (span > headWidthPx) {
+      headWidthPx = span;
+      headCenterPx = (rowMin[y] + rowMax[y]) / 2;
+    }
+  }
+  if (headWidthPx <= 0) {
+    headWidthPx = width;
+    headCenterPx = (left + right) / 2;
+  }
+
+  const norm = (value: number) => Math.min(1, Math.max(0, value / size));
+  return {
+    top: norm(top),
+    bottom: norm(bottom),
+    left: norm(left),
+    right: norm(right),
+    width: norm(width),
+    height: norm(height),
+    centerX: norm((left + right) / 2),
+    headWidth: norm(headWidthPx),
+    headCenterX: norm(headCenterPx),
+    headTop: norm(top),
+    noseY: norm(top + headWidthPx * 1.05),
+  };
+}
+
+/** 사진을 줄였을 때(아래변 고정) 비율도 같이 줄인다 */
+export function scaleSubjectMetrics(metrics: SubjectMetrics, scale: number, _size: number): SubjectMetrics {
+  const sx = (value: number) => 0.5 + (value - 0.5) * scale;
+  const sy = (value: number) => 1 - (1 - value) * scale;
+  return {
+    top: sy(metrics.top),
+    bottom: sy(metrics.bottom),
+    left: sx(metrics.left),
+    right: sx(metrics.right),
+    width: metrics.width * scale,
+    height: metrics.height * scale,
+    centerX: sx(metrics.centerX),
+    headWidth: metrics.headWidth * scale,
+    headCenterX: sx(metrics.headCenterX),
+    headTop: sy(metrics.headTop),
+    noseY: sy(metrics.noseY),
+  };
+}
+
+// ─────────────────────────────────────────────────────────────
+// 배치 계산 (순수 함수 — 미리보기·저장·테스트가 같은 값을 쓴다)
+// ─────────────────────────────────────────────────────────────
+
+export interface SeasonPropPlacement {
+  id: SeasonPropId | string;
+  /** 지정하지 않으면 소품의 기본 자리 */
+  spot?: SeasonPropSpot;
+  /** 사용자가 조절한 크기 배율 (기본 1) */
+  sizeFactor?: number;
+  /** 캔버스 한 변 대비 좌우 이동 (-0.3~0.3) */
+  dx?: number;
+  /** 캔버스 한 변 대비 상하 이동 (-0.3~0.3) */
+  dy?: number;
+  /** 회전(도) */
+  rotate?: number;
+}
+
+export interface ResolvedSeasonProp {
+  /** 중심 좌표·크기 (px) */
+  cx: number;
+  cy: number;
+  w: number;
+  h: number;
+  rotate: number;
+  basis: SeasonPropFit | 'fallback';
+  /** 위쪽에서 잘리는 px — 사진을 살짝 줄여 없앤다 */
+  clipped: number;
+}
+
+/** 자리별 기본 중심·크기 — 피사체 비율을 못 잴 때(폴백)·자유 배치 기준 */
 export const SEASON_PROP_SPOTS: Record<SeasonPropSpot, { x: number; y: number; scale: number }> = {
   top: { x: 0.5, y: 0.2, scale: 1 },
   center: { x: 0.5, y: 0.5, scale: 1 },
@@ -601,49 +366,275 @@ export const SEASON_PROP_SPOT_LABELS: { id: SeasonPropSpot; label: string; label
   { id: 'bottomRight', label: '오른쪽 아래', labelEn: 'Bottom right' },
 ];
 
-export interface SeasonPropPlacement {
-  id: SeasonPropId | string;
-  spot?: SeasonPropSpot;
-  /** 캔버스 한 변 대비 반지름 (없으면 소품 기본값 × 자리 배율) */
-  scale?: number;
-  /** 회전(도) */
-  rotate?: number;
+/** 사용자 조절 범위 — UI 슬라이더와 계산이 같은 값을 본다 */
+export const SEASON_PROP_SIZE_RANGE = { min: 0.55, max: 1.85, step: 0.05 } as const;
+export const SEASON_PROP_SHIFT_RANGE = { min: -0.3, max: 0.3, step: 0.01 } as const;
+
+/** 머리 소품이 위쪽에서 잘리면 사진을 살짝 줄여 자리를 만든다 (0.8~1) */
+export const SEASON_PROP_FIGURE_SCALE_MIN = 0.8;
+/** 위에서 이만큼(캔버스 대비) 넘치면 사진을 줄인다 — 모자 끝이 살짝 잘리는 건 자연스럽다 */
+const CLIP_TOLERANCE = 0.03;
+
+const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+
+function fallbackWidth(prop: SeasonProp): number {
+  switch (prop.fit) {
+    case 'head':
+      return 0.32;
+    case 'face':
+      return 0.12;
+    case 'chest':
+      return 0.24;
+    default:
+      return 0.2;
+  }
+}
+
+/** 자유 배치 — 자리(사분면)의 빈 여백을 찾아 그 안에 넣는다 */
+function freeRect(
+  prop: SeasonProp,
+  spot: SeasonPropSpot,
+  metrics: SubjectMetrics | null,
+  size: number,
+  sizeFactor: number,
+): { cx: number; cy: number; w: number; h: number } {
+  const pad = size * 0.035;
+  if (!metrics) {
+    const base = SEASON_PROP_SPOTS[spot];
+    const w = size * fallbackWidth(prop) * base.scale * sizeFactor;
+    return { cx: size * base.x, cy: size * base.y, w, h: w / prop.aspect };
+  }
+
+  const subject = {
+    left: metrics.left * size,
+    right: metrics.right * size,
+    top: metrics.top * size,
+    bottom: metrics.bottom * size,
+  };
+  let area = { x0: pad, x1: size - pad, y0: pad, y1: size - pad };
+  switch (spot) {
+    case 'topRight':
+      area = { x0: subject.right, x1: size - pad, y0: pad, y1: subject.top };
+      break;
+    case 'left':
+      area = { x0: pad, x1: subject.left, y0: subject.top, y1: subject.bottom };
+      break;
+    case 'right':
+      area = { x0: subject.right, x1: size - pad, y0: subject.top, y1: subject.bottom };
+      break;
+    case 'bottomLeft':
+      area = { x0: pad, x1: subject.left, y0: subject.bottom, y1: size - pad };
+      break;
+    case 'bottomRight':
+      area = { x0: subject.right, x1: size - pad, y0: subject.bottom, y1: size - pad };
+      break;
+    case 'top':
+      area = { x0: pad, x1: size - pad, y0: pad, y1: subject.top };
+      break;
+    case 'center':
+      area = { x0: pad, x1: size - pad, y0: pad, y1: size - pad };
+      break;
+    default:
+      break;
+  }
+  let freeW = Math.max(0, area.x1 - area.x0);
+  let freeH = Math.max(0, area.y1 - area.y0);
+
+  // 여백이 거의 없으면(피사체가 프레임을 채움) 캔버스 모서리로 물러난다.
+  //  이때는 피사체 폭에 맞춰 크기를 잡아 '작은 콩알'이 되지 않게 한다.
+  if (freeW < size * 0.08 || freeH < size * 0.06) {
+    const corner = SEASON_PROP_SPOTS[spot];
+    const base = clamp(metrics.width * size * 0.42, size * 0.12, size * 0.34) * sizeFactor;
+    const w = Math.min(base, size * 0.42);
+    const h = w / prop.aspect;
+    return {
+      cx: clamp(size * corner.x, w / 2, size - w / 2),
+      cy: clamp(size * corner.y, h / 2, size - h / 2),
+      w,
+      h,
+    };
+  }
+
+  let w = Math.min(freeW, freeH * prop.aspect) * 0.92 * prop.scale * sizeFactor;
+  w = clamp(w, size * 0.1, size * 0.45);
+  let h = w / prop.aspect;
+  if (h > freeH) {
+    h = freeH;
+    w = h * prop.aspect;
+  }
+  if (w > freeW) {
+    w = freeW;
+    h = w / prop.aspect;
+  }
+  // 사분면이 아니라 'top'/'center' 처럼 넓은 영역이면 여백 중앙에 둔다.
+  const cx = spot === 'center' ? (subject.left + subject.right) / 2 : (area.x0 + area.x1) / 2;
+  const cy = (area.y0 + area.y1) / 2;
+  return { cx, cy, w, h };
+}
+
+/**
+ * 소품 하나의 사각형을 정한다.
+ *  · 머리 소품은 머리 너비에 비례해 크기를 잡고, 챙이 눈 위에서 멈추게 내려 얹는다.
+ *  · 위 공간이 없으면(정수리가 프레임 맨 위) 조금 더 눌러 쓰고, 그래도 넘치면 clipped 로 알려 준다.
+ */
+export function resolveSeasonPropRect(
+  prop: SeasonProp,
+  placement: SeasonPropPlacement,
+  metrics: SubjectMetrics | null,
+  size: number,
+): ResolvedSeasonProp {
+  const spot = placement.spot ?? prop.spot;
+  const sizeFactor = clamp(placement.sizeFactor ?? 1, SEASON_PROP_SIZE_RANGE.min, SEASON_PROP_SIZE_RANGE.max);
+  const rotate = placement.rotate ?? 0;
+  const dx = placement.dx ?? 0;
+  const dy = placement.dy ?? 0;
+  const minTop = size * 0.008;
+
+  let cx: number;
+  let cy: number;
+  let w: number;
+  let h: number;
+  let basis: ResolvedSeasonProp['basis'] = prop.fit;
+  let clipped = 0;
+
+  const fitted = metrics && spot === prop.spot && prop.fit !== 'free';
+
+  if (fitted && metrics && prop.fit === 'head') {
+    const headW = Math.max(6, Math.min(size, metrics.headWidth * size));
+    const idealW = headW * prop.scale * sizeFactor;
+    w = clamp(idealW, size * 0.08, size * 0.95);
+    h = w / prop.aspect;
+    cx = metrics.headCenterX * size;
+    const headTop = metrics.top * size;
+    let bottom = headTop + (prop.overlap ?? 0.08) * headW;
+    let top = bottom - h;
+    if (top < minTop) {
+      // 위 공간이 없다 — 챙을 머리카락에만 살짝 걸치는 정도까지만 내린다(얼굴은 가리지 않는다).
+      const maxBottom = headTop + (prop.overlap ?? 0.08) * headW + headW * 0.15;
+      const shift = Math.min(minTop - top, Math.max(0, maxBottom - bottom));
+      bottom += shift;
+      top = bottom - h;
+      if (top < minTop) {
+        // 그래도 넘치면 머리 너비 대비 85% 까지만 줄여 위 공간에 맞춘다.
+        //  (사용자가 크기를 키웠다면 그만큼은 지킨다 — 위쪽은 잘려도 된다)
+        const maxH = Math.max(size * 0.02, bottom - minTop);
+        const minH = (headW * prop.scale * sizeFactor * 0.85) / prop.aspect;
+        h = Math.max(minH, Math.min(h, maxH));
+        w = h * prop.aspect;
+        top = bottom - h;
+        if (top < minTop) clipped = minTop - top;
+      }
+    }
+    cy = (top + bottom) / 2;
+  } else if (fitted && metrics && prop.fit === 'face') {
+    const headW = Math.max(6, Math.min(size, metrics.headWidth * size));
+    w = clamp(headW * prop.scale * sizeFactor, size * 0.04, size * 0.6);
+    h = w / prop.aspect;
+    cx = metrics.headCenterX * size;
+    cy = metrics.noseY * size;
+  } else if (fitted && metrics && prop.fit === 'chest') {
+    w = clamp(metrics.width * size * prop.scale * sizeFactor, size * 0.08, size * 0.7);
+    h = w / prop.aspect;
+    cx = metrics.centerX * size;
+    cy = (metrics.top + metrics.height * 0.8) * size;
+  } else {
+    const rect = freeRect(prop, spot, metrics, size, sizeFactor);
+    cx = rect.cx;
+    cy = rect.cy;
+    w = rect.w;
+    h = rect.h;
+    basis = metrics ? 'free' : 'fallback';
+  }
+
+  cx = clamp(cx + dx * size, 0, size);
+  cy = clamp(cy + dy * size, 0, size);
+
+  return { cx, cy, w, h, rotate, basis, clipped };
+}
+
+/**
+ * 머리 소품이 위쪽에서 잘리지 않도록 사진을 얼마나 줄일지 정한다 (1 = 그대로).
+ *  · 잘리면 0.03 씩 줄여 보고, 0.8 밑으로는 줄이지 않는다(사진이 작아 보이니까).
+ */
+export function planFigureScale(
+  prop: SeasonProp,
+  placement: SeasonPropPlacement,
+  metrics: SubjectMetrics | null,
+  size: number,
+): number {
+  if (!metrics) return 1;
+  const spot = placement.spot ?? prop.spot;
+  if (spot !== prop.spot || prop.fit === 'free') return 1;
+  const tolerance = size * CLIP_TOLERANCE;
+  for (let scale = 1; scale >= SEASON_PROP_FIGURE_SCALE_MIN - 0.001; scale -= 0.03) {
+    const rect = resolveSeasonPropRect(prop, placement, scaleSubjectMetrics(metrics, scale, size), size);
+    if (rect.clipped <= tolerance) return Math.round(scale * 100) / 100;
+  }
+  return SEASON_PROP_FIGURE_SCALE_MIN;
+}
+
+// ─────────────────────────────────────────────────────────────
+// 그리기 — 화면 미리보기·PNG·GIF·APNG·ZIP 이 모두 이 함수를 쓴다
+// ─────────────────────────────────────────────────────────────
+
+const imageCache = new Map<string, Promise<HTMLImageElement>>();
+
+export function loadSeasonPropImage(src: string): Promise<HTMLImageElement> {
+  const cached = imageCache.get(src);
+  if (cached) return cached;
+  const promise = new Promise<HTMLImageElement>((resolve, reject) => {
+    const image = new Image();
+    image.decoding = 'sync';
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error(`season prop asset failed: ${src}`));
+    image.src = src;
+  });
+  imageCache.set(src, promise);
+  // 실패는 캐시에 남기지 않는다 — 다음 렌더에서 다시 시도할 수 있게.
+  promise.catch(() => imageCache.delete(src));
+  return promise;
+}
+
+/** 화면에 소품 카드가 뜰 때 미리 받아 둔다(고르는 순간 바로 그려지게) */
+export function preloadSeasonPropAssets(ids?: string[]): void {
+  const list = ids?.length ? SEASON_PROPS.filter((prop) => ids.includes(prop.id)) : SEASON_PROPS;
+  for (const prop of list) void loadSeasonPropImage(prop.asset).catch(() => undefined);
 }
 
 /**
  * 캔버스에 소품을 그린다 — 저장(PNG·GIF·APNG·ZIP) 결과에 그대로 들어간다.
- *  · 배경은 투명하게 유지한다(스티커 규격).
- *  · path 문자열을 Path2D 로 읽어 채우기/선 그리기를 parts 순서대로 반복한다.
+ *  · 사진 위·글자 아래에 그려지고, 배경은 투명하게 유지한다(스티커 규격).
+ *  · subject 는 누끼 사진의 알파에서 잰 피사체 비율 — 없으면 옛 고정 자리로 그린다.
  */
-export function drawSeasonProp(
+export async function drawSeasonProp(
   ctx: CanvasRenderingContext2D,
   placement: SeasonPropPlacement | null | undefined,
   size: number,
-) {
+  subject?: SubjectMetrics | null,
+): Promise<void> {
   if (!placement) return;
   const prop = seasonPropById(placement.id);
   if (!prop) return;
-  const spot = SEASON_PROP_SPOTS[placement.spot ?? prop.spot] ?? SEASON_PROP_SPOTS.top;
-  const radius = size * (placement.scale ?? prop.scale * spot.scale);
-  if (!(radius > 0)) return;
-  ctx.save();
-  ctx.translate(size * spot.x, size * spot.y);
-  ctx.rotate(((placement.rotate ?? 0) * Math.PI) / 180);
-  ctx.scale(radius, radius);
-  ctx.lineCap = 'round';
-  ctx.lineJoin = 'round';
-  for (const part of prop.parts) {
-    if (!part.d) continue;
-    const path = new Path2D(part.d);
-    if (part.fill) {
-      ctx.fillStyle = part.fill;
-      ctx.fill(path);
-    }
-    if (part.stroke) {
-      ctx.strokeStyle = part.stroke;
-      ctx.lineWidth = part.strokeWidth ?? 0.12;
-      ctx.stroke(path);
-    }
+  const rect = resolveSeasonPropRect(prop, placement, subject ?? null, size);
+  if (!(rect.w > 0) || !(rect.h > 0)) return;
+
+  let image: HTMLImageElement;
+  try {
+    image = await loadSeasonPropImage(prop.asset);
+  } catch {
+    return; // 에셋을 못 받으면 사진만 저장한다(빈 사각형을 남기지 않는다)
   }
+  const natural = image.naturalWidth > 0 && image.naturalHeight > 0 ? image.naturalWidth / image.naturalHeight : prop.aspect;
+  const h = rect.w / natural;
+  if (typeof window !== 'undefined' && (window as unknown as { __SEASON_DEBUG?: boolean }).__SEASON_DEBUG) {
+    console.log('[season-rect]', JSON.stringify({ id: prop.id, rect }));
+  }
+
+  ctx.save();
+  ctx.translate(rect.cx, rect.cy);
+  if (rect.rotate) ctx.rotate((rect.rotate * Math.PI) / 180);
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(image, -rect.w / 2, -h / 2, rect.w, h);
   ctx.restore();
 }
