@@ -22,7 +22,7 @@ export type SeasonPropId =
   | 'hanbokBow';
 
 /** 소품을 얹는 자리 — 사진마다 얼굴·몸 위치가 달라 네 곳 중에서 고른다 */
-export type SeasonPropSpot = 'top' | 'topRight' | 'left' | 'right' | 'bottomLeft' | 'bottomRight';
+export type SeasonPropSpot = 'top' | 'center' | 'topRight' | 'left' | 'right' | 'bottomLeft' | 'bottomRight';
 
 export interface SeasonPropPart {
   /** SVG path 문자열 (M/L/Q/C/Z) */
@@ -465,7 +465,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎅',
     packId: 'christmas',
     spot: 'top',
-    scale: 0.34,
+    scale: 0.18,
     parts: santaHatParts(),
   },
   {
@@ -475,7 +475,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🦌',
     packId: 'christmas',
     spot: 'top',
-    scale: 0.4,
+    scale: 0.16,
     parts: reindeerAntlerParts(),
   },
   {
@@ -484,8 +484,8 @@ export const SEASON_PROPS: SeasonProp[] = [
     labelEn: 'Red nose',
     emoji: '🔴',
     packId: 'christmas',
-    spot: 'top',
-    scale: 0.16,
+    spot: 'center',
+    scale: 0.07,
     parts: rudolphNoseParts(),
   },
   {
@@ -495,7 +495,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎁',
     packId: 'christmas',
     spot: 'bottomRight',
-    scale: 0.26,
+    scale: 0.15,
     parts: giftSackParts(),
   },
   {
@@ -505,7 +505,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🛷',
     packId: 'christmas',
     spot: 'bottomLeft',
-    scale: 0.28,
+    scale: 0.16,
     parts: snowSledParts(),
   },
   {
@@ -515,7 +515,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '❄️',
     packId: 'christmas',
     spot: 'topRight',
-    scale: 0.14,
+    scale: 0.075,
     parts: snowflakeParts(),
   },
   {
@@ -525,7 +525,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎆',
     packId: 'newyear',
     spot: 'topRight',
-    scale: 0.26,
+    scale: 0.15,
     parts: fireworkParts(),
   },
   {
@@ -535,7 +535,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎉',
     packId: 'newyear',
     spot: 'bottomLeft',
-    scale: 0.24,
+    scale: 0.14,
     parts: partyPopperParts(),
   },
   {
@@ -545,7 +545,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎊',
     packId: 'newyear',
     spot: 'top',
-    scale: 0.34,
+    scale: 0.2,
     parts: confettiBurstParts(),
   },
   {
@@ -555,7 +555,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🧧',
     packId: 'lunar',
     spot: 'bottomRight',
-    scale: 0.24,
+    scale: 0.14,
     parts: bokjumeoniParts(),
   },
   {
@@ -565,7 +565,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     emoji: '🎀',
     packId: 'lunar',
     spot: 'top',
-    scale: 0.2,
+    scale: 0.1,
     parts: hanbokBowParts(),
   },
 ];
@@ -582,7 +582,8 @@ export function seasonPropsForPack(packId: string): SeasonProp[] {
 
 /** 자리별 중심 좌표·기본 크기 (캔버스 한 변 대비 비율) */
 export const SEASON_PROP_SPOTS: Record<SeasonPropSpot, { x: number; y: number; scale: number }> = {
-  top: { x: 0.5, y: 0.19, scale: 1 },
+  top: { x: 0.5, y: 0.2, scale: 1 },
+  center: { x: 0.5, y: 0.5, scale: 1 },
   topRight: { x: 0.79, y: 0.22, scale: 0.72 },
   left: { x: 0.2, y: 0.34, scale: 0.72 },
   right: { x: 0.8, y: 0.34, scale: 0.72 },
@@ -592,6 +593,7 @@ export const SEASON_PROP_SPOTS: Record<SeasonPropSpot, { x: number; y: number; s
 
 export const SEASON_PROP_SPOT_LABELS: { id: SeasonPropSpot; label: string; labelEn: string }[] = [
   { id: 'top', label: '머리 위', labelEn: 'Top' },
+  { id: 'center', label: '얼굴 가운데', labelEn: 'Face' },
   { id: 'topRight', label: '오른쪽 위', labelEn: 'Top right' },
   { id: 'left', label: '왼쪽', labelEn: 'Left' },
   { id: 'right', label: '오른쪽', labelEn: 'Right' },
