@@ -1,5 +1,7 @@
-import { PhotoCutoutStudio } from '@/components/studio/PhotoCutoutStudio';
+import { PhotoCutoutStudio, type SeasonPropGroup } from '@/components/studio/PhotoCutoutStudio';
 import { getLocale } from '@/lib/i18n/server';
+import { seasonPackById } from '@/data/season-packs';
+import { seasonTimeContext, seasonViews } from '@/lib/season';
 
 export const dynamic = 'force-dynamic';
 
@@ -9,11 +11,34 @@ export const metadata = {
     '올린 사진 그대로 배경만 떼고 캘리그라피 한 줄을 얹어 360×360 투명 PNG·카카오 규격 ZIP으로 바로 저장하세요. AI 생성 없이 무료, 사진은 기기 안에서만 처리합니다.',
 };
 
-export default async function PhotoCutoutPage() {
-  const locale = await getLocale();
+export default async function PhotoCutoutPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ season?: string; preview?: string; at?: string }>;
+}) {
+  const [params, locale] = await Promise.all([searchParams, getLocale()]);
+
+  // 시즌 소품 잠금 판정은 서버가 한다(홈·허브·/season 과 같은 규칙).
+  //  · ?preview=season 은 오픈 전 소품 동작을 확인하는 검수용 — 이 화면은 전부 브라우저 안에서
+  //    처리되고(서버 생성·결제 없음) 미리보기로 열려도 원가나 판매에 영향이 없다.
+  const context = seasonTimeContext(params);
+  const seasonGroups: SeasonPropGroup[] = seasonViews(context.now, context.preview)
+    .filter((view) => view.stage !== 'closed')
+    .map((view) => ({
+      id: view.pack.id,
+      emoji: view.pack.emoji,
+      title: view.pack.title,
+      titleEn: view.pack.titleEn,
+      unlocked: view.unlocked,
+      openLabel: view.openLabel,
+      openLabelEn: view.openLabelEn,
+      propIds: view.pack.propIds,
+    }));
+  const seasonFocus = seasonPackById(params.season)?.id ?? null;
+
   return (
     <div className="wrap py-6 sm:py-10">
-      <PhotoCutoutStudio locale={locale} />
+      <PhotoCutoutStudio locale={locale} seasonGroups={seasonGroups} seasonFocus={seasonFocus} />
     </div>
   );
 }

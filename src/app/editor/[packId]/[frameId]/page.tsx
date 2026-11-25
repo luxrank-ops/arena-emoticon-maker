@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { isUnlimited } from '@/lib/admin-access';
+import { availableSeasonAccessories } from '@/lib/season';
 import { notFound } from 'next/navigation';
 import { FrameEditor } from '@/components/editor/FrameEditor';
 import { getCurrentUser } from '@/lib/session';
@@ -48,6 +49,7 @@ export default async function EditorPage({
         index={frame.index}
         total={view.total}
         aiPack={((view.pack.renderer as any) ?? 'ai') !== 'svg'}
+        seasonAccessories={availableSeasonAccessories().map((item) => ({ id: item.id, name: item.name, emoji: item.emoji }))}
         unlimited={isUnlimited(user)}
       />
     </div>

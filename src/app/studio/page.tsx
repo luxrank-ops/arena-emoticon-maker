@@ -17,6 +17,8 @@ import { localizedPath, tr } from '@/lib/i18n/locale';
 import { DRIP_LINE_COUNT, DRIP_THEME_COUNT } from '@/data/drip-themes';
 import { PRESET_COUNT } from '@/data/emoticon-presets-150';
 import { CURATION_PACKAGES } from '@/data/curation-packages';
+import { SeasonTeaser } from '@/components/season/SeasonTeaser';
+import { seasonQueryString, seasonTeaserViews, seasonTimeContext } from '@/lib/season';
 
 export const dynamic = 'force-dynamic';
 
@@ -37,9 +39,21 @@ export async function generateMetadata() {
  *  · 기존 직접 경로(/studio/photo · /studio/upload)는 그대로 살아 있다.
  *  · 2026 리뉴얼: 민무늬 흰 배경 → 메시 그라데이션 히어로 + 그라데이션 아이콘 타일 카드.
  */
-export default async function StudioHubPage() {
-  const locale = await getLocale();
-  const user = await getCurrentUser();
+export default async function StudioHubPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ preview?: string; at?: string }>;
+} = {}) {
+  const [locale, user, params] = await Promise.all([
+    getLocale(),
+    getCurrentUser(),
+    searchParams ?? Promise.resolve({} as { preview?: string; at?: string }),
+  ]);
+  // 시즌팩 커밍순 — 홈과 같은 판정(src/lib/season.ts)을 쓴다. 오픈일이 되면 여기서도 '오픈'.
+  const seasonTime = seasonTimeContext(params);
+  const seasonViews = seasonTeaserViews(seasonTime.now, seasonTime.preview);
+  const seasonQuery = seasonQueryString(seasonTime);
+  const seasonNowIso = seasonTime.now.toISOString();
   const aiEnabled = canUseAiGeneration(user);
   const trial = aiAccess(user) === 'trial';
   const t = (ko: string, en: string) => tr(locale, ko, en);
@@ -161,6 +175,8 @@ export default async function StudioHubPage() {
             );
           })}
         </ul>
+
+        <SeasonTeaser views={seasonViews} nowIso={seasonNowIso} locale={locale} query={seasonQuery} variant="hub" />
 
         <section className="mt-8" aria-labelledby="quick-title">
           <h2 id="quick-title" className="text-[10.5px] font-black uppercase tracking-[0.16em] text-sub/80">{t('바로 가기', 'Shortcuts')}</h2>
