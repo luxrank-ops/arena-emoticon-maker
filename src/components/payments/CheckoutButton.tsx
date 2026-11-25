@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { track } from '@/lib/analytics';
 
 export function CheckoutButton({
   sku,
@@ -24,6 +25,7 @@ export function CheckoutButton({
   async function go() {
     setBusy(true);
     setError(null);
+    track('checkout_click', { sku, pack: packId ? '1' : '0' });
     try {
       const res = await fetch('/api/checkout', {
         method: 'POST',

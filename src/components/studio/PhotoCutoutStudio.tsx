@@ -18,6 +18,7 @@ import {
 import { EMOTIONS } from '@/lib/art/sticker';
 import { LAYER_EFFECTS, TEXT_STYLES } from '@/lib/studio/layers';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
+import { track } from '@/lib/analytics';
 import {
   MOTION_TEMPLATES,
   motionById,
@@ -374,6 +375,11 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
     setCuts((prev) => [...prev, ...added]);
     setSelectedId((prev) => prev ?? added[0].id);
     for (const cut of added) enqueue(cut);
+    // 무료 도구 '사용 시작' — 사진/동영상이 실제로 읽힌 시점(마케팅 KPI: 체험 시작률)
+    track('studio_photo_start', {
+      count: added.length,
+      video: added.some((cut) => (cut.videoFrames?.length ?? 0) > 1),
+    });
   }
 
   async function recrop(cut: Cutout, crop: CutoutCrop) {
@@ -468,6 +474,8 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
       }
 
       downloadBlob(blob, filename);
+      track('sticker_export', { format, motion: isVideo ? 'video' : motion, count: 1 });
+      track('sticker_download', { format, count: 1 });
       const kb = Math.round(blob.size / 1024);
       setNotice(
         format === 'gif'
@@ -508,6 +516,8 @@ export function PhotoCutoutStudio({ locale = 'ko' }: { locale?: Locale }) {
       });
 
       downloadBlob(result.blob, CUTOUT_ZIP_NAME);
+      track('sticker_export', { format: 'zip', count: list.length, pack_format: packFormat });
+      track('sticker_download', { format: 'zip', count: list.length });
       const usable = result.validation.exportable;
       setNotice(
         usable

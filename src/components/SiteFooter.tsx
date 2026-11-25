@@ -28,10 +28,12 @@ export async function SiteFooter() {
             {links.filter((item) => locale === 'ko' || item.href !== '/creator').map((item) => <Link key={item.href} href={lp(item.href)} className="hover:text-ink">{tr(locale, item.ko, item.en)}</Link>)}
           </div>
         </div>
-        <div className="flex flex-wrap gap-3 text-xs font-bold">
-          <a href="https://play.google.com/store/apps/details?id=com.emotihak.app" target="_blank" rel="noreferrer" className="btn-ghost !px-4 !py-2">
-            {tr(locale, '구글 플레이에서 만나요 ↗', 'Get it on Google Play ↗')}
-          </a>
+        <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
+          {/* 앱은 아직 출시 전 — 스토어 404 링크 대신 '준비 중' 안내만 둔다(출시되면 링크로 교체). */}
+          <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white/70 px-3 py-1.5 text-sub">
+            <span className="h-1.5 w-1.5 rounded-full bg-primary/70" />
+            {tr(locale, '구글 플레이 앱 출시 준비 중', 'Google Play app coming soon')}
+          </span>
           <a href="mailto:luxrank@gmail.com" className="btn-ghost !px-4 !py-2">{tr(locale, '앱 문의 메일', 'Email app support')}</a>
         </div>
         <p className="max-w-3xl text-xs leading-relaxed text-sub">

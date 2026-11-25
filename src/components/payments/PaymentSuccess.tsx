@@ -1,6 +1,7 @@
 'use client';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
+import { track } from '@/lib/analytics';
 
 type Payload = { orderId: string; paymentKey: string; amount: number };
 const KEY = 'emotime:pending-payment';
@@ -18,6 +19,8 @@ export function PaymentSuccess() {
       if (!res.ok) throw new Error(json?.error?.message || '결제를 확인하지 못했어요.');
       try { sessionStorage.removeItem(KEY); } catch { /* 저장소를 사용하지 못해도 결제는 완료됐다 */ }
       if (json.kind === 'unlock' && json.packId) setUnlockedPackId(json.packId);
+      // 결제 확정 시점의 구매 이벤트 — GA4 에서 채널별 매출·전환을 본다(금액만, 개인정보 없음).
+      track('purchase', { value: data.amount, currency: 'KRW', kind: String(json.kind ?? '') });
       setState('success');
       setMessage(json.kind === 'goods'
         ? '결제가 완료되어 굿즈 주문이 접수되었습니다. 운영자가 주문을 확인합니다.'
