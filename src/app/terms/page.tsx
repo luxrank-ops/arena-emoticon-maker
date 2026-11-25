@@ -63,7 +63,7 @@ export default function TermsPage() {
         ))}
       </div>
       <div className="mt-10 rounded-2xl border-2 border-dashed border-line p-4 text-[11px] leading-relaxed text-sub">
-        본 문서는 서비스 출시 전 법률 검토를 거쳐 확정됩니다. 문의처는 고객센터를 확인해 주세요.
+        문의처는 고객센터를 확인해 주세요.
       </div>
     </div>
   );
