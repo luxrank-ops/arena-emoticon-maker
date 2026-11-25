@@ -21,9 +21,10 @@ import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
 import { SeasonPropArt } from '@/components/season/SeasonPropArt';
 import {
+  preloadSeasonPropAssets,
   seasonPropById,
-  seasonPropsForPack,
-  SEASON_PROP_SPOTS,
+  SEASON_PROP_SHIFT_RANGE,
+  SEASON_PROP_SIZE_RANGE,
   SEASON_PROP_SPOT_LABELS,
   type SeasonPropPlacement,
   type SeasonPropSpot,
@@ -182,6 +183,10 @@ export function PhotoCutoutStudio({
   // 시즌 소품 — 오픈한 팩의 소품만 고를 수 있고, 고른 소품은 모든 컷에 같이 얹힌다.
   const [seasonProp, setSeasonProp] = useState<string>('none');
   const [propSpot, setPropSpot] = useState<SeasonPropSpot | 'auto'>('auto');
+  // 자동 맞춤 위에 얹는 사용자 미세조정 (크기·좌우·상하)
+  const [propSize, setPropSize] = useState(1);
+  const [propDx, setPropDx] = useState(0);
+  const [propDy, setPropDy] = useState(0);
 
   const orderedSeasonGroups = useMemo(() => {
     if (!seasonFocus) return seasonGroups;
@@ -191,9 +196,30 @@ export function PhotoCutoutStudio({
     if (seasonProp === 'none') return null;
     const prop = seasonPropById(seasonProp);
     if (!prop) return null;
-    return { id: prop.id, spot: propSpot === 'auto' ? prop.spot : propSpot };
-  }, [seasonProp, propSpot]);
-  const seasonPropKey = seasonPlacement ? `${seasonPlacement.id}@${seasonPlacement.spot ?? 'auto'}` : '';
+    return {
+      id: prop.id,
+      spot: propSpot === 'auto' ? prop.spot : propSpot,
+      sizeFactor: propSize,
+      dx: propDx,
+      dy: propDy,
+    };
+  }, [seasonProp, propSpot, propSize, propDx, propDy]);
+  const seasonPropKey = seasonPlacement
+    ? `${seasonPlacement.id}@${seasonPlacement.spot ?? 'auto'}|${seasonPlacement.sizeFactor?.toFixed(2)}|${seasonPlacement.dx?.toFixed(2)}|${seasonPlacement.dy?.toFixed(2)}`
+    : '';
+  const activeSeasonProp = seasonProp === 'none' ? undefined : seasonPropById(seasonProp);
+  const propFitHint = !activeSeasonProp
+    ? ''
+    : activeSeasonProp.fit === 'head'
+      ? t(
+          '사진의 정수리·머리 너비를 재서 모자 크기를 맞추고, 눈을 가리지 않게 얹어요.',
+          'Measures the head width and sits the prop above the eyes.',
+        )
+      : activeSeasonProp.fit === 'face'
+        ? t('사진에서 얼굴 위치를 찾아 코 자리에 맞춰 얹어요.', 'Finds the face and sits it on the nose.')
+        : activeSeasonProp.fit === 'chest'
+          ? t('피사체 가슴 높이에 맞춰 너비를 잡아요.', 'Sized to the body and placed at chest height.')
+          : t('피사체가 비워 둔 여백을 찾아 그 안에 맞춰 넣어요.', 'Fits into the empty space around the subject.');
 
   const cutsRef = useRef<Cutout[]>([]);
   const renderedRef = useRef(new Map<string, string>());
@@ -493,6 +519,18 @@ export function PhotoCutoutStudio({
     if (!line) return;
     setThemeId(activeTheme.id);
     applySuggestion(line);
+  }
+
+  function resetPropTuning() {
+    setPropSize(1);
+    setPropDx(0);
+    setPropDy(0);
+  }
+
+  function removeSeasonProp() {
+    setSeasonProp('none');
+    setPropSpot('auto');
+    resetPropTuning();
   }
 
   async function downloadSingle(format: 'png' | 'gif' | 'apng') {
@@ -1184,7 +1222,12 @@ export function PhotoCutoutStudio({
 
             {/* 시즌 소품 — 크리스마스·새해·설날. 오픈일 전에는 잠금 배지로만 보인다. */}
             {orderedSeasonGroups.length ? (
-              <div className="mt-4 rounded-2xl border border-line bg-cream/40 p-3">
+              <div
+                className="mt-4 rounded-2xl border border-line bg-cream/40 p-3"
+                onPointerEnter={() =>
+                  preloadSeasonPropAssets(orderedSeasonGroups.filter((group) => group.unlocked).flatMap((group) => group.propIds))
+                }
+              >
                 <div className="flex items-center justify-between gap-2">
                   <p className="text-[11px] font-black text-ink">🎄 {t('시즌 소품', 'Season props')}</p>
                   <span className="text-[10px] font-bold text-sub">
@@ -1230,6 +1273,7 @@ export function PhotoCutoutStudio({
                                 const next = active ? 'none' : prop.id;
                                 setSeasonProp(next);
                                 setPropSpot('auto');
+                                resetPropTuning();
                                 if (next !== 'none') track('season_prop_select', { prop: prop.id, pack: group.id });
                               }}
                               className={clsx(
@@ -1254,10 +1298,41 @@ export function PhotoCutoutStudio({
                   );
                 })}
 
-                {seasonPlacement ? (
+                {/* 복장(산타복·한복)은 얹기가 아니라 AI 변환 — 시즌팩으로 이어 준다. */}
+                <div className="mt-3 rounded-xl border border-primary/25 bg-primary/[0.05] p-2.5">
+                  <p className="text-[10.5px] font-black text-ink">
+                    👗 {t('옷 전체는 AI 변환으로', 'Full outfits via AI')}
+                  </p>
+                  <p className="mt-1 text-[10px] leading-relaxed text-sub">
+                    {t(
+                      '산타복·한복처럼 몸 전체를 입히는 건 소품을 얹는 것과 달라요. AI가 사진을 다시 그려 옷·배경까지 자연스럽게 입혀요.',
+                      'A full Santa suit or hanbok is not an overlay — AI redraws the photo so the outfit and background fit naturally.',
+                    )}
+                  </p>
+                  <Link
+                    href={lp('/season')}
+                    className="mt-1 inline-block text-[10px] font-black text-primary-dark underline underline-offset-2"
+                  >
+                    {t('시즌팩에서 복장 변환 보기 →', 'See the season outfit transformations →')}
+                  </Link>
+                </div>
+
+                {seasonPlacement && activeSeasonProp ? (
                   <div className="mt-3 rounded-xl border border-line bg-white p-2.5">
-                    <p className="text-[10px] font-black text-sub">{t('소품 위치', 'Prop position')}</p>
-                    <div className="mt-1.5 flex flex-wrap gap-1">
+                    <div className="flex items-start justify-between gap-2">
+                      <p className="text-[10px] font-black text-ink">🪄 {t('자동 맞춤', 'Auto-fit')}</p>
+                      <button
+                        type="button"
+                        onClick={removeSeasonProp}
+                        className="shrink-0 rounded-full border border-line px-2 py-0.5 text-[9.5px] font-black text-sub hover:border-coral/50 hover:text-coralink"
+                      >
+                        {t('소품 빼기', 'Remove')}
+                      </button>
+                    </div>
+                    <p className="mt-1 text-[10px] leading-relaxed text-sub">{propFitHint}</p>
+
+                    <p className="mt-2 text-[10px] font-black text-sub">{t('자리', 'Position')}</p>
+                    <div className="mt-1 flex flex-wrap gap-1">
                       <button
                         type="button"
                         aria-pressed={propSpot === 'auto'}
@@ -1267,7 +1342,7 @@ export function PhotoCutoutStudio({
                           propSpot === 'auto' ? 'border-primary bg-primary/10 text-primary-dark' : 'border-line bg-white text-sub hover:text-ink',
                         )}
                       >
-                        {t('기본 자리', 'Default')}
+                        {t('자동', 'Auto')}
                       </button>
                       {SEASON_PROP_SPOT_LABELS.map((spot) => (
                         <button
@@ -1283,20 +1358,64 @@ export function PhotoCutoutStudio({
                           {locale === 'en' ? spot.labelEn : spot.label}
                         </button>
                       ))}
-                      <button
-                        type="button"
-                        onClick={() => setSeasonProp('none')}
-                        className="min-h-8 rounded-full border border-line bg-white px-2.5 text-[10px] font-black text-sub hover:text-coralink"
-                      >
-                        {t('소품 빼기', 'Remove')}
-                      </button>
                     </div>
-                    <p className="mt-1.5 text-[10px] leading-relaxed text-sub/80">
-                      {t(
-                        '미리보기와 내려받기 결과가 같아요. 소품은 사진 위·글자 아래에 벡터로 얹혀 화질 손실이 없어요.',
-                        'Preview matches the download. Props sit above the photo, below the lettering, as vectors.',
-                      )}
-                    </p>
+
+                    <div className="mt-2.5 space-y-1.5">
+                      <label className="flex items-center gap-2 text-[10px] font-black text-sub" htmlFor="prop-size">
+                        <span className="w-12 shrink-0">{t('크기', 'Size')}</span>
+                        <input
+                          id="prop-size"
+                          type="range"
+                          min={SEASON_PROP_SIZE_RANGE.min}
+                          max={SEASON_PROP_SIZE_RANGE.max}
+                          step={SEASON_PROP_SIZE_RANGE.step}
+                          value={propSize}
+                          onChange={(event) => setPropSize(Number(event.target.value))}
+                          className="w-full flex-1 accent-primary"
+                        />
+                        <span className="w-9 shrink-0 text-right text-[10px] text-ink">{Math.round(propSize * 100)}%</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-[10px] font-black text-sub" htmlFor="prop-dx">
+                        <span className="w-12 shrink-0">{t('좌우', 'Left/right')}</span>
+                        <input
+                          id="prop-dx"
+                          type="range"
+                          min={SEASON_PROP_SHIFT_RANGE.min}
+                          max={SEASON_PROP_SHIFT_RANGE.max}
+                          step={SEASON_PROP_SHIFT_RANGE.step}
+                          value={propDx}
+                          onChange={(event) => setPropDx(Number(event.target.value))}
+                          className="w-full flex-1 accent-primary"
+                        />
+                        <span className="w-9 shrink-0 text-right text-[10px] text-ink">{Math.round(propDx * 100)}</span>
+                      </label>
+                      <label className="flex items-center gap-2 text-[10px] font-black text-sub" htmlFor="prop-dy">
+                        <span className="w-12 shrink-0">{t('상하', 'Up/down')}</span>
+                        <input
+                          id="prop-dy"
+                          type="range"
+                          min={SEASON_PROP_SHIFT_RANGE.min}
+                          max={SEASON_PROP_SHIFT_RANGE.max}
+                          step={SEASON_PROP_SHIFT_RANGE.step}
+                          value={propDy}
+                          onChange={(event) => setPropDy(Number(event.target.value))}
+                          className="w-full flex-1 accent-primary"
+                        />
+                        <span className="w-9 shrink-0 text-right text-[10px] text-ink">{Math.round(propDy * 100)}</span>
+                      </label>
+                      <div className="flex items-center justify-between pt-0.5">
+                        <p className="text-[9.5px] leading-relaxed text-sub/80">
+                          {t('미리보기 = 내려받기 결과', 'Preview = download')}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={resetPropTuning}
+                          className="rounded-full border border-line px-2.5 py-0.5 text-[9.5px] font-black text-sub hover:text-ink"
+                        >
+                          {t('처음 크기로', 'Reset size')}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 ) : (
                   <p className="mt-2 text-[10px] leading-relaxed text-sub">
