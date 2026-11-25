@@ -38,7 +38,7 @@ export default async function CheckoutPage({ params }: { params: Promise<{ order
         channelKey={portone?.channelKey ?? ''}
         available={!paymentsUnavailable() && !checkoutSuspended() && order.status === 'PENDING' && order.provider === paymentProvider() && !order.paymentKey}
         buyerEmail={account?.email ?? ''}
-        buyerName={account?.name || user.name}
+        buyerName={account?.name ?? ''}
       />
 
       <div className="mt-6 space-y-2 text-[11px] leading-relaxed text-sub">
