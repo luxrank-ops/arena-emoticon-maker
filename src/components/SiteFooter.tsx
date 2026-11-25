@@ -8,6 +8,8 @@ export async function SiteFooter() {
   const locale = await getLocale();
   const lp = (href: string) => localizedPath(locale, href);
   const links = [
+    { href: '/waitlist', ko: '사전예약', en: 'Pre-register' },
+    { href: '/invite', ko: '친구 초대', en: 'Invite' },
     { href: '/privacy', ko: '개인정보처리방침', en: 'Privacy' },
     { href: '/terms', ko: '이용약관', en: 'Terms' },
     { href: '/refund', ko: '환불 정책', en: 'Refunds' },

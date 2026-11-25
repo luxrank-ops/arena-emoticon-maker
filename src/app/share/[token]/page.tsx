@@ -18,8 +18,8 @@ export async function generateMetadata({ params }: { params: Promise<{ token: st
     title,
     description,
     robots: { index: false, follow: false },
-    openGraph: { title, description, type: 'website', images: [{ url: `/api/share/${token}/image`, width: 360, height: 360, alt: title }] },
-    twitter: { card: 'summary_large_image', title, description, images: [`/api/share/${token}/image`] },
+    openGraph: { title, description, type: 'website', images: [{ url: `/api/share/${token}/og`, width: 1200, height: 630, alt: title }] },
+    twitter: { card: 'summary_large_image', title, description, images: [`/api/share/${token}/og`] },
   };
 }
 
