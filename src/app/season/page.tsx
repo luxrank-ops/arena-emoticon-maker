@@ -314,7 +314,7 @@ export default async function SeasonPage({
           <div className="mt-3 rounded-[1.2rem] border border-dashed border-primary/25 bg-primary/[0.04] px-3.5 py-2.5">
             <p className="text-[10.5px] font-bold leading-relaxed text-sub">
               <span className="font-black text-primary-dark">
-                {context.preview ? t('미리보기 모드 켜짐', 'Preview mode ON') : t('검수용 미리보기', 'Owner preview')}
+                {context.preview ? t('미리보기 모드 켜짐', 'Preview mode ON') : t('오픈 전 미리보기', 'Before launch')}
               </span>
               {' · '}
               {t(

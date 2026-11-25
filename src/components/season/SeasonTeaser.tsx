@@ -64,6 +64,12 @@ export function SeasonTeaser({
 
   if (!views.length) return null;
 
+  // 시계는 '가장 가까운 한 팩'에만 흡린다 — 세 카드가 같은 시각을 반복하면 오류처럼 보인다.
+  const nextTargetMs = views.filter((view) => view.stage !== 'open').reduce<number | null>(
+    (min, view) => (min === null || view.targetMs < min ? view.targetMs : min),
+    null,
+  );
+
   return (
     <section
       aria-labelledby={`season-teaser-title-${variant}`}
@@ -128,7 +134,7 @@ export function SeasonTeaser({
                     {open ? <span aria-hidden="true">✨</span> : <Lock className="h-2.5 w-2.5" aria-hidden="true" />}
                     {open ? t('오픈', 'OPEN') : t('커밍순', 'COMING SOON')}
                   </span>
-                  <span className="absolute bottom-1 right-2 block h-[86px] w-[86px] drop-shadow-[0_6px_14px_rgba(0,0,0,0.18)]">
+                  <span className="absolute bottom-1 right-2 block h-[74px] w-[74px] rounded-full border border-white/70 bg-white/85 p-2 shadow-[0_8px_18px_-10px_rgba(23,16,43,0.55)] backdrop-blur">
                     <SeasonPropArt id={propId} title={prop?.label} />
                   </span>
                 </div>
@@ -145,7 +151,7 @@ export function SeasonTeaser({
                     <span className={`text-[21px] font-extrabold leading-none tracking-[-0.03em] ${pack.accent.ink}`}>
                       {open ? t('D-DAY', 'LIVE') : `D-${view.dday}`}
                     </span>
-                    {open ? null : (
+                    {open || view.targetMs !== nextTargetMs ? null : (
                       <span className="text-[11px] font-bold tabular-nums text-sub">{clock}</span>
                     )}
                   </span>
