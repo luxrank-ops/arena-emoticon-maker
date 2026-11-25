@@ -21,6 +21,13 @@ export type SeasonPropId =
   | 'bokjumeoni'
   | 'hanbokBow';
 
+/**
+ * 소품의 성격
+ *  · wear  — 머리·얼굴에 '입는' 소품. 사진 각도·헤어스타일에 따라 어색해질 수 있다.
+ *  · decor — 인물 주변(프레임)에 놓는 소품. 사진이 어떻든 위화감이 없다(실패 0).
+ */
+export type SeasonPropKind = 'wear' | 'decor';
+
 /** 소품을 얹는 자리 — 사진마다 얼굴·몸 위치가 달라 자리를 고를 수 있다 */
 export type SeasonPropSpot = 'top' | 'center' | 'topRight' | 'left' | 'right' | 'bottomLeft' | 'bottomRight';
 
@@ -38,6 +45,8 @@ export interface SeasonProp {
   label: string;
   labelEn: string;
   emoji: string;
+  /** 'wear' 면 '쓰는 소품', 'decor' 면 '주변 데코' — 화면에서 묶음·배지를 나눈다 */
+  kind: SeasonPropKind;
   packId: 'christmas' | 'newyear' | 'lunar';
   /** 기본 자리 — 사용자가 자리를 바꾸면 free 배치로 계산한다 */
   spot: SeasonPropSpot;
@@ -49,8 +58,15 @@ export interface SeasonProp {
    *  · free — 남은 여백 대비 배율
    */
   scale: number;
-  /** head 전용: 정수리에서 챙 아래끝까지 내려 얹는 정도(머리 너비 대비) */
+  /** head 전용: 정수리에서 '머리에 닿는 선'까지 내려 얹는 정도(머리 너비 대비) */
   overlap?: number;
+  /**
+   * head 전용: 에셋 위에서 '머리에 닿는 선'의 위치(0=맨 위, 1=맨 아래).
+   *  · 산타 모자는 챙 아래끝이 머리에 닿는다 → 거의 1
+   *  · 뿔은 뿌리(정수리에 닿는 곳)가 에셋의 93% 지점 → 그 아래는 헤어 속으로 사라지는 다리
+   *  · 이 값을 기준으로 접촉선을 정수리에 맞추므로, 에셋 아래에 여백이 있어도 뜨지 않는다.
+   */
+  anchor?: number;
   /** 투명 PNG 경로 */
   asset: string;
   /** 에셋 가로/세로 (px 는 배치 계산에 쓰지 않고 비율만 쓴다) */
@@ -65,32 +81,41 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '산타 모자',
     labelEn: 'Santa hat',
     emoji: '🎅',
+    kind: 'wear',
     packId: 'christmas',
     spot: 'top',
     fit: 'head',
-    scale: 1.32,
-    overlap: 0.1,
+    // 챙이 머리카락 윗부분을 덮으며 내려오고, 눈썹은 절대 가리지 않는 폭·깊이
+    scale: 1.28,
+    overlap: 0.42,
+    // 챙 아래끝(그 아래로 스며드는 접촉 그림자 포함) = 에셋의 95.5%
+    anchor: 0.955,
     asset: `${ASSET_DIR}/santa-hat.png`,
-    aspect: 1.1636,
+    aspect: 1.1199,
   },
   {
     id: 'reindeerAntlers',
     label: '루돌프 뿔',
     labelEn: 'Reindeer antlers',
     emoji: '🦌',
+    kind: 'wear',
     packId: 'christmas',
     spot: 'top',
     fit: 'head',
+    // 동그란 머리띠는 지우고, 정수리 양옆으로 감기는 다리+접촉 그림자만 남긴 에셋
     scale: 1.62,
-    overlap: 0,
+    overlap: 0.2,
+    // 뿔 뿌리 = 에셋의 97.3% (그 아래는 헤어 속으로 사라지는 다리)
+    anchor: 0.973,
     asset: `${ASSET_DIR}/reindeer-antlers.png`,
-    aspect: 1.0492,
+    aspect: 1.454,
   },
   {
     id: 'rudolphNose',
     label: '빨간 코',
     labelEn: 'Red nose',
     emoji: '🔴',
+    kind: 'wear',
     packId: 'christmas',
     spot: 'center',
     fit: 'face',
@@ -103,6 +128,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '선물보따리',
     labelEn: 'Gift sack',
     emoji: '🎁',
+    kind: 'decor',
     packId: 'christmas',
     spot: 'bottomRight',
     fit: 'free',
@@ -115,6 +141,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '눈썰매',
     labelEn: 'Snow sled',
     emoji: '🛷',
+    kind: 'decor',
     packId: 'christmas',
     spot: 'bottomLeft',
     fit: 'free',
@@ -127,6 +154,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '눈결정',
     labelEn: 'Snowflake',
     emoji: '❄️',
+    kind: 'decor',
     packId: 'christmas',
     spot: 'topRight',
     fit: 'free',
@@ -139,6 +167,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '폭죽',
     labelEn: 'Firework',
     emoji: '🎆',
+    kind: 'decor',
     packId: 'newyear',
     spot: 'topRight',
     fit: 'free',
@@ -151,6 +180,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '파티 폭죽',
     labelEn: 'Party popper',
     emoji: '🎉',
+    kind: 'decor',
     packId: 'newyear',
     spot: 'bottomLeft',
     fit: 'free',
@@ -163,6 +193,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '새해 꽃가루',
     labelEn: 'Confetti',
     emoji: '🎊',
+    kind: 'decor',
     packId: 'newyear',
     spot: 'top',
     fit: 'free',
@@ -175,6 +206,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '복주머니',
     labelEn: 'Lucky pouch',
     emoji: '🧧',
+    kind: 'decor',
     packId: 'lunar',
     spot: 'bottomRight',
     fit: 'free',
@@ -187,6 +219,7 @@ export const SEASON_PROPS: SeasonProp[] = [
     label: '한복 고름',
     labelEn: 'Hanbok bow',
     emoji: '🎀',
+    kind: 'decor',
     packId: 'lunar',
     spot: 'center',
     fit: 'chest',
@@ -226,6 +259,12 @@ export interface SubjectMetrics {
   noseY: number;
   /** 정수리 y (= top) */
   headTop: number;
+  /** 정수리 윤곽에 맞춘 원의 반지름(정규화) — 머리카락 삐침에 흔들리지 않는 폭 */
+  crownRadius: number;
+  /** 그 원의 중심 x — 소품을 앉힐 정수리 한가운데 */
+  crownCenterX: number;
+  /** 머리 축 기울기(도). 오른쪽으로 기운 머리는 +값(시계방향) */
+  tiltDeg: number;
 }
 
 /**
@@ -246,6 +285,7 @@ export function computeSubjectMetrics(
   let right = -1;
   const rowMin = new Int32Array(size).fill(size);
   const rowMax = new Int32Array(size).fill(-1);
+  const colMin = new Int32Array(size).fill(size);
 
   for (let y = 0; y < size; y += 1) {
     const rowStart = y * size * 4;
@@ -253,6 +293,7 @@ export function computeSubjectMetrics(
       if (data[rowStart + x * 4 + 3] > alphaThreshold) {
         if (x < rowMin[y]) rowMin[y] = x;
         if (x > rowMax[y]) rowMax[y] = x;
+        if (y < colMin[x]) colMin[x] = y;
         if (y < top) top = y;
         if (y > bottom) bottom = y;
         if (x < left) left = x;
@@ -265,19 +306,157 @@ export function computeSubjectMetrics(
   const height = bottom - top + 1;
   const width = right - left + 1;
   const bandEnd = Math.min(bottom, top + Math.max(3, Math.round(height * 0.18)));
+
+  // ── 머리 줄 찾기 ───────────────────────────────────
+  //  행 전체의 min~max 를 쓰면 머리 옆에 떨어진 것(느낌표 장식·다른 사람·소품)까지 머리 폭에 들어온다.
+  //  그래서 행마다 '끊기지 않은 덩어리'를 찾아 **가장 넓은 덩어리**를 머리로 본다.
+  const runsOf = (y: number): { x0: number; x1: number }[] => {
+    const out: { x0: number; x1: number }[] = [];
+    let start = -1;
+    let gap = 0;
+    for (let x = left; x <= right; x += 1) {
+      const on = data[(y * size + x) * 4 + 3] > alphaThreshold;
+      if (on) {
+        if (start < 0) start = x;
+        gap = 0;
+      } else if (start >= 0) {
+        gap += 1;
+        if (gap > 2) {
+          out.push({ x0: start, x1: x - gap });
+          start = -1;
+          gap = 0;
+        }
+      }
+    }
+    if (start >= 0) out.push({ x0: start, x1: right - gap });
+    return out;
+  };
   let headWidthPx = 0;
   let headCenterPx = (left + right) / 2;
+  let headLeftPx = left;
+  let headRightPx = right;
   for (let y = top; y <= bandEnd; y += 1) {
     if (rowMax[y] < 0) continue;
-    const span = rowMax[y] - rowMin[y] + 1;
+    let best: { x0: number; x1: number } | null = null;
+    for (const run of runsOf(y)) {
+      if (!best || run.x1 - run.x0 > best.x1 - best.x0) best = run;
+    }
+    if (!best) continue;
+    const span = best.x1 - best.x0 + 1;
     if (span > headWidthPx) {
       headWidthPx = span;
-      headCenterPx = (rowMin[y] + rowMax[y]) / 2;
+      headCenterPx = (best.x0 + best.x1) / 2;
+      headLeftPx = best.x0;
+      headRightPx = best.x1;
     }
   }
   if (headWidthPx <= 0) {
     headWidthPx = width;
     headCenterPx = (left + right) / 2;
+    headLeftPx = left;
+    headRightPx = right;
+  }
+
+  // ── 정수리 원호 맞춤 ─────────────────────────────────
+  //  윗선(컬럼별 가장 위 픽셀)에 원을 맞춰 정수리 중심·반지름을 얻는다.
+  //  머리카락 한 옴이 솟아도 원이 평균을 잡아 주므로 폭·중심이 흔들리지 않는다.
+  const crownLimit = top + Math.max(3, Math.round(headWidthPx * 0.45));
+  let cn = 0;
+  let sx1 = 0;
+  let sy1 = 0;
+  let sxx = 0;
+  let syy = 0;
+  let sxy = 0;
+  let sx3 = 0;
+  let sy3 = 0;
+  let sx2y = 0;
+  let sxy2 = 0;
+  for (let x = Math.max(left, headLeftPx - Math.round(headWidthPx * 0.06)); x <= Math.min(right, headRightPx + Math.round(headWidthPx * 0.06)); x += 1) {
+    const y = colMin[x];
+    if (y === size || y > crownLimit) continue;
+    cn += 1;
+    sx1 += x;
+    sy1 += y;
+    sxx += x * x;
+    syy += y * y;
+    sxy += x * y;
+    sx3 += x * x * x;
+    sy3 += y * y * y;
+    sx2y += x * x * y;
+    sxy2 += x * y * y;
+  }
+  let crownRadiusPx = headWidthPx / 2;
+  let crownCenterPx = headCenterPx;
+  if (cn >= 10) {    // 2cx·x + 2cy·y + c = x² + y² 꼴의 최소자승해
+    const a11 = 4 * sxx;
+    const a12 = 4 * sxy;
+    const a13 = 2 * sx1;
+    const a22 = 4 * syy;
+    const a23 = 2 * sy1;
+    const a33 = cn;
+    const b1 = 2 * (sx3 + sxy2);
+    const b2 = 2 * (sx2y + sy3);
+    const b3 = sxx + syy;
+    const det =
+      a11 * (a22 * a33 - a23 * a23) - a12 * (a12 * a33 - a23 * a13) + a13 * (a12 * a23 - a22 * a13);
+    if (Math.abs(det) > 1e-6) {
+      const cx =
+        (b1 * (a22 * a33 - a23 * a23) - a12 * (b2 * a33 - a23 * b3) + a13 * (b2 * a23 - a22 * b3)) / det;
+      const cy =
+        (a11 * (b2 * a33 - a23 * b3) - b1 * (a12 * a33 - a23 * a13) + a13 * (a12 * b3 - b2 * a13)) / det;
+      const c =
+        (a11 * (a22 * b3 - b2 * a23) - a12 * (a12 * b3 - b2 * a13) + b1 * (a12 * a23 - a22 * a13)) / det;
+      const rSq = c + cx * cx + cy * cy;
+      if (Number.isFinite(rSq) && rSq > 0) {
+        const r = Math.sqrt(rSq);
+        // 터무니없는 해(머리 폭의 0.3~1.3배 밖)는 버리고 기존 측정값을 쓴다
+        if (r > headWidthPx * 0.3 && r < headWidthPx * 1.3) {
+          crownRadiusPx = r;
+          crownCenterPx = cx;
+        }
+      }
+    }
+  }
+
+  // ── 머리 축 기울기 ────────────────────────────────
+  //  얼굴 구간 행들의 좌우 중간점을 직선으로 맞춰 기울기를 잰다(어깨가 넓어지는 행은 뺌).
+  const tiltRowsEnd = Math.min(bottom, top + Math.round(headWidthPx * 0.9));
+  let rn = 0;
+  let rsy = 0;
+  let rsm = 0;
+  let rsyy = 0;
+  let rsym = 0;
+  for (let y = top + 2; y <= tiltRowsEnd; y += 1) {
+    if (rowMax[y] < 0) continue;
+    // 머리 줄(가장 가까운 덩어리)의 중간점만 쓴다 — 옆에 떨어진 것은 빼고
+    let best: { x0: number; x1: number } | null = null;
+    let bestDist = Infinity;
+    for (const run of runsOf(y)) {
+      const cen = (run.x0 + run.x1) / 2;
+      const dist = Math.abs(cen - headCenterPx);
+      if (dist < bestDist && run.x1 - run.x0 + 1 >= headWidthPx * 0.45) {
+        best = run;
+        bestDist = dist;
+      }
+    }
+    if (!best) continue;
+    const span = best.x1 - best.x0 + 1;
+    if (span > headWidthPx * 1.35) continue;
+    const mid = (best.x0 + best.x1) / 2;
+    rn += 1;
+    rsy += y;
+    rsm += mid;
+    rsyy += y * y;
+    rsym += y * mid;
+  }
+  let tiltDeg = 0;
+  if (rn >= 8) {
+    const denom = rn * rsyy - rsy * rsy;
+    if (Math.abs(denom) > 1e-6) {
+      const slope = (rn * rsym - rsy * rsm) / denom;
+      const deg = (-Math.atan(slope) * 180) / Math.PI;
+      if (Number.isFinite(deg) && Math.abs(deg) <= 10) tiltDeg = Math.abs(deg) < 1.2 ? 0 : Math.round(deg * 10) / 10;
+    }
   }
 
   const norm = (value: number) => Math.min(1, Math.max(0, value / size));
@@ -293,6 +472,9 @@ export function computeSubjectMetrics(
     headCenterX: norm(headCenterPx),
     headTop: norm(top),
     noseY: norm(top + headWidthPx * 1.05),
+    crownRadius: norm(crownRadiusPx),
+    crownCenterX: norm(crownCenterPx),
+    tiltDeg,
   };
 }
 
@@ -312,6 +494,9 @@ export function scaleSubjectMetrics(metrics: SubjectMetrics, scale: number, _siz
     headCenterX: sx(metrics.headCenterX),
     headTop: sy(metrics.headTop),
     noseY: sy(metrics.noseY),
+    crownRadius: metrics.crownRadius * scale,
+    crownCenterX: sx(metrics.crownCenterX),
+    tiltDeg: metrics.tiltDeg,
   };
 }
 
@@ -343,6 +528,8 @@ export interface ResolvedSeasonProp {
   basis: SeasonPropFit | 'fallback';
   /** 위쪽에서 잘리는 px — 사진을 살짝 줄여 없앤다 */
   clipped: number;
+  /** 머리 소품이 머리에 닿는 선의 y(px) — 회전축이자 접촉선. 없으면 중심 */
+  contactY?: number;
 }
 
 /** 자리별 기본 중심·크기 — 피사체 비율을 못 잴 때(폴백)·자유 배치 기준 */
@@ -370,10 +557,14 @@ export const SEASON_PROP_SPOT_LABELS: { id: SeasonPropSpot; label: string; label
 export const SEASON_PROP_SIZE_RANGE = { min: 0.55, max: 1.85, step: 0.05 } as const;
 export const SEASON_PROP_SHIFT_RANGE = { min: -0.3, max: 0.3, step: 0.01 } as const;
 
-/** 머리 소품이 위쪽에서 잘리면 사진을 살짝 줄여 자리를 만든다 (0.8~1) */
-export const SEASON_PROP_FIGURE_SCALE_MIN = 0.8;
+/** 머리 소품이 위쪽에서 잘리면 사진을 살짝 줄여 자리를 만든다 (0.72~1) */
+export const SEASON_PROP_FIGURE_SCALE_MIN = 0.72;
 /** 위에서 이만큼(캔버스 대비) 넘치면 사진을 줄인다 — 모자 끝이 살짝 잘리는 건 자연스럽다 */
 const CLIP_TOLERANCE = 0.03;
+/** 챙·머리띠가 이 선(정수리에서 머리 너비의 52%)보다 내려오면 눈썹을 덮는다 — 상한선 */
+export const SEASON_PROP_BROW_GUARD = 0.52;
+/** 얼굴 축 기울기를 소품 회전에 반영하는 정도 (과보정 방지) */
+const TILT_DAMPING = 0.85;
 
 const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 
@@ -488,7 +679,8 @@ export function resolveSeasonPropRect(
   const rotate = placement.rotate ?? 0;
   const dx = placement.dx ?? 0;
   const dy = placement.dy ?? 0;
-  const minTop = size * 0.008;
+  // 위쪽 여백 — 뿔 끝·모자 꼭대기가 캔버스 경계에 딱 붙어 잘려 보이지 않게
+  const minTop = size * 0.018;
 
   let cx: number;
   let cy: number;
@@ -496,6 +688,8 @@ export function resolveSeasonPropRect(
   let h: number;
   let basis: ResolvedSeasonProp['basis'] = prop.fit;
   let clipped = 0;
+  let contactY: number | undefined;
+  let tilt = rotate;
 
   const fitted = metrics && spot === prop.spot && prop.fit !== 'free';
 
@@ -504,28 +698,37 @@ export function resolveSeasonPropRect(
     const idealW = headW * prop.scale * sizeFactor;
     w = clamp(idealW, size * 0.08, size * 0.95);
     h = w / prop.aspect;
-    cx = metrics.headCenterX * size;
+    // 정수리 원호 중심과 머리 폭 중심을 반씩 섮어 쓴다(옆모습·삐친 머리에서도 흔들리지 않게)
+    cx = (metrics.headCenterX * 0.5 + metrics.crownCenterX * 0.5) * size;
+    const anchor = clamp(prop.anchor ?? 1, 0.2, 1);
     const headTop = metrics.top * size;
-    let bottom = headTop + (prop.overlap ?? 0.08) * headW;
-    let top = bottom - h;
+    const overlap = prop.overlap ?? 0.08;
+    let contact = headTop + overlap * headW;
+    // 에셋 위에서 '머리에 닿는 선'이 anchor 지점이다 → 그 선을 접촉선에 맞춘다
+    let top = contact - anchor * h;
     if (top < minTop) {
-      // 위 공간이 없다 — 챙을 머리카락에만 살짝 걸치는 정도까지만 내린다(얼굴은 가리지 않는다).
-      const maxBottom = headTop + (prop.overlap ?? 0.08) * headW + headW * 0.15;
-      const shift = Math.min(minTop - top, Math.max(0, maxBottom - bottom));
-      bottom += shift;
-      top = bottom - h;
+      // 위 공간이 없다 — 얼굴을 덮지 않는 선(눈썹 위)까지만 내려서 맞춘다
+      const guard = Math.min(SEASON_PROP_BROW_GUARD, overlap + 0.12);
+      const maxContact = headTop + Math.max(overlap, guard) * headW;
+      const shift = Math.min(minTop - top, Math.max(0, maxContact - contact));
+      contact += shift;
+      top += shift;
       if (top < minTop) {
-        // 그래도 넘치면 머리 너비 대비 85% 까지만 줄여 위 공간에 맞춘다.
+        // 그래도 넘치면 85% 까지만 줄여 위 공간에 맞춘다.
         //  (사용자가 크기를 키웠다면 그만큼은 지킨다 — 위쪽은 잘려도 된다)
-        const maxH = Math.max(size * 0.02, bottom - minTop);
+        const touchBottom = top + anchor * h;
+        const maxH = Math.max(size * 0.02, (touchBottom - minTop) / anchor);
         const minH = (headW * prop.scale * sizeFactor * 0.85) / prop.aspect;
         h = Math.max(minH, Math.min(h, maxH));
         w = h * prop.aspect;
-        top = bottom - h;
+        top = touchBottom - anchor * h;
         if (top < minTop) clipped = minTop - top;
       }
     }
-    cy = (top + bottom) / 2;
+    cy = top + h / 2;
+    contactY = top + anchor * h;
+    // 얼굴 축 기울기만큼 모자를 함께 눕힌다 — 회전축은 접촉선(챙 아래)이라 뜨지 않는다
+    tilt = rotate + metrics.tiltDeg * TILT_DAMPING;
   } else if (fitted && metrics && prop.fit === 'face') {
     const headW = Math.max(6, Math.min(size, metrics.headWidth * size));
     w = clamp(headW * prop.scale * sizeFactor, size * 0.04, size * 0.6);
@@ -548,13 +751,15 @@ export function resolveSeasonPropRect(
 
   cx = clamp(cx + dx * size, 0, size);
   cy = clamp(cy + dy * size, 0, size);
+  if (contactY !== undefined) contactY += dy * size;
 
-  return { cx, cy, w, h, rotate, basis, clipped };
+  return { cx, cy, w, h, rotate: tilt, basis, clipped, contactY };
 }
 
 /**
- * 머리 소품이 위쪽에서 잘리지 않도록 사진을 얼마나 줄일지 정한다 (1 = 그대로).
- *  · 잘리면 0.03 씩 줄여 보고, 0.8 밑으로는 줄이지 않는다(사진이 작아 보이니까).
+ * 머리 소품이 정해진 크기 그대로 얹히려면 사진을 얼마나 줄여야 하는지 정한다 (1 = 그대로).
+ *  · 잘리거나(clipped) 소품이 찌그러지면(85% 압축) 0.03 씩 더 줄여 다시 본다.
+ *  · 0.72 밑으로는 줄이지 않는다 — 사진이 작아 보이니까.
  */
 export function planFigureScale(
   prop: SeasonProp,
@@ -566,9 +771,13 @@ export function planFigureScale(
   const spot = placement.spot ?? prop.spot;
   if (spot !== prop.spot || prop.fit === 'free') return 1;
   const tolerance = size * CLIP_TOLERANCE;
+  const sizeFactor = clamp(placement.sizeFactor ?? 1, SEASON_PROP_SIZE_RANGE.min, SEASON_PROP_SIZE_RANGE.max);
   for (let scale = 1; scale >= SEASON_PROP_FIGURE_SCALE_MIN - 0.001; scale -= 0.03) {
-    const rect = resolveSeasonPropRect(prop, placement, scaleSubjectMetrics(metrics, scale, size), size);
-    if (rect.clipped <= tolerance) return Math.round(scale * 100) / 100;
+    const scaled = scaleSubjectMetrics(metrics, scale, size);
+    const rect = resolveSeasonPropRect(prop, placement, scaled, size);
+    const idealW = Math.max(6, Math.min(size, scaled.headWidth * size)) * prop.scale * sizeFactor;
+    // 위가 잘리지 않고, 소품이 '원래 크기'대로 들어가면 그 배율로 정한다
+    if (rect.clipped <= tolerance && rect.w >= Math.min(idealW, size * 0.95) - 0.5) return Math.round(scale * 100) / 100;
   }
   return SEASON_PROP_FIGURE_SCALE_MIN;
 }
@@ -631,10 +840,12 @@ export async function drawSeasonProp(
   }
 
   ctx.save();
-  ctx.translate(rect.cx, rect.cy);
+  // 회전축은 '머리에 닿는 선'(contactY) — 눕혀도 챙이 머리에서 뜨지 않는다
+  const pivotY = rect.contactY ?? rect.cy;
+  ctx.translate(rect.cx, pivotY);
   if (rect.rotate) ctx.rotate((rect.rotate * Math.PI) / 180);
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
-  ctx.drawImage(image, -rect.w / 2, -h / 2, rect.w, h);
+  ctx.drawImage(image, -rect.w / 2, rect.cy - pivotY - h / 2, rect.w, h);
   ctx.restore();
 }

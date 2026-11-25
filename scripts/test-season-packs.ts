@@ -34,7 +34,7 @@ const {
   seasonViews,
   isSeasonAccessoryAvailable,
 } = await import('../src/lib/season');
-const { SEASON_PROPS, SEASON_PROP_COUNT, seasonPropById, seasonPropsForPack, SEASON_PROP_SPOTS, computeSubjectMetrics, resolveSeasonPropRect, planFigureScale } = await import(
+const { SEASON_PROPS, SEASON_PROP_COUNT, seasonPropById, seasonPropsForPack, SEASON_PROP_SPOTS, computeSubjectMetrics, resolveSeasonPropRect, planFigureScale, scaleSubjectMetrics } = await import(
   '../src/lib/studio/season-props'
 );
 const { NAV_ITEMS, MENU_SHEET, isNavActive } = await import('../src/lib/nav');
@@ -200,6 +200,67 @@ check(
   assets.every((a) => Math.abs(a.aspect - a.width / a.height) < 0.01),
   assets.map((a) => `${a.id}:${a.aspect}/${(a.width / a.height).toFixed(3)}`).join(','),
 );
+
+// ── 에셋 픽셀 검사: 뿔은 머리띠 고리가 지워졌고, 모자는 챙 아래 그림자가 있다
+const sharp = (await import('sharp')).default;
+const alphaOf = async (rel: string) => {
+  const { data, info } = await sharp(join(process.cwd(), rel)).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  return { data, width: info.width, height: info.height };
+};
+const antlerPx = await alphaOf('public/props/season/reindeer-antlers.png');
+const inside = (x: number, y: number) => antlerPx.data[(y * antlerPx.width + x) * 4 + 3];
+// 아래쪽이 '얇은 철사(머리띠)'가 아니라 뿌리·다리로 채워졌는지 — 예전엔 한 행에 10여 px 링만 지나갔다
+let bottomRowMax = 0;
+for (let y = Math.floor(antlerPx.height * 0.85); y < antlerPx.height; y += 1) {
+  let row = 0;
+  for (let x = 0; x < antlerPx.width; x += 1) if (inside(x, y) > 40) row += 1;
+  if (row > bottomRowMax) bottomRowMax = row;
+}
+check('루돌프 뿔: 동그란 머리띠 고리가 아니라 뿌리·다리로 끝난다', bottomRowMax >= 60, `${bottomRowMax}px/row`);
+let stalkPixels = 0;
+for (let y = Math.floor(antlerPx.height * 0.94); y < antlerPx.height; y += 1) {
+  for (let x = 0; x < antlerPx.width; x += 1) if (inside(x, y) > 60) stalkPixels += 1;
+}
+check('루돌프 뿔: 정수리로 감기는 다리가 남아 있다', stalkPixels > 200, `${stalkPixels}px`);
+const hatPx = await alphaOf('public/props/season/santa-hat.png');
+let shadowPixels = 0;
+for (let y = Math.floor(hatPx.height * 0.955); y < hatPx.height; y += 1) {
+  for (let x = 0; x < hatPx.width; x += 1) {
+    const a = hatPx.data[(y * hatPx.width + x) * 4 + 3];
+    if (a > 6 && a < 200) shadowPixels += 1;
+  }
+}
+check('산타 모자: 챙 아래에 접촉 그림자(반투명)가 깔렸다', shadowPixels > 300, `${shadowPixels}px`);
+check(
+  '소품 분류 — 모자·뿔은 wear, 데코는 decor',
+  seasonPropById('santaHat')?.kind === 'wear' &&
+    seasonPropById('reindeerAntlers')?.kind === 'wear' &&
+    seasonPropById('giftSack')?.kind === 'decor' &&
+    SEASON_PROPS.every((p) => p.kind === 'wear' || p.kind === 'decor'),
+);
+
+// ── 합성 알파로 정수리·기울기 측정 검증 (원을 그려 넣고 잰다)
+const synth = (cx: number, cy: number, r: number) => {
+  const n = 120;
+  const buf = new Uint8ClampedArray(n * n * 4);
+  for (let y = 0; y < n; y += 1) {
+    for (let x = 0; x < n; x += 1) {
+      if ((x - cx) ** 2 + (y - cy) ** 2 <= r * r) buf[(y * n + x) * 4 + 3] = 255;
+    }
+  }
+  return computeSubjectMetrics(buf, n)!;
+};
+const circle = synth(60, 55, 30);
+check(
+  '정수리 원호로 머리 폭·중심을 잔다',
+  Math.abs(circle.crownRadius - 30 / 120) < 0.03 && Math.abs(circle.crownCenterX - 0.5) < 0.03,
+  `${circle.crownRadius.toFixed(3)} / ${circle.crownCenterX.toFixed(3)}`,
+);
+check('뒤집히지 않은 원은 기울기 0', Math.abs(circle.tiltDeg) < 1.5, `${circle.tiltDeg}`);
+check(
+  '피사체가 없으면 null',
+  computeSubjectMetrics(new Uint8ClampedArray(120 * 120 * 4), 120) === null,
+);
 check(
   '크리스마스 소품 6종 (산타모자·뿔·빨간코·선물보따리·썰매·눈결정)',
   seasonPropsForPack('christmas').length === 6 &&
@@ -241,8 +302,12 @@ const humanMetrics = {
   headCenterX: 0.5,
   headTop: 0.16,
   noseY: 0.16 + 0.32 * 0.72,
+  crownRadius: 0.16,
+  crownCenterX: 0.5,
+  tiltDeg: 0,
 };
 const hat = seasonPropById('santaHat')!;
+const antlers = seasonPropById('reindeerAntlers')!;
 const hatRect = resolveSeasonPropRect(hat, { id: 'santaHat' }, humanMetrics, 360);
 const idealHatW = 0.32 * 360 * hat.scale;
 check(
@@ -251,19 +316,61 @@ check(
   `${hatRect.w.toFixed(1)} / ideal ${idealHatW.toFixed(1)}`,
 );
 check(
-  '모자 챙이 눈(머리 너비 0.45) 위에서 멈춘다 — 얼굴을 가리지 않는다',
-  hatRect.cy + hatRect.h / 2 <= (humanMetrics.top + 0.32 * 0.45) * 360 + 0.5,
-  `${(hatRect.cy + hatRect.h / 2).toFixed(1)} vs ${((humanMetrics.top + 0.32 * 0.45) * 360).toFixed(1)}`,
+  '모자 챙(접촉선)이 정수리 아래 머리카락을 덮는다',
+  (hatRect.contactY ?? hatRect.cy) >= (humanMetrics.top + 0.32 * 0.42) * 360 - 0.5,
+  `${(hatRect.contactY ?? hatRect.cy).toFixed(1)}`,
+);
+check(
+  '챙은 눈썹 상한선(머리 너비 52%)을 넘지 않는다 — 얼굴을 가리지 않는다',
+  (hatRect.contactY ?? hatRect.cy) <= (humanMetrics.top + 0.32 * 0.52) * 360 + 0.5,
+  `${(hatRect.contactY ?? hatRect.cy).toFixed(1)} vs ${((humanMetrics.top + 0.32 * 0.52) * 360).toFixed(1)}`,
 );
 check('모자 중심이 머리 중심과 같다', Math.abs(hatRect.cx - 180) < 1);
-const zoomMetrics = { ...humanMetrics, top: 0.02, headTop: 0.02, bottom: 1, height: 0.98, headWidth: 0.62, noseY: 0.02 + 0.62 * 0.72 };
+check(
+  '모자 에셋 아래끝(그림자)은 챙보다 아래에 있다 — 밀착 그림자가 머리에 얹힌다',
+  hatRect.cy + hatRect.h / 2 > (hatRect.contactY ?? hatRect.cy),
+);
+const roomyMetrics = { ...humanMetrics, top: 0.55, headTop: 0.55, bottom: 1, height: 0.45, crownRadius: 0.16 };
+const roomyHat = resolveSeasonPropRect(hat, { id: 'santaHat' }, roomyMetrics, 360);
+check(
+  '공간이 넉넉하면 챙이 정수리에서 머리 너비의 정확히 42% 내려온다',
+  Math.abs((roomyHat.contactY ?? roomyHat.cy) - (0.55 + 0.32 * 0.42) * 360) < 1,
+  `${(roomyHat.contactY ?? roomyHat.cy).toFixed(1)}`,
+);
+const roomyAntlers = resolveSeasonPropRect(antlers, { id: 'reindeerAntlers' }, roomyMetrics, 360);
+check(
+  '뿔 뿌리가 정수리(머리 너비 20%)에 걸쳐 머리 위로 뜨지 않는다',
+  Math.abs((roomyAntlers.contactY ?? roomyAntlers.cy) - (0.55 + 0.32 * 0.2) * 360) < 1 &&
+    roomyAntlers.cy + roomyAntlers.h / 2 > (roomyAntlers.contactY ?? roomyAntlers.cy),
+  `${(roomyAntlers.contactY ?? roomyAntlers.cy).toFixed(1)}`,
+);
+check('뿔 폭이 머리 너비의 1.6배 — 머리를 양쪽에서 감싼다', Math.abs(roomyAntlers.w - 0.32 * 360 * antlers.scale) < 1);
+const tiltedHat = resolveSeasonPropRect(hat, { id: 'santaHat' }, { ...humanMetrics, tiltDeg: 6 }, 360);
+check(
+  '기운 얼굴이면 모자도 그만큼 눕는다 (회전축은 챙)',
+  Math.abs(tiltedHat.rotate - 6 * 0.85) < 0.05 && tiltedHat.contactY === hatRect.contactY,
+  `${tiltedHat.rotate}`,
+);
+const zoomMetrics = { ...humanMetrics, top: 0.02, headTop: 0.02, bottom: 1, height: 0.98, headWidth: 0.62, noseY: 0.02 + 0.62 * 0.72, crownRadius: 0.31 };
 const zoomHat = resolveSeasonPropRect(hat, { id: 'santaHat' }, zoomMetrics, 360);
 check(
-  '얼굴 클로즈업에서도 챙이 눈을 덮지 않는다',
-  zoomHat.cy + zoomHat.h / 2 <= (0.02 + 0.62 * 0.45) * 360 + 1,
-  `${(zoomHat.cy + zoomHat.h / 2).toFixed(1)}`,
+  '얼굴 클로즈업에서도 챙이 눈썹 상한선을 넘지 않는다',
+  (zoomHat.contactY ?? zoomHat.cy) <= (0.02 + 0.62 * 0.52) * 360 + 1,
+  `${(zoomHat.contactY ?? zoomHat.cy).toFixed(1)}`,
 );
-check('정수리 위 공간이 없으면 사진을 줄여 자리를 만든다', planFigureScale(hat, { id: 'santaHat' }, zoomMetrics, 360) < 1);
+const zoomFig = planFigureScale(hat, { id: 'santaHat' }, zoomMetrics, 360);
+const zoomFitted = resolveSeasonPropRect(
+  hat,
+  { id: 'santaHat' },
+  scaleSubjectMetrics(zoomMetrics, zoomFig, 360),
+  360,
+);
+check('정수리 위 공간이 없으면 사진을 줄여 자리를 만든다', zoomFig < 1);
+check(
+  '줄인 뒤에는 모자 위쪽이 3% 넘게 잘리지 않는다',
+  zoomFitted.clipped <= 360 * 0.03 + 0.5,
+  `${zoomFitted.clipped.toFixed(1)} @${zoomFig}`,
+);
 check(
   '공간이 넉넉하면 사진을 줄이지 않는다',
   planFigureScale(hat, { id: 'santaHat' }, { ...humanMetrics, top: 0.55, headTop: 0.55, bottom: 1, height: 0.45 }, 360) === 1,
@@ -276,10 +383,9 @@ check(
 );
 const fallbackRect = resolveSeasonPropRect(seasonPropById('giftSack')!, { id: 'giftSack' }, null, 360);
 check('피사체를 못 재면 옛 고정 자리로 폴백', fallbackRect.basis === 'fallback' && fallbackRect.w > 0);
-const roomyMetrics = { ...humanMetrics, top: 0.55, headTop: 0.55, bottom: 1, height: 0.45 };
-const roomyHat = resolveSeasonPropRect(hat, { id: 'santaHat' }, roomyMetrics, 360);
+const roomyHat2 = resolveSeasonPropRect(hat, { id: 'santaHat' }, roomyMetrics, 360);
 const bigHat = resolveSeasonPropRect(hat, { id: 'santaHat', sizeFactor: 1.5 }, roomyMetrics, 360);
-check('크기 슬라이더 배율이 반영된다', bigHat.w > roomyHat.w * 1.15, `${bigHat.w.toFixed(1)} vs ${roomyHat.w.toFixed(1)}`);
+check('크기 슬라이더 배율이 반영된다', bigHat.w > roomyHat2.w * 1.15, `${bigHat.w.toFixed(1)} vs ${roomyHat2.w.toFixed(1)}`);
 const movedHat = resolveSeasonPropRect(hat, { id: 'santaHat', dx: 0.2 }, humanMetrics, 360);
 check('좌우 미세조정이 반영된다', Math.abs(movedHat.cx - hatRect.cx - 72) < 1);
 check('자리 고르기는 자유 배치로 계산된다', resolveSeasonPropRect(hat, { id: 'santaHat', spot: 'bottomRight' }, humanMetrics, 360).basis === 'free');
