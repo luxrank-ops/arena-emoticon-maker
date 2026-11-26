@@ -20,6 +20,7 @@ import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { shareKakaoFeed } from '@/lib/kakao-share';
 import { CheckoutButton } from '@/components/payments/CheckoutButton';
 import type { PackExportState } from '@/lib/packs';
+import { packDisplayTitle } from '@/lib/pack-title';
 import type { ReviewSheet } from '@/lib/reviewer-sheet';
 import type { ReferralSummary } from '@/lib/referral';
 import { PREVIEW_WATERMARK, TRIAL_MESSAGES } from '@/lib/trial-policy';
@@ -77,6 +78,8 @@ export function PackViewer({
   const [comboBusy, setComboBusy] = useState<string | null>(null);
   const [comboNotice, setComboNotice] = useState<string | null>(null);
   const formatInfo = initialPack.format ? packFormatById(initialPack.format) : undefined;
+  // 12컷 미리보기 팩이 큐레이션 24컷 제목을 물려받아도 화면에는 실제 컷 수로 보인다.
+  const packTitle = packDisplayTitle(initialPack, locale);
   const unlocked = exportState?.unlocked ?? !watermark;
   const locked = !unlocked;
   const lockWatermark = initialPack.preview?.watermark ?? PREVIEW_WATERMARK;
@@ -414,7 +417,7 @@ export function PackViewer({
       <div className="card p-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <p className="text-sm font-black">{initialPack.title}</p>
+            <p className="text-sm font-black">{packTitle}</p>
             <p className="text-xs text-sub">
               {t(`${initialPack.size}컷 · ${initialPack.creditsSpent}크레딧 사용`, `${initialPack.size} cuts · ${initialPack.creditsSpent} credits used`)}{' '}·{' '}
               {formatKstDateTime(initialPack.createdAt)}
@@ -692,7 +695,7 @@ export function PackViewer({
                     <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
                     {locked ? (
                       <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-xl" aria-hidden="true">
-                        <span className="absolute right-2 top-2 rounded-full bg-ink/70 px-2 py-0.5 text-[9px] font-black text-white">🔒 {t('미리보기', 'Preview')}</span>
+                        <span className="absolute right-2 top-2 whitespace-nowrap rounded-full bg-ink/70 px-2 py-0.5 text-[9px] font-black text-white">🔒 {t('미리보기', 'Preview')}</span>
                         <div className="absolute inset-0 flex items-center justify-center overflow-hidden">
                           <div className="-rotate-[20deg] space-y-3 text-center opacity-45">
                             {[0, 1].map((row) => (
@@ -708,7 +711,7 @@ export function PackViewer({
                     <span className="text-[11px] font-bold text-sub">{t('생성 중…', 'Generating…')}</span>
                   </div>
                 )}
-                <span className="absolute right-2 top-2 grid h-7 min-w-7 place-items-center rounded-full border border-line bg-paper px-1.5 text-[10px] font-bold text-sub">{f.index + 1}</span>
+                <span className="absolute left-2 top-2 grid h-7 min-w-7 place-items-center rounded-full border border-line bg-paper px-1.5 text-[10px] font-bold text-sub">{f.index + 1}</span>
               </div>
               <div className="flex w-full flex-1 flex-col border-t-2 border-line p-3">
                 <p className="truncate text-[13px] font-black">{f.label}</p>
