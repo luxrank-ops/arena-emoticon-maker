@@ -115,7 +115,7 @@ check('만들기 허브에 내 사진 바로 스티커·AI 캐릭터·대사/드
 check('하단 만들기 탭이 허브(/studio)로 연결', /create: \{ key: 'create', href: '\/studio'/.test(navSource));
 check('홈이 바로가기 4카드로 정리됨', home.includes('내 사진 바로 스티커') && home.includes('AI 캐릭터 이모티콘') && home.includes('오늘 쓸 톡 답장') && home.includes('내 이모티콘·굿즈'));
 check('홈 바로가기가 핵심 4개 화면으로 이동', ['/studio/photo', '/studio/upload', '/reply', '/studio/packs'].every((href) => home.includes(`href: '${href}'`) || home.includes(`"${href}"`)));
-check('서비스 워커 캐시 버전 갱신', /const CACHE = 'emotihak-static-v6'/.test(read('public/sw.js')));
+check('서비스 워커 캐시 버전 갱신', /const CACHE = 'emotihak-static-v7'/.test(read('public/sw.js')));
 const manifestSource = JSON.parse(read('public/manifest.webmanifest'));
 check('매니페스트 첫 화면(start_url)이 홈(/)', manifestSource.start_url === '/');
 check('매니페스트 바로가기에 홈·만들기·내 팩이 있음', (manifestSource.shortcuts ?? []).map((s) => s.url).join(',').includes('/studio/upload'));
