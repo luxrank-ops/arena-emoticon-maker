@@ -22,6 +22,7 @@ import { loadImage } from '@/lib/images';
 import { localizedComicExpressions, localizedPhotoStickerScenes } from '@/lib/i18n/presets';
 import { presetById, presetCaption, presetKeyword, presetTextLayer } from '@/data/emoticon-presets-150';
 import { curationPackageById } from '@/data/curation-packages';
+import { curationTitleForSize } from '@/lib/pack-title';
 import type { Locale } from '@/lib/i18n/locale';
 import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { defaultLayerOf, formatCuts, packFormatById, type PackFormatId } from '@/lib/pack-formats';
@@ -323,8 +324,15 @@ export async function createPack(
     }),
     tone: sheet.tone,
     mode: sheet.mode ?? 'face',
+    // 12컷 미리보기는 24컷 큐레이션 패키지의 앞 12컷만 담으므로 제목도 실제 컷 수로 맞춘다
+    // ("기본 고빈도 24컷" → "기본 고빈도 12컷").
     title: title?.trim() || (curationPackage
-      ? locale === 'en' ? curationPackage.titleEn : curationPackage.title
+      ? curationTitleForSize(
+        locale === 'en' ? curationPackage.titleEn : curationPackage.title,
+        curationPackage.count,
+        size,
+        locale,
+      )
       : locale === 'en' ? 'My reaction stickers' : `${sheet.tone === 'caricature' ? '개그' : '나의'} 이모티콘 팩`),
     size,
     status: 'GENERATING',

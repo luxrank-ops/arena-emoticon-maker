@@ -85,13 +85,34 @@ export async function prepareWithFallback(photo: { mimeType: string; base64: str
     return { guidance: await prepareBasicConsistency(photo, subjectKind), method: 'basic' };
   }
   try {
-    return { guidance: await prepareConsistency(photo, subjectKind), method: 'ai' };
+    return { guidance: await prepareWithRetry(photo, subjectKind), method: 'ai' };
   } catch (error) {
     if (!(error instanceof ConsistencyError)) throw error;
     console.warn('[consistency] AI review unavailable; using basic photo validation:', error.code);
     return { guidance: await prepareBasicConsistency(photo, subjectKind), method: 'basic' };
   }
 }
+
+/**
+ * 일시적 장애(타임아웃·연결 실패·쿼터 429)는 1회만 자동 재시도한다.
+ *  · 이전에는 한 번 실패하면 곧바로 '기본 사진 확인' 폴백으로 넘어가,
+ *    AI 특징 재확인 없이 컷이 그려져 인물이 이탈하는 일이 있었다.
+ *  · 사진 자체가 쓸 수 없다는 판정(PHOTO_NEEDS_REVIEW)은 재시도해도 결과가 같으므로 바로 올린다.
+ */
+async function prepareWithRetry(photo: { mimeType: string; base64: string }, subjectKind: SubjectKind): Promise<IdentityGuidance> {
+  try {
+    return await prepareConsistency(photo, subjectKind);
+  } catch (error) {
+    if (!(error instanceof ConsistencyError) || !TRANSIENT_CODES.has(error.code)) throw error;
+    console.warn('[consistency] retrying once after transient failure:', error.code);
+    await new Promise((resolve) => setTimeout(resolve, CONSISTENCY_RETRY_DELAY_MS));
+    return prepareConsistency(photo, subjectKind);
+  }
+}
+
+const TRANSIENT_CODES = new Set(['CONSISTENCY_UNAVAILABLE', 'CONSISTENCY_QUOTA']);
+/** 재시도 사이의 짧은 간격 — 사용자는 '사진 확인' 단계에서 기다리는 중이다. */
+const CONSISTENCY_RETRY_DELAY_MS = 400;
 
 function parseImageHeader(bytes: Uint8Array, mimeType: string): { format: string; width: number; height: number } | null {
   if (bytes.length < 24) return null;
