@@ -1,6 +1,9 @@
 import type { Metadata } from 'next';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = { title: '이용약관 · 이모티학' };
+export async function generateMetadata(): Promise<Metadata> {
+  return pageMetadata({ path: '/terms', title: '이용약관 · 이모티학' });
+}
 
 const SECTIONS = [
   {

@@ -63,7 +63,7 @@ export function PurgePanel({ stats }: { stats: Stats }) {
       {message ? <p className="mt-2 text-[11px] font-bold text-mint">{message}</p> : null}
       {error ? <p className="mt-2 text-[11px] font-bold text-coralink">{error}</p> : null}
       <p className="mt-2 text-[10px] leading-relaxed text-sub">
-        파기해도 이미 만든 팩은 계속 렌더됩니다(팩에 비식별 스냅샷 고정). 크론: 매시 정각 `/api/cron/purge`.
+        파기해도 이미 만든 팩은 계속 렌더됩니다(팩에 비식별 스냅샷 고정). 자동 파기: 매일 03:00(KST) 예약 크론 `0 18 * * *` (UTC) + 요청 중 5분 1회 기회적 스윕.
       </p>
     </div>
   );

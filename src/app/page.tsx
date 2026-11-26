@@ -9,6 +9,12 @@ import { PRICE_TIERS } from '@/lib/pricing';
 import { RainFloat } from '@/components/home/RainFloat';
 import { SeasonTeaser } from '@/components/season/SeasonTeaser';
 import { seasonQueryString, seasonTeaserViews, seasonTimeContext } from '@/lib/season';
+import { pageMetadata } from '@/lib/seo';
+
+// 홈은 layout 의 기본 title·description·OG 를 그대로 쓰고, canonical 만 자기 참조로 고정한다.
+export async function generateMetadata() {
+  return pageMetadata({ path: '/' });
+}
 
 const samples = [
   { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
@@ -145,7 +151,7 @@ export default async function LandingPage({
               </p>
 
               <div className="mt-4 flex flex-wrap gap-1.5">
-                {['사진 1장', '9가지 화풍', '12컷 무료 미리보기'].map((item) => (
+                {['사진 1장', '화풍 11종', '12컷 무료 미리보기'].map((item) => (
                   <span
                     key={item}
                     className="inline-flex items-center gap-1 rounded-full border border-line/80 bg-white/65 px-2.5 py-1 text-[10.5px] font-bold text-sub backdrop-blur"
@@ -235,7 +241,7 @@ export default async function LandingPage({
           <div>
             <p className="eyebrow">STYLE LIBRARY</p>
             <h2 id="tone-title" className="mt-2 text-lg font-extrabold tracking-[-0.025em] sm:text-xl">어떤 화풍으로 만들까요?</h2>
-            <p className="mt-1 text-xs leading-relaxed text-sub sm:text-sm">원본 사진 한 장을 아래 6가지 화풍으로 바꿔요.</p>
+            <p className="mt-1 text-xs leading-relaxed text-sub sm:text-sm">무료로는 아래 6가지 화풍을 고를 수 있고, 결제하면 11종 전체가 열려요.</p>
           </div>
           <Link href="/studio/upload" className="group inline-flex items-center gap-1 text-xs font-black text-primary-dark">
             사진으로 만들기

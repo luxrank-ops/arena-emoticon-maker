@@ -1,18 +1,33 @@
 {
-  "name": "이모티미 · 내 얼굴로 만드는 이모티콘",
-  "short_name": "이모티미",
-  "description": "사진 한 장으로 만드는 나만의 AI 이모티콘 팩",
+  "name": "이모티학 — 내 얼굴로 만드는 이모티콘",
+  "short_name": "이모티학",
+  "description": "사진 한 장으로 나만의 이모티콘을 만들고, 다양한 표정을 골라 편집하고 저장해 보세요.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#ff5c38",
   "orientation": "portrait",
+  "lang": "ko",
+  "background_color": "#FAF8FF",
+  "theme_color": "#6E29F5",
   "icons": [
     {
-      "src": "/icon.webp",
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
       "sizes": "512x512",
-      "type": "image/webp",
-      "purpose": "any maskable"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }

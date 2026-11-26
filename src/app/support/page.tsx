@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BUSINESS } from '@/lib/business';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = { title: '고객센터 · 이모티학' };
+export async function generateMetadata(): Promise<Metadata> {
+  return pageMetadata({ path: '/support', title: '고객센터 · 이모티학' });
+}
 
 export default function SupportPage() {
   const email = BUSINESS.email;
@@ -40,7 +43,7 @@ export default function SupportPage() {
           },
           {
             q: '얼굴이 잘 안 나와요.',
-            a: '캐릭터 시트 단계에서 다른 시안을 고르면 표정이 달라집니다. 밝은 정면 사진일수록 결과가 좋습니다. Plus 이상 플랜은 화풍을 바꿔 재생성할 수 있습니다.',
+            a: '캐릭터 시트 단계에서 다른 시안을 고르면 표정이 달라집니다. 밝은 정면 사진일수록 결과가 좋습니다. 화풍은 무료 미리보기에서 6가지, 결제 후에는 11종 전체를 골라 다시 만들 수 있습니다.',
           },
           {
             q: '결제 취소하고 싶어요.',

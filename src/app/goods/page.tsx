@@ -4,8 +4,17 @@ import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { GOODS, GOODS_BUNDLE_DISCOUNT } from '@/lib/pricing';
 import { identityOf, packExportState, specFromIdentity } from '@/lib/packs';
+import { pageMetadata } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata() {
+  return pageMetadata({
+    path: '/goods',
+    title: '내 이모티콘 굿즈 주문 | 이모티학',
+    description: '만든 이모티콘 컷으로 스티커·머그·폰케이스를 주문하세요. 팩 보유 시 20% 할인.',
+  });
+}
 
 export default async function GoodsPage({ searchParams }: { searchParams: Promise<{ pack?: string; frames?: string; bundle?: string }> }) {
   const user = await getCurrentUser();

@@ -8,6 +8,7 @@ import { CURATION_PACKAGES } from '@/data/curation-packages';
 import { PACK_FORMATS } from '@/lib/pack-formats';
 import { getLocale } from '@/lib/i18n/server';
 import { localizedPath, tr } from '@/lib/i18n/locale';
+import { pageAlternates } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -19,6 +20,7 @@ export async function generateMetadata() {
       locale === 'en'
         ? 'Browse 150 Korean chat-sticker presets, a standardized high-frequency 24-cut pack, six seasonal sets, relationship packs and seven drip themes with 66 lines. Pick a set and make your own stickers.'
         : '표정·포즈·이펙트·대사가 한 묶음인 150종 프리셋, ㅋㅋ·ㅇㅋ·ㄴㄴ 등 고빈도 기본 24컷, 연말·새해·설날·시험·월요병·야근 시즌팩 6종과 관계팩을 확인하세요. 12월 연말팩은 선물·새해 앵글을 강조합니다.',
+    alternates: await pageAlternates('/presets'),
   };
 }
 

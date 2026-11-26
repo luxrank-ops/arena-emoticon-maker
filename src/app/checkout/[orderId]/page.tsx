@@ -1,17 +1,33 @@
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { PayPanel } from '@/components/payments/PayPanel';
+import { CheckoutPending } from '@/components/payments/CheckoutPending';
 import { getCurrentUser } from '@/lib/session';
 import { withDB, withPaymentDB } from '@/lib/store';
 import { checkoutSuspended, paymentProvider, paymentsUnavailable, portoneClientConfig } from '@/lib/payments';
 
 export const dynamic = 'force-dynamic';
 
+/** 주문 생성 직후 저장소 반영이 늦으면(원격 KV) 짧게 다시 읽는다. */
+const ORDER_READ_RETRY_MS = [0, 120, 300, 600, 1200];
+
+function findOrder(orderId: string, userId: string) {
+  return withPaymentDB((db) => db.orders.find((o) => o.id === orderId && o.userId === userId) ?? null);
+}
+
 export default async function CheckoutPage({ params }: { params: Promise<{ orderId: string }> }) {
   const { orderId } = await params;
   const user = await getCurrentUser();
-  const order = await withPaymentDB((db) => db.orders.find((o) => o.id === orderId && o.userId === user.id) ?? null);
-  if (!order) notFound();
+
+  let order: Awaited<ReturnType<typeof findOrder>> = null;
+  for (const delay of ORDER_READ_RETRY_MS) {
+    if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+    order = await findOrder(orderId, user.id);
+    if (order) break;
+  }
+
+  // 방금 만든 주문이 아직 원격 저장소에 보이지 않는 경우 — 404 대신 잠깐 기다리게 한다(클라이언트 폴링).
+  if (!order) return <CheckoutPending orderId={orderId} />;
+
   const portone = portoneClientConfig();
   // KG이니시스 V2는 구매자 이메일이 필수라, 로그인 회원은 가입 이메일을 기본값으로 넘긴다.
   const account = await withDB((db) => db.accounts.find((a) => a.userId === user.id) ?? null);

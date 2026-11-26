@@ -570,6 +570,10 @@ export interface KakaoPackResult {
   files: { name: string; bytes: number }[];
   /** 자동 압축으로 150KB 를 맞춘 파일 수 */
   compressed: number;
+  /** 이번 팩에 실제 적용된 1컷당 한도(멈춘 150KB · 움직이는 2MB) */
+  maxBytes: number;
+  /** 가장 큰 파일의 실제 바이트 (문구는 이 값으로 정직하게 안내한다) */
+  heaviestBytes: number;
 }
 
 export interface KakaoPackOptions extends ExportOptions {
@@ -719,7 +723,15 @@ export async function exportKakaoPackZip(
   );
 
   const blob = await zip.generateAsync({ type: 'blob' });
-  return { blob, validation, files: rendered.map(({ name, bytes }) => ({ name, bytes })), compressed };
+  const heaviestBytes = rendered.reduce((max, file) => Math.max(max, file.bytes), 0);
+  return {
+    blob,
+    validation,
+    files: rendered.map(({ name, bytes }) => ({ name, bytes })),
+    compressed,
+    maxBytes,
+    heaviestBytes,
+  };
 }
 
 // ─────────────────────────────────────────────────────────────

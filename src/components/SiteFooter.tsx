@@ -16,7 +16,6 @@ export async function SiteFooter() {
     { href: '/guide', ko: '사용 설명서', en: 'Korean guide' },
     { href: '/support', ko: '고객센터', en: 'Support' },
     { href: '/account-deletion', ko: '계정 삭제', en: 'Delete account' },
-    { href: '/creator', ko: '작가 신청', en: 'Creator program' },
   ];
   return (
     <footer className="mt-16 border-t border-line/70 bg-white/60 backdrop-blur">
@@ -27,7 +26,7 @@ export async function SiteFooter() {
             {tr(locale, '이모티학', 'EmotiHak')}
           </p>
           <div className="flex flex-wrap gap-x-4 gap-y-2 text-xs font-bold text-sub">
-            {links.filter((item) => locale === 'ko' || item.href !== '/creator').map((item) => <Link key={item.href} href={lp(item.href)} className="hover:text-ink">{tr(locale, item.ko, item.en)}</Link>)}
+            {links.map((item) => <Link key={item.href} href={lp(item.href)} className="hover:text-ink">{tr(locale, item.ko, item.en)}</Link>)}
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-3 text-xs font-bold">
