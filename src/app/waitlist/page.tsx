@@ -5,6 +5,8 @@ import { waitlistCount } from '@/lib/waitlist';
 import { getLocale } from '@/lib/i18n/server';
 import { localizedPath, tr } from '@/lib/i18n/locale';
 import { pageAlternates } from '@/lib/seo';
+import { PhotoStickerRow } from '@/components/samples/PhotoStickerRow';
+import { FACE_PHOTO_CUTS } from '@/lib/photo-samples';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +65,14 @@ export default async function WaitlistPage() {
             'Upload one selfie and get a 12-cut pack in 3 minutes. Preview all 12 cuts free, then unlock only the pack you love.',
           )}
         </p>
+        <PhotoStickerRow
+          cuts={FACE_PHOTO_CUTS.slice(0, 3)}
+          locale={locale}
+          columns={3}
+          title={tr(locale, '예시 · 내 사진으로 만든 실사 짤', 'Example · real-photo stickers from one photo')}
+          note={tr(locale, '앱에서는 내 사진으로 똑같이 만듭니다. 예시 이미지입니다.', 'You make your own from your photo. Sample image.')}
+          className="mx-auto mt-6 max-w-md"
+        />
         <div className="mx-auto mt-6 max-w-md">
           <WaitlistForm locale={locale} initialTotal={total} />
         </div>

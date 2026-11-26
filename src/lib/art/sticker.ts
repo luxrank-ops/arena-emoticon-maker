@@ -32,10 +32,11 @@ export const EMOTIONS: Record<Emotion, { label: string; hint: string; emoji: str
   blank: { label: '정색', hint: '...', emoji: '😐' },
 };
 
+// 순서가 곧 화풍 선택 UI 의 순서다 — 실사(사진 그대로 · 실사 포토)를 먼저 보여 준다.
 export const TONES: Record<Tone, { label: string; desc: string; badge: string }> = {
-  '2d-cute': { label: '2D 캐릭터 버전', desc: '귀여운 외곽선, 카톡 인기 캐릭터 스타일', badge: '캐릭터' },
-  'photo-sticker': { label: '실사 카톡 스티커', desc: '흰 테두리·한국어 대사·귀여운 표정, 개별 이미지', badge: 'NEW' },
+  'photo-sticker': { label: '실사 짤 (사진 그대로)', desc: '사진을 그대로 누끼 따고 흰 테두리·대사를 얹은 실사 스티커', badge: '대표' },
   caricature: { label: '실사 포토 버전', desc: '실제 인물 사진 그대로 12가지 감정 표정', badge: '실사포토' },
+  '2d-cute': { label: '2D 캐릭터 버전', desc: '귀여운 외곽선, 카톡 인기 캐릭터 스타일', badge: '캐릭터' },
   doodle: { label: '힐링 낙서 버전', desc: '최고심풍 삐뚤빼뚤 손그림, 긍정 자존감 대사', badge: 'MZ원픽' },
   'office-meme': { label: '직장인 밈 버전', desc: '곽철이·루피풍 은은한 광기, 퇴근/넵 필수짤', badge: '대세' },
   'clay-3d': { label: '말랑 3D 클레이', desc: '수제 찰흙 피규어 질감, 실물 굿즈 최적화', badge: '굿즈추천' },

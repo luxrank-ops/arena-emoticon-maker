@@ -1,15 +1,37 @@
 import Image from 'next/image';
 import Link from 'next/link';
 import { localizedComicExpressions, tonesForLocale } from '@/lib/i18n/presets';
+import { HERO_PHOTO_CUTS, PHOTO_SAMPLES, STYLE_TILES } from '@/lib/photo-samples';
+import { Sticker } from '@/components/Sticker';
+import { DEFAULT_PALETTE, DEFAULT_SIGNATURE } from '@/lib/art/sticker';
+import type { Emotion, StickerSpec } from '@/lib/types';
 
-const samples = [
-  { src: '/samples/tone-2d-cute.webp', label: 'Character' },
-  { src: '/samples/tone-doodle.webp', label: 'Doodle' },
-  { src: '/samples/tone-clay-3d.webp', label: 'Clay' },
-  { src: '/samples/tone-3d-cartoon.webp', label: '3D cartoon' },
-  { src: '/samples/tone-pixel-art.webp', label: 'Pixel art' },
-  { src: '/samples/tone-watercolor.webp', label: 'Watercolor' },
+/** 히어로 6컷 — 전부 실사 사진 누끼 컷(반려동물·커플·팀·셀카). */
+const heroCuts: { src: string; emotion: Emotion }[] = [
+  { src: HERO_PHOTO_CUTS[0].src, emotion: 'love' },
+  { src: HERO_PHOTO_CUTS[1].src, emotion: 'laugh' },
+  { src: HERO_PHOTO_CUTS[2].src, emotion: 'joy' },
+  { src: PHOTO_SAMPLES.pet.cuts[2].src, emotion: 'smug' },
+  { src: PHOTO_SAMPLES.couple.cuts[1].src, emotion: 'sulk' },
+  { src: PHOTO_SAMPLES.team.cuts[1].src, emotion: 'tired' },
 ];
+
+function heroSpec(src: string, emotion: Emotion): StickerSpec {
+  return {
+    seed: 1061,
+    tone: 'photo-sticker',
+    palette: DEFAULT_PALETTE,
+    signature: DEFAULT_SIGNATURE,
+    emotion,
+    intensity: 74,
+    prop: 'none',
+    background: 'transparent',
+    line: '',
+    linePosition: 'bottom',
+    imageUrl: src,
+    textLayers: [],
+  };
+}
 
 const questions = [
   { q: 'What happens to my photo?', a: 'Your photo stays temporarily in this browser tab and is sent to Google Gemini only for character analysis and image generation. The original photo is not stored on our servers. Generated character drafts and stickers are saved with your pack.' },
@@ -26,7 +48,7 @@ export function EnglishLanding({ aiEnabled = true }: { aiEnabled?: boolean }) {
         <div className="pointer-events-none absolute inset-0 dot-grid opacity-40" />
         <div className="wrap relative grid items-center gap-9 py-12 md:grid-cols-[1fr_0.85fr] md:gap-16 md:py-20">
           <div>
-            <span className="chip !border-ink !bg-lemon !text-ink">ONE PHOTO · PEOPLE & PETS · AI STICKERS</span>
+            <span className="chip !border-ink !bg-lemon !text-ink">ONE PHOTO · REAL-PHOTO STICKERS · PEOPLE & PETS</span>
             <h1 className="h1 mt-5">One photo.<br /><span className="font-hand text-coralink">A whole pack of you.</span></h1>
             <p className="mt-5 max-w-xl text-[15px] leading-relaxed text-sub sm:text-lg">
               Turn a favorite photo into expressive stickers with natural English captions. Pick a style, choose your reactions, and make every line your own.
@@ -52,9 +74,11 @@ export function EnglishLanding({ aiEnabled = true }: { aiEnabled?: boolean }) {
             <div className="absolute -right-3 -top-4 rotate-6 rounded-xl border-2 border-ink bg-lemon px-4 py-2 font-hand text-2xl shadow-card">so you!</div>
             <div className="rotate-2 rounded-[28px] border-2 border-ink bg-paper p-4 shadow-pop">
               <div className="grid grid-cols-3 gap-2 rounded-2xl border-2 border-line bg-white p-3">
-                {samples.slice(0, 6).map((sample) => <Image key={sample.src} src={sample.src} alt={`${sample.label} sticker sample`} width={160} height={160} className="aspect-square rounded-xl object-cover" />)}
+                {heroCuts.map((cut) => (
+                  <Sticker key={cut.src} spec={heroSpec(cut.src, cut.emotion)} ariaLabel="Real-photo sticker sample" />
+                ))}
               </div>
-              <p className="mt-3 text-center text-xs font-black">SIX STYLES. ENDLESS REACTIONS.</p>
+              <p className="mt-3 text-center text-xs font-black">REAL-PHOTO STICKERS. ONE PHOTO.</p>
             </div>
           </div>
         </div>
@@ -92,9 +116,10 @@ export function EnglishLanding({ aiEnabled = true }: { aiEnabled?: boolean }) {
       <section className="border-b-2 border-line bg-paper py-14">
         <div className="wrap">
           <p className="eyebrow">STYLE IT YOUR WAY</p>
-          <h2 className="h2 mt-2">Cute today. Chaotic tomorrow.</h2>
+          <h2 className="h2 mt-2">Straight from the photo, or drawn anew.</h2>
+          <p className="mt-3 max-w-2xl text-sm leading-relaxed text-sub">The default is the photo cut — your picture, background removed, one line added, free. AI redraw adds six free art styles, eleven with a plan.</p>
           <div className="mt-7 flex flex-wrap gap-2">{tonesForLocale('en').map((tone) => <span key={tone.id} className="chip !bg-white !px-4 !py-2">{tone.label}</span>)}</div>
-          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">{samples.map((sample) => <figure key={sample.src} className="card overflow-hidden p-2"><Image src={sample.src} alt={`${sample.label} style sample`} width={240} height={240} className="aspect-square rounded-xl object-cover" /><figcaption className="py-2 text-center text-xs font-black">{sample.label}</figcaption></figure>)}</div>
+          <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-7">{STYLE_TILES.map((tile) => <figure key={tile.src} className="card overflow-hidden p-2"><Image src={tile.src} alt={`${tile.label.en} style sample`} width={240} height={240} className="aspect-square rounded-xl object-contain" /><figcaption className="py-2 text-center text-xs font-black">{tile.label.en}</figcaption></figure>)}</div>
         </div>
       </section>
 

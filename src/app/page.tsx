@@ -9,20 +9,13 @@ import { PRICE_TIERS } from '@/lib/pricing';
 import { SeasonTeaser } from '@/components/season/SeasonTeaser';
 import { seasonQueryString, seasonTeaserViews, seasonTimeContext } from '@/lib/season';
 import { pageMetadata } from '@/lib/seo';
+import { HERO_PHOTO_CUTS, STYLE_TILES } from '@/lib/photo-samples';
 
 // 홈은 layout 의 기본 title·description·OG 를 그대로 쓰고, canonical 만 자기 참조로 고정한다.
 export async function generateMetadata() {
   return pageMetadata({ path: '/' });
 }
 
-const samples = [
-  { src: '/samples/tone-2d-cute.webp', label: '캐릭터' },
-  { src: '/samples/tone-doodle.webp', label: '손그림' },
-  { src: '/samples/tone-clay-3d.webp', label: '클레이' },
-  { src: '/samples/tone-3d-cartoon.webp', label: '3D 카툰' },
-  { src: '/samples/tone-pixel-art.webp', label: '픽셀 아트' },
-  { src: '/samples/tone-watercolor.webp', label: '수채화' },
-];
 const steps = [
   { number: '01', title: '사진 고르기', text: '밝은 정면 사진을 선택하고 사진 상태를 확인해요.' },
   { number: '02', title: '스타일과 시안 선택', text: '구도와 스타일을 정하고, 만들어진 시안 중 마음에 드는 것을 골라요.' },
@@ -148,7 +141,7 @@ export default async function LandingPage({
               </p>
 
               <div className="mt-4 flex flex-wrap gap-1.5">
-                {['사진 1장', '화풍 11종', '12컷 무료 미리보기'].map((item) => (
+                {['사진 1장', '실사 짤 무료', '화풍 11종'].map((item) => (
                   <span
                     key={item}
                     className="inline-flex items-center gap-1 rounded-full border border-line/80 bg-white/65 px-2.5 py-1 text-[10.5px] font-bold text-sub backdrop-blur"
@@ -158,25 +151,46 @@ export default async function LandingPage({
                   </span>
                 ))}
               </div>
+
+              {/* 모바일 첫 화면 — 실사 사진 누끼 컷 3장을 바로 보여 준다(실사가 앱의 지향점). */}
+              <div className="mt-5 flex max-w-md items-stretch gap-2 lg:hidden">
+                {HERO_PHOTO_CUTS.map((cut, i) => (
+                  <div
+                    key={cut.src}
+                    className={`sticker-frame flex-1 p-1.5 ${['-rotate-2', 'rotate-1', '-rotate-1'][i]}`}
+                  >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={cut.src}
+                      alt={`${cut.label.ko} 실사 스티커 예시`}
+                      width={512}
+                      height={512}
+                      className="aspect-square w-full object-contain"
+                    />
+                    <p className="pb-0.5 pt-1 text-center text-[9.5px] font-black text-sub">{cut.label.ko}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-1.5 text-[9.5px] font-bold text-sub/80 lg:hidden">예시 이미지 · 내 사진으로 똑같이 만듭니다</p>
             </div>
 
-            {/* 데스크톱 전용 스티커 콜라주 — 실제 화풍 샘플을 스티커처럼 겹쳐 보여 준다. */}
+            {/* 데스크톱 전용 스티커 콜라주 — 실사 사진 누끼 컷을 스티커처럼 겹쳐 보여 준다. */}
             <div aria-hidden="true" className="relative hidden h-[320px] w-[370px] lg:block">
               <div className="sticker-frame absolute left-[86px] top-6 w-[186px] -rotate-[5deg] p-2.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/samples/tone-clay-3d.webp" alt="" width={512} height={512} className="aspect-square w-full rounded-[1.15rem] object-contain" />
+                <img src={HERO_PHOTO_CUTS[1].src} alt="" width={512} height={512} className="aspect-square w-full rounded-[1.15rem] object-contain" />
               </div>
               <div className="sticker-frame absolute right-0 top-0 w-[124px] rotate-[7deg] p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/samples/tone-2d-cute.webp" alt="" width={512} height={512} className="aspect-square w-full rounded-[0.95rem] object-contain" />
+                <img src={HERO_PHOTO_CUTS[0].src} alt="" width={512} height={512} className="aspect-square w-full rounded-[0.95rem] object-contain" />
               </div>
               <div className="sticker-frame absolute bottom-1 left-0 w-[116px] -rotate-[10deg] p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/samples/tone-doodle.webp" alt="" width={512} height={512} className="aspect-square w-full rounded-[0.95rem] object-contain" />
+                <img src={HERO_PHOTO_CUTS[2].src} alt="" width={512} height={512} className="aspect-square w-full rounded-[0.95rem] object-contain" />
               </div>
               <span className="absolute bottom-12 right-0 inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/85 px-3 py-1.5 text-[11px] font-black text-primary-dark shadow-card backdrop-blur">
                 <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-mint" />
-                12컷 한 팩
+                사진 누끼 → 12컷
               </span>
             </div>
           </div>
@@ -237,20 +251,23 @@ export default async function LandingPage({
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="eyebrow">STYLE LIBRARY</p>
-            <h2 id="tone-title" className="mt-2 text-lg font-extrabold tracking-[-0.025em] sm:text-xl">어떤 화풍으로 만들까요?</h2>
-            <p className="mt-1 text-xs leading-relaxed text-sub sm:text-sm">무료로는 아래 6가지 화풍을 고를 수 있고, 결제하면 11종 전체가 열려요.</p>
+            <h2 id="tone-title" className="mt-2 text-lg font-extrabold tracking-[-0.025em] sm:text-xl">사진 그대로, 아니면 화풍을 골라서</h2>
+            <p className="mt-1 text-xs leading-relaxed text-sub sm:text-sm">기본은 사진 그대로 누끼 따는 <b>실사 짤</b>이에요. AI로 그릴 땐 무료 6가지 화풍, 결제하면 11종 전체가 열려요.</p>
           </div>
           <Link href="/studio/upload" className="group inline-flex items-center gap-1 text-xs font-black text-primary-dark">
             사진으로 만들기
             <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" aria-hidden="true" />
           </Link>
         </div>
-        <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6 sm:gap-3">
-          {samples.map((sample) => (
-            <li key={sample.src} className="group overflow-hidden rounded-[1.15rem] border border-line/80 bg-white p-1.5 text-center shadow-card transition duration-300 hover:-translate-y-0.5 hover:shadow-pop">
+        <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-7">
+          {STYLE_TILES.map((tile) => (
+            <li key={tile.src} className={`group overflow-hidden rounded-[1.15rem] border bg-white p-1.5 text-center shadow-card transition duration-300 hover:-translate-y-0.5 hover:shadow-pop ${tile.tone === 'photo-sticker' ? 'border-primary/35 ring-1 ring-primary/20' : 'border-line/80'}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={sample.src} alt={`${sample.label} 스타일 이모티콘 예시`} width={512} height={512} className="aspect-square w-full rounded-[0.9rem] object-contain transition duration-300 group-hover:scale-[1.03]" />
-              <p className="pb-0.5 pt-1.5 text-[11px] font-black">{sample.label}</p>
+              <img src={tile.src} alt={`${tile.label.ko} 스타일 이모티콘 예시`} width={512} height={512} className="aspect-square w-full rounded-[0.9rem] object-contain transition duration-300 group-hover:scale-[1.03]" />
+              <p className="pb-0.5 pt-1.5 text-[11px] font-black">{tile.label.ko}</p>
+              {'badge' in tile && tile.badge ? (
+                <p className="pb-0.5 text-[9.5px] font-bold text-primary-dark">{tile.badge.ko}</p>
+              ) : null}
             </li>
           ))}
         </ul>
@@ -273,9 +290,8 @@ export default async function LandingPage({
           <div className="mt-5 grid gap-3 md:grid-cols-2">
             <Link href="/studio/upload?format=duo-chemi" className="group relative overflow-hidden rounded-[1.5rem] border border-line/80 bg-white shadow-card transition duration-300 hover:-translate-y-1 hover:shadow-pop">
               <div className="relative flex items-center justify-between gap-2 bg-[radial-gradient(120%_120%_at_8%_0%,#FFDCE9_0%,#FFF4F8_48%,#FFFFFF_100%)] px-5 py-4">
-                <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-2xl border border-white/70 bg-white/70 text-2xl shadow-[0_10px_24px_-18px_rgba(255,77,141,0.9)] backdrop-blur">
-                  💞
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/samples/photo/couple-hug.webp" alt="" width={96} height={96} className="h-12 w-12 rounded-2xl border border-white/70 bg-white object-contain shadow-[0_10px_24px_-18px_rgba(255,77,141,0.9)]" />
                 <span className="rounded-full border border-white/80 bg-white/80 px-2.5 py-1 text-[10px] font-black text-primary-dark shadow-sm backdrop-blur">
                   {trial ? '12컷 무료 미리보기' : '12컷 · 7,900원'}
                 </span>
@@ -292,9 +308,8 @@ export default async function LandingPage({
             </Link>
             <Link href="/studio/upload?format=pet-meme&subject=pet" className="group relative overflow-hidden rounded-[1.5rem] border border-line/80 bg-white shadow-card transition duration-300 hover:-translate-y-1 hover:shadow-pop">
               <div className="relative flex items-center justify-between gap-2 bg-[radial-gradient(120%_120%_at_8%_0%,#D8F7E8_0%,#F2FDF7_48%,#FFFFFF_100%)] px-5 py-4">
-                <span aria-hidden="true" className="grid h-12 w-12 place-items-center rounded-2xl border border-white/70 bg-white/70 text-2xl shadow-[0_10px_24px_-18px_rgba(14,159,110,0.9)] backdrop-blur">
-                  🐾
-                </span>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/samples/photo/pet-dog-beg.webp" alt="" width={96} height={96} className="h-12 w-12 rounded-2xl border border-white/70 bg-white object-contain shadow-[0_10px_24px_-18px_rgba(14,159,110,0.9)]" />
                 <span className="rounded-full border border-white/80 bg-white/80 px-2.5 py-1 text-[10px] font-black text-mint shadow-sm backdrop-blur">
                   {trial ? '12컷 무료 미리보기' : '12컷 · 6,900원'}
                 </span>

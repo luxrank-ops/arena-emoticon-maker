@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import type { Locale } from '@/lib/i18n/locale';
 import { localizedPath, tr } from '@/lib/i18n/locale';
+import { PhotoSampleStrip } from '@/components/samples/PhotoSampleStrip';
+import type { PhotoSampleGroup } from '@/lib/photo-samples';
 
 export interface ChannelLandingCopy {
   /** UTM campaign 값 (pets | couple | team) */
@@ -11,6 +13,10 @@ export interface ChannelLandingCopy {
   bullets: { emoji: string; title: string; body: string }[];
   steps: string[];
   faq: { q: string; a: string }[];
+  /** 대표 비주얼 — 2D 일러스트 대신 실사 사진 샘플 스트립을 첫 화면에 둔다 */
+  photoSamples?: PhotoSampleGroup;
+  photoSampleTitle?: string;
+  photoSampleNote?: string;
 }
 
 interface Props {
@@ -32,6 +38,15 @@ export function ChannelLanding({ locale, copy }: Props) {
         <span className="chip !border-primary/20 !bg-primary/10 !text-primary-dark">{copy.badge}</span>
         <h1 className="mt-4 break-keep text-3xl font-black leading-tight sm:text-4xl">{copy.title}</h1>
         <p className="mx-auto mt-3 max-w-md break-keep text-sm leading-relaxed text-sub">{copy.subtitle}</p>
+        {copy.photoSamples ? (
+          <PhotoSampleStrip
+            group={copy.photoSamples}
+            locale={locale}
+            title={copy.photoSampleTitle}
+            note={copy.photoSampleNote}
+            className="mx-auto mt-5 max-w-md"
+          />
+        ) : null}
         <Link href={localizedPath(locale, uploadHref)} className="btn-primary mt-6 w-full !py-4 text-base sm:w-auto sm:!px-10">
           {tr(locale, '무료로 12컷 미리보기 →', 'Preview 12 cuts free →')}
         </Link>

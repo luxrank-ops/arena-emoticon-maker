@@ -5,6 +5,10 @@ import { QUOTE_PACKS, quotePackView } from '@/lib/quote-packs';
 import { quotePurchaseIds } from '@/lib/quote-purchases';
 import { getCurrentUser } from '@/lib/session';
 import { pageMetadata } from '@/lib/seo';
+import { PhotoStickerRow } from '@/components/samples/PhotoStickerRow';
+import { FACE_PHOTO_CUTS } from '@/lib/photo-samples';
+import { getLocale } from '@/lib/i18n/server';
+import { tr } from '@/lib/i18n/locale';
 
 export const dynamic = 'force-dynamic';
 
@@ -17,7 +21,7 @@ export async function generateMetadata() {
 }
 
 export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ pack?: string; theme?: string }> }) {
-  const [{ pack, theme }, user] = await Promise.all([searchParams, getCurrentUser()]);
+  const [{ pack, theme }, user, locale] = await Promise.all([searchParams, getCurrentUser(), getLocale()]);
   const ownedIds = await quotePurchaseIds(user.id);
   const unlimited = isUnlimited(user);
   const packs = QUOTE_PACKS.map((pack) => quotePackView(pack, unlimited || pack.priceCredits === 0 || ownedIds.includes(pack.id)));
@@ -36,6 +40,13 @@ export default async function QuotesPage({ searchParams }: { searchParams: Promi
           <Link href="/studio/photo" className="btn-ghost w-full sm:w-auto">📸 내 사진 바로 누끼</Link>
         </div>
       </div>
+      <PhotoStickerRow
+        cuts={FACE_PHOTO_CUTS}
+        locale={locale}
+        title={tr(locale, '예시 · 한 줄 + 내 사진 = 실사 짤', 'Example · one line + your photo')}
+        note={tr(locale, '대사를 고르면 앱이 내 사진에 그대로 얹어 실사 스티커로 만들어요. 예시 이미지입니다.', 'Pick a line and the app puts it on your photo. Sample image.')}
+        className="mb-6 rounded-2xl border border-line/80 bg-cream/60 p-3"
+      />
       <div className="mb-6 grid grid-cols-2 gap-2 text-[11px] font-bold text-sub sm:grid-cols-4"><span className="chip justify-center !bg-white">① 테마 팩 선택</span><span className="chip justify-center !bg-white">② 대사 선택</span><span className="chip justify-center !bg-white">③ 감정·배경 변경</span><span className="chip justify-center !bg-white">④ PNG·ZIP 저장</span></div>
       <QuoteShop initialPacks={packs} initialOwnedIds={ownedIds} initialCredits={user.credits} unlimited={unlimited} watermark={watermarkFor(user)} isAuthenticated={user.isAuthenticated} initialPackId={pack} initialGroupId={theme} />
     </main>

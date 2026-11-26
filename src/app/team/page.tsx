@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ChannelLanding, type ChannelLandingCopy } from '@/components/landing/ChannelLanding';
+import { PHOTO_SAMPLES } from '@/lib/photo-samples';
 import { getLocale } from '@/lib/i18n/server';
 import { pageAlternates } from '@/lib/seo';
 
@@ -31,6 +32,9 @@ const KO: ChannelLandingCopy = {
   badge: '🏢 직장인 생존 12컷',
   title: '팀 단톡방에 내 얼굴 야근콘을 던져라',
   subtitle: '야근 확정·칼퇴 승인·회식 참석 — 사회생활 필수 12컷을 내 얼굴로 3분 만에.',
+  photoSamples: PHOTO_SAMPLES.team,
+  photoSampleTitle: '예시 · 회사에서 쓰는 실사 짤',
+  photoSampleNote: '사진 그대로 누끼 따고 직장 대사만 얹은 실사 스티커예요. 예시 이미지입니다.',
   bullets: [
     { emoji: '🌙', title: '야근·칼퇴 대사', body: '“야근 중 살려줘” “칼퇴 가능?” — 월요병·야근 시즌 대사가 기본 탑재' },
     { emoji: '👥', title: '팀·부서 관계팩', body: '보고·회의·회식까지 팀 단톡방에서 바로 쓰는 12컷' },
@@ -53,6 +57,9 @@ const EN: ChannelLandingCopy = {
   badge: '🏢 12 work-survival cuts',
   title: 'Drop your own face into the team chat',
   subtitle: 'Overtime, sign-off, team dinners — the 12 cuts office life needs, in 3 minutes.',
+  photoSamples: PHOTO_SAMPLES.team,
+  photoSampleTitle: 'Example · office-ready photo stickers',
+  photoSampleNote: 'Cut straight from the photo with a work line. Sample image.',
   bullets: [
     { emoji: '🌙', title: 'Overtime lines', body: '"Still at work, send help" — Monday and late-night lines included' },
     { emoji: '👥', title: 'Team & department pack', body: '12 cuts for reports, meetings and team dinners' },
