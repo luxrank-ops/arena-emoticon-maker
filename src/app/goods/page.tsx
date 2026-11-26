@@ -5,14 +5,21 @@ import { withDB } from '@/lib/store';
 import { GOODS, GOODS_BUNDLE_DISCOUNT } from '@/lib/pricing';
 import { identityOf, packExportState, specFromIdentity } from '@/lib/packs';
 import { pageMetadata } from '@/lib/seo';
+import { getLocale } from '@/lib/i18n/server';
+import { tr } from '@/lib/i18n/locale';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata() {
+  const locale = await getLocale();
   return pageMetadata({
     path: '/goods',
-    title: '내 이모티콘 굿즈 주문 | 이모티학',
-    description: '만든 이모티콘 컷으로 스티커·머그·폰케이스를 주문하세요. 팩 보유 시 20% 할인.',
+    title: tr(locale, '내 이모티콘 굿즈 주문 | 이모티학', 'Order goods from your stickers | EmotiHak'),
+    description: tr(
+      locale,
+      '만든 이모티콘 컷으로 스티커·머그·폰케이스를 주문하세요. 팩 보유 시 20% 할인.',
+      'Turn your sticker cuts into stickers, mugs and phone cases. 20% off when you own the pack.',
+    ),
   });
 }
 
