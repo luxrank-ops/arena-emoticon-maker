@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ChannelLanding, type ChannelLandingCopy } from '@/components/landing/ChannelLanding';
+import { PHOTO_SAMPLES } from '@/lib/photo-samples';
 import { getLocale } from '@/lib/i18n/server';
 import { pageAlternates } from '@/lib/seo';
 
@@ -31,6 +32,9 @@ const KO: ChannelLandingCopy = {
   badge: '💑 커플·친구 2인 케미 12컷',
   title: '둘의 얼굴로 만드는 세상에 하나뿐인 12컷',
   subtitle: '사진 2장이면 하이파이브·삐짐·화해까지 — 둘만 아는 표정으로 단톡방을 장악하세요.',
+  photoSamples: PHOTO_SAMPLES.couple,
+  photoSampleTitle: '예시 · 두 사람 사진이면',
+  photoSampleNote: '사진 그대로 누끼 따고 대사만 얹은 2인 실사 스티커예요. 예시 이미지입니다.',
   bullets: [
     { emoji: '💕', title: '2인 케미 12컷', body: '사진 2장의 얼굴을 각각 참조해 둘이 함께 나오는 컷을 만듭니다' },
     { emoji: '🗣️', title: '커플 대사 기본 탑재', body: '“퇴근 후 치맥 콜?” “삐짐 vs 달래기” — 커플·친구 12컷 전용 대사' },
@@ -53,6 +57,9 @@ const EN: ChannelLandingCopy = {
   badge: '💑 12-cut duo pack',
   title: 'A one-of-a-kind 12-cut pack from both your faces',
   subtitle: 'Two photos for high-fives, sulking and making up — the faces only the two of you know.',
+  photoSamples: PHOTO_SAMPLES.couple,
+  photoSampleTitle: 'Example · two photos',
+  photoSampleNote: 'Both faces cut from your photos with one line. Sample image.',
   bullets: [
     { emoji: '💕', title: '12 duo cuts', body: 'Each photo is referenced so both of you appear together' },
     { emoji: '🗣️', title: 'Couple lines included', body: 'Lines couples and friends actually send come preloaded' },

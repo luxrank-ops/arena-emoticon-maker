@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { ChannelLanding, type ChannelLandingCopy } from '@/components/landing/ChannelLanding';
+import { PHOTO_SAMPLES } from '@/lib/photo-samples';
 import { getLocale } from '@/lib/i18n/server';
 import { pageAlternates } from '@/lib/seo';
 
@@ -31,6 +32,9 @@ const KO: ChannelLandingCopy = {
   badge: '🐶 반려동물 전용 12컷 팩',
   title: '우리 애 사진 1장이면 12컷 이모티콘',
   subtitle: '산책 재촉·간식 조르기·꿀잠 — 집사만 아는 그 표정을 카톡에 바로 뿌리세요.',
+  photoSamples: PHOTO_SAMPLES.pet,
+  photoSampleTitle: '예시 · 우리 애 사진 한 장이면',
+  photoSampleNote: '사진 그대로 누끼 따고 집사 밈 대사만 얹은 실사 스티커예요. 예시 이미지입니다.',
   bullets: [
     { emoji: '💬', title: '집사 밈 대사', body: '“간식 내놔” “산책 가자” “집사야 일해라” — 집사 일상 대사가 기본 탑재' },
     { emoji: '🖼️', title: '12컷 전체 미리보기', body: '워터마크 미리보기로 12컷을 다 본 뒤 마음에 들 때만 잠금 해제' },
@@ -53,6 +57,9 @@ const EN: ChannelLandingCopy = {
   badge: '🐶 12-cut pet pack',
   title: 'One pet photo becomes 12 stickers',
   subtitle: 'Walkies, treats, naps — the faces only pet parents know, ready for chat in 3 minutes.',
+  photoSamples: PHOTO_SAMPLES.pet,
+  photoSampleTitle: 'Example · one pet photo',
+  photoSampleNote: 'Cut straight from the photo with one pet-parent line. Sample image.',
   bullets: [
     { emoji: '💬', title: 'Pet-parent memes', body: '"Treats, now" "Walk time" — the lines pet parents actually send' },
     { emoji: '🖼️', title: 'All 12 cuts first', body: 'See all 12 cuts watermarked, then unlock only if you love it' },

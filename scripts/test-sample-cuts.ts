@@ -37,4 +37,39 @@ for (const name of ['original-portrait', 'tone-2d-cute', 'tone-doodle', 'tone-cl
   assert.ok(stat.size > 5_000, `${name}.webp 가 너무 작습니다`);
 }
 
-console.log('sample-cut tests: 12감정 컷 · 화풍 타일 6종 · 원본 사진 에셋 검증 통과');
+
+// ── 실사 사진 샘플(/pets · /couple · /team · 홈 · /waitlist) ─────────────
+const { PHOTO_SAMPLES, HERO_PHOTO_CUTS, STYLE_TILES, FACE_PHOTO_CUTS } = await import('../src/lib/photo-samples');
+
+function assertPhotoAsset(label: string, src: string) {
+  assert.ok(src.startsWith('/samples/photo/'), `${label} 는 /samples/photo/ 아래여야 합니다 (${src})`);
+  const file = join(publicRoot, src.replace(/^\//, ''));
+  const stat = statSync(file);
+  assert.ok(stat.size > 8_000, `${label} 가 너무 작습니다 (${stat.size} bytes)`);
+  assert.ok(stat.size < 150_000, `${label} 가 너무 큽니다 (${stat.size} bytes)`);
+  const head = readFileSync(file).subarray(0, 16);
+  assert.equal(head.subarray(0, 4).toString('ascii'), 'RIFF', `${label} 가 RIFF 컨테이너가 아닙니다`);
+  assert.equal(head.subarray(8, 12).toString('ascii'), 'WEBP', `${label} 가 WebP 가 아닙니다`);
+}
+
+for (const group of ['pet', 'couple', 'team'] as const) {
+  const sample = PHOTO_SAMPLES[group];
+  assertPhotoAsset(`${group} 원본`, sample.source.src);
+  assert.equal(sample.cuts.length, 3, `${group} 는 실사 컷 3장이 기준입니다`);
+  for (const cut of sample.cuts) assertPhotoAsset(`${group} ${cut.line.ko}`, cut.src);
+  assert.equal(new Set(sample.cuts.map((c) => c.src)).size, 3, `${group} 컷은 서로 다른 파일이어야 합니다`);
+}
+
+// 홈 히어로·화풍 타일도 실사 컷이어야 하고, 실사(사진 그대로)가 맨 앞이어야 한다.
+assert.equal(HERO_PHOTO_CUTS.length, 3, '히어로 콜라주는 3장');
+for (const cut of HERO_PHOTO_CUTS) assertPhotoAsset(`히어로 ${cut.label.ko}`, cut.src);
+assert.equal(STYLE_TILES[0].tone, 'photo-sticker', '화풍 타일 맨 앞은 실사 짤(사진 그대로)이어야 합니다');
+assert.ok(STYLE_TILES[0].src.startsWith('/samples/photo/'), '실사 짤 타일은 사진 누끼 컷을 씁니다');
+
+// /waitlist · /quotes 의 얼굴 실사 컷은 기존 12감정 실사 컷을 재사용한다.
+for (const cut of FACE_PHOTO_CUTS) {
+  assert.ok(cut.src.startsWith('/samples/quote-photo/'), `${cut.src} 는 실사 얼굴 컷이어야 합니다`);
+  assert.ok(statSync(join(publicRoot, cut.src.replace(/^\//, ''))).size > 8_000, `${cut.src} 가 너무 작습니다`);
+}
+
+console.log('sample-cut tests: 12감정 컷 · 실사 샘플 9컷 · 히어로 3컷 · 화풍 타일 · 원본 사진 에셋 검증 통과');

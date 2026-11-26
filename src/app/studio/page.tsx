@@ -89,7 +89,7 @@ export default async function StudioHubPage({
         '내 사진을 웹툰·인형·3D 화풍으로 다시 그려 12컷 표정 팩을 만들어요. 시안을 먼저 보고 마음에 들면 진행해요.',
         'Redraw your photo in webtoon, clay or 3D styles and get a 12-cut expression pack. Check one draft before you commit.',
       ),
-      meta: t('사진 1장(커플 2장) · 9가지 화풍 · 12·24·32컷', '1 photo (2 for couples) · 9 styles · 12/24/32 cuts'),
+      meta: t('사진 1장(커플 2장) · 화풍 11종 · 12·24·32컷', '1 photo (2 for couples) · 11 styles · 12/24/32 cuts'),
       href: aiEnabled ? '/studio/upload' : '/quotes',
       cta: aiEnabled ? t('AI로 만들기', 'Create with AI') : t('대사로 만들기', 'Start from a line'),
       secondary: aiEnabled ? null : { href: '/studio/upload', label: t('AI 스튜디오 (준비 중)', 'AI studio (coming soon)') },

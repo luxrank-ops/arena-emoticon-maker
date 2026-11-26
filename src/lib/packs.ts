@@ -41,19 +41,20 @@ export class PackError extends Error {
   }
 }
 
-export const FREE_TONES: Tone[] = ['2d-cute', 'caricature', 'doodle', 'office-meme', 'clay-3d', 'pixel-art', 'photo-sticker'];
+// 실사(사진 그대로)가 기본 — 화풍 선택 UI 도 이 순서로 보여 준다.
+export const FREE_TONES: Tone[] = ['photo-sticker', 'caricature', '2d-cute', 'doodle', 'office-meme', 'clay-3d', 'pixel-art'];
 
 export function tonesForPlan(plan: 'FREE' | 'PLUS' | 'STUDIO'): Tone[] {
   return plan === 'FREE'
     ? FREE_TONES
     : [
-        '2d-cute',
+        'photo-sticker',
         'caricature',
+        '2d-cute',
         'doodle',
         'office-meme',
         'clay-3d',
         'pixel-art',
-        'photo-sticker',
         '3d-cartoon',
         'sketch',
         'mono',
