@@ -43,6 +43,13 @@ check('Creator Pro 월 이용권 ₩19,900 · STUDIO 등급', pricing.SKUS['plan
 check('시즌·테마 크레딧 ₩9,900 ~ ₩22,000', pricing.SKUS['credits-theme-9900'].price === 9900 && pricing.SKUS['credits-theme-22000'].price === 22000);
 check('가격 매트릭스 3단', pricing.PRICE_TIERS.length === 3 && pricing.PRICE_TIERS.map((tier) => tier.id).join(',') === 'single,theme,creator');
 check('Creator Pro 표기 가격 = SKU 가격', pricing.PLANS.STUDIO.price === 19900 && pricing.PLANS.STUDIO.acr === true);
+// 실사(포토) 모델 원가 보호 — 19,900원 / 80크레딧 ≈ 컷당 249원. SKU·PLANS·요금제 카드 문구가 같은 숫자를 쓴다.
+check(
+  'Creator Pro 월 80크레딧 (SKU · PLANS · 요금제 카드 일치)',
+  pricing.SKUS['plan-creator-monthly'].credits === 80 &&
+    pricing.PLANS.STUDIO.credits === 80 &&
+    pricing.PRICE_TIERS.find((tier) => tier.id === 'creator')?.points.join(' ').includes('80크레딧') === true,
+);
 check('팩 구성별 완성권 자동 선택', pricing.unlockSkuForPack('duo-chemi', 'person') === 'pack-unlock-duo' && pricing.unlockSkuForPack(null, 'pet') === 'pack-unlock-pet' && pricing.unlockSkuForPack('situation', 'person') === 'pack-unlock-single');
 check('미리보기 워터마크 문구 노출', PREVIEW_WATERMARK === '이모티학으로 내 얼굴 짤 만들기' && PREVIEW_PACK_SIZE === 12);
 
