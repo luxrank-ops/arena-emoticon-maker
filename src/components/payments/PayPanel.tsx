@@ -99,8 +99,10 @@ export function PayPanel({ orderId, amount, title, credits, provider, clientKey,
         if (!/^0\d{8,10}$/.test(customerPhone)) throw new Error('결제에 필요한 휴대폰 번호를 정확히 입력해 주세요.');
         const customerName = (name || buyerName).trim();
         if (customerName.length < 2) throw new Error('결제에 필요한 이름을 입력해 주세요.');
-        // 포트원은 결제 시도마다 고유한 paymentId를 요구하므로 주문번호에 시각을 붙인다.
-        const paymentId = `${orderId}-${Date.now().toString(36)}`;
+        // 포트원은 결제 시도마다 고유한 paymentId를 요구하고, KG이니시스(INIStdPay)는 주문번호(oid)를 40자 이하로 제한한다.
+        // 주문 UUID(ord_ + 36자)를 그대로 쓰면 49자로 넘어 결제창이 "변수(oid)의 값에 길이 문제"로 거부되므로 짧게 만든다.
+        const orderStem = orderId.replace(/[^a-zA-Z0-9]/g, '').replace(/^ord/, '').slice(0, 10);
+        const paymentId = `${orderStem}-${Date.now().toString(36)}${Math.random().toString(36).slice(2, 5)}`;
         const requestPayment = await loadPortOneRequestPayment();
         const result = await requestPayment({
           storeId,
