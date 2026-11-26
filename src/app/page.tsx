@@ -6,7 +6,6 @@ import { EnglishLanding } from '@/components/home/EnglishLanding';
 import { getCurrentUser } from '@/lib/session';
 import { aiAccess, canUseAiGeneration } from '@/lib/admin-access';
 import { PRICE_TIERS } from '@/lib/pricing';
-import { RainFloat } from '@/components/home/RainFloat';
 import { SeasonTeaser } from '@/components/season/SeasonTeaser';
 import { seasonQueryString, seasonTeaserViews, seasonTimeContext } from '@/lib/season';
 import { pageMetadata } from '@/lib/seo';
@@ -62,7 +61,6 @@ export default async function LandingPage({
       <>
         <EnglishLanding aiEnabled={aiEnabled} />
         <SeasonTeaser views={seasonViews} nowIso={seasonNowIso} locale="en" query={seasonQuery} />
-        <RainFloat locale="en" />
       </>
     );
   }
@@ -120,7 +118,6 @@ export default async function LandingPage({
     'rounded-full border border-line/80 bg-white/70 px-2.5 py-1 text-[10.5px] font-bold text-sub transition hover:border-primary/35 hover:bg-white hover:text-primary-dark';
 
   return (
-    <>
     <div className="overflow-hidden">
       {/* ── 첫 화면: 바로가기 메뉴판 ─────────────────────────────── */}
       <section className="relative isolate overflow-hidden" aria-labelledby="start-title">
@@ -410,7 +407,5 @@ export default async function LandingPage({
         </div>
       </section>
     </div>
-    <RainFloat locale="ko" />
-    </>
   );
 }
