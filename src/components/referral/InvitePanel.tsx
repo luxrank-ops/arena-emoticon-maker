@@ -16,7 +16,7 @@ const COPY = {
     how1: '아래 링크를 친구에게 보낸다',
     how2: '친구가 처음 미리보기 팩을 만든다',
     how3: (n: number) => `나에게 ${n}컷 자동 지급 (하루 최대 5명)`,
-    copy: '초대 링크 복사', copied: '복사됨!',
+    copy: '초대 링크 복사', copied: '복사됨!', codeLabel: '추천 코드',
     share: '카톡으로 보내기',
     note: '방문만으로는 지급되지 않아요. 친구가 실제로 만들어야 보너스가 들어옵니다.',
   },
@@ -26,7 +26,7 @@ const COPY = {
     how1: 'Send the link below to a friend',
     how2: 'Your friend makes their first preview pack',
     how3: (n: number) => `${n} cuts land automatically (max 5 friends/day)`,
-    copy: 'Copy invite link', copied: 'Copied!',
+    copy: 'Copy invite link', copied: 'Copied!', codeLabel: 'Invite code',
     share: 'Send via KakaoTalk',
     note: 'Visits alone do not pay. Your friend must actually create for the bonus.',
   },
@@ -35,6 +35,13 @@ const COPY = {
 export function InvitePanel({ locale, summary }: Props) {
   const t = COPY[locale === 'en' ? 'en' : 'ko'];
   const [copied, setCopied] = useState(false);
+  // 링크가 잘려 추천 코드가 안 보이던 문제 — 코드를 따로 한 줄 더 보여 준다.
+  let refCode = '';
+  try {
+    refCode = new URL(summary.link).searchParams.get('ref') ?? '';
+  } catch {
+    refCode = '';
+  }
 
   async function copy() {
     try {
@@ -70,7 +77,14 @@ export function InvitePanel({ locale, summary }: Props) {
         </div>
       </div>
       <div className="mt-4 flex items-center gap-2 rounded-2xl border border-line bg-white px-4 py-3">
-        <p className="min-w-0 flex-1 truncate text-[13px] font-bold text-coralink">{summary.link}</p>
+        <div className="min-w-0 flex-1">
+          <p className="line-clamp-2 break-all text-[12.5px] font-bold leading-snug text-coralink">{summary.link}</p>
+          {refCode ? (
+            <p className="mt-1 text-[11px] font-semibold text-sub">
+              {t.codeLabel}: <strong className="text-ink">{refCode}</strong>
+            </p>
+          ) : null}
+        </div>
         <button type="button" onClick={() => void copy()} className="h-9 shrink-0 rounded-full bg-ink px-4 text-[13px] font-bold text-white">
           {copied ? t.copied : t.copy}
         </button>

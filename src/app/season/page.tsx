@@ -4,6 +4,7 @@ import { SeasonPropArt } from '@/components/season/SeasonPropArt';
 import { SeasonCountdownClock } from '@/components/season/SeasonCountdownClock';
 import { getLocale } from '@/lib/i18n/server';
 import { localizedPath, tr } from '@/lib/i18n/locale';
+import { pageAlternates } from '@/lib/seo';
 import {
   SEASON_PREVIEW_VALUE,
   seasonQueryString,
@@ -25,11 +26,14 @@ import type { SeasonPromptKind } from '@/data/season-packs';
 
 export const dynamic = 'force-dynamic';
 
-export const metadata = {
-  title: '시즌팩 — 크리스마스·새해·설날 | 이모티학',
-  description:
-    '크리스마스 산타·루돌프·썰매, 2027 새해 폭죽 카운트다운, 설날 한복·복주머니까지. 이모티학 시즌팩 3종의 공개 일정과 미리 보는 AI 프롬프트·누끼 소품.',
-};
+export async function generateMetadata() {
+  return {
+    title: '시즌팩 — 크리스마스·새해·설날 | 이모티학',
+    description:
+      '크리스마스 산타·루돌프·썰매, 2027 새해 폭죽 카운트다운, 설날 한복·복주머니까지. 이모티학 시즌팩 3종의 공개 일정과 미리 보는 AI 프롬프트·누끼 소품.',
+    alternates: await pageAlternates('/season'),
+  };
+}
 
 const KIND_LABEL: Record<SeasonPromptKind, { ko: string; en: string; emoji: string }> = {
   costume: { ko: '복장', en: 'Outfit', emoji: '👕' },

@@ -8,8 +8,19 @@ import { playBillingEnabled } from '@/lib/play-purchases';
 import { checkoutSuspended, paymentsUnavailable } from '@/lib/payments';
 import { PLAY_CREDITS_PRODUCT_ID, PLAY_SUBSCRIPTION_PRODUCT_ID } from '@/lib/play-products';
 import { PlayBillingButton } from '@/components/payments/PlayBillingButton';
+import { pageMetadata } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
+
+// 사이트맵 priority 0.9 인데 고유 메타가 없어 기본 title 이 복제되던 페이지.
+export async function generateMetadata() {
+  return pageMetadata({
+    path: '/pricing',
+    title: '요금제 — 12컷 미리보기 · 단건 완성권 · 크레딧 · Creator Pro | 이모티학',
+    description:
+      '12컷 전체를 무료로 미리 보고 필요한 만큼만 결제하세요. 단건 팩 완성권 5,900원, 무기한 크레딧 팩 9,900원부터, Creator Pro 19,900원. 구독 없이 1회 결제.',
+  });
+}
 
 const FAQ = [
   {
@@ -84,7 +95,9 @@ export default async function PricingPage() {
                       className="btn-primary w-full"
                     />
                   ) : (
-                    <Link href="/studio/upload" className={tier.id === 'single' ? 'btn-primary block w-full text-center' : 'btn-ghost block w-full text-center'}>
+                    /* 세 카드의 CTA 위계를 맞춘다 — 같은 동작(12컷 미리보기 시작)이
+                       카드마다 버튼/밑줄 없는 텍스트로 달라 보이지 않게 모두 기본 버튼으로 둔다. */
+                    <Link href="/studio/upload" className="btn-primary block w-full text-center">
                       12컷 미리보기 시작
                     </Link>
                   )}
@@ -171,17 +184,14 @@ export default async function PricingPage() {
           </div>
         </div>
         <div className="card p-5">
-          <h2 className="text-lg font-black">사업자 정보</h2>
+          <h2 className="text-lg font-black">결제 전 확인 · 청약철회 안내</h2>
+          {/* 사업자 정보는 푸터 한 곳으로 모은다(같은 내용이 본문·푸터에 두 번 나오던 중복 제거). */}
           <p className="mt-2 text-xs leading-relaxed text-sub">
-            상호: {BUSINESS.name}
+            결제·환불 문의: {BUSINESS.tel} ·{' '}
+            <a className="underline" href={`mailto:${BUSINESS.email}`}>{BUSINESS.email}</a>
             <br />
-            대표: {BUSINESS.owner} · 사업자등록번호:{' '}
-            {BUSINESS.regNo}
-            <br />
-            통신판매업신고: {BUSINESS.mailOrder || '정보 미입력'}
-            <br />
-            사업장 주소: {BUSINESS.address}<br />
-            고객센터: {BUSINESS.tel} · {BUSINESS.email}
+            상호·대표·사업자등록번호·통신판매업신고·사업장 주소는 페이지 맨 아래{' '}
+            <strong className="text-ink">사업자 정보</strong>에서 확인할 수 있어요.
           </p>
           <div className="mt-4 rounded-xl border border-line bg-cream p-3 text-[11px] leading-relaxed text-sub">
             <strong className="text-ink">청약철회 제한 안내</strong>

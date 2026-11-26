@@ -4,6 +4,7 @@ import { referralSummaryFor } from '@/lib/referral';
 import { getCurrentUser } from '@/lib/session';
 import { getLocale } from '@/lib/i18n/server';
 import { tr } from '@/lib/i18n/locale';
+import { pageAlternates } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -26,6 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [{ url: '/og/emotihak-og.png', width: 1200, height: 630, alt: title }],
     },
     twitter: { card: 'summary_large_image', title, description, images: ['/og/emotihak-og.png'] },
+    alternates: await pageAlternates('/invite'),
   };
 }
 

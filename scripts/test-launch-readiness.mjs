@@ -22,8 +22,11 @@ function count(needle, file) {
 const business = read('src/lib/business.ts');
 check('통신판매업 신고번호가 기본값으로 노출됨', business.includes('2026-부산강서구-0693'));
 check('신고번호가 "정보 미입력"으로 비지 않음', !business.includes("NEXT_PUBLIC_MAIL_ORDER_NO || null"));
+// 사업자 정보는 푸터 한 곳으로 모았다(요금제 본문 중복 제거, 2026-11-26). 푸터는 모든 페이지에 렌더된다.
+const siteFooter = read('src/components/SiteFooter.tsx');
+check('요금제를 포함한 모든 페이지의 푸터가 신고번호를 표시', siteFooter.includes('BUSINESS.mailOrder'));
 const pricingPage = read('src/app/pricing/page.tsx');
-check('요금제 화면이 사업자 정보에 신고번호를 표시', pricingPage.includes('BUSINESS.mailOrder'));
+check('요금제 본문에 사업자 정보를 중복 나열하지 않음', !pricingPage.includes('BUSINESS.regNo'));
 
 // ── 2. 요금제 표기와 실제 허용 스타일 수 일치 ─────────────────
 const pricing = read('src/lib/pricing.ts');

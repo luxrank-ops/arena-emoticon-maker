@@ -57,6 +57,10 @@ body {
   font-size: 16px;
   line-height: 1.5;
   letter-spacing: -0.01em;
+  /* 한국어는 단어(어절) 단위로 끊는다 — "워터⏎마크"·"서비⏎스" 같은 음절 중간 줄바꿈 방지.
+     긴 URL·영문 토큰은 overflow-wrap: anywhere 가 넘침 없이 끊어 준다. */
+  word-break: keep-all;
+  overflow-wrap: anywhere;
   background-image:
     radial-gradient(58% 38% at 8% -6%, rgba(139, 92, 246, 0.1), transparent 62%),
     radial-gradient(46% 34% at 96% 0%, rgba(255, 77, 141, 0.09), transparent 64%),

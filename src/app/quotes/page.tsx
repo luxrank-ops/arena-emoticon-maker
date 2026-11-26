@@ -4,9 +4,17 @@ import { isUnlimited, watermarkFor } from '@/lib/admin-access';
 import { QUOTE_PACKS, quotePackView } from '@/lib/quote-packs';
 import { quotePurchaseIds } from '@/lib/quote-purchases';
 import { getCurrentUser } from '@/lib/session';
+import { pageMetadata } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
-export const metadata = { title: '영화·드라마 감성 대사 스튜디오 — 이모티학' };
+
+export async function generateMetadata() {
+  return pageMetadata({
+    path: '/quotes',
+    title: '영화·드라마 감성 대사 스튜디오 — 이모티학',
+    description: '상황·감정에 맞는 대사 팩을 골라 내 얼굴로 바로 이모티콘을 만드세요. 12컷 무료 미리보기.',
+  });
+}
 
 export default async function QuotesPage({ searchParams }: { searchParams: Promise<{ pack?: string; theme?: string }> }) {
   const [{ pack, theme }, user] = await Promise.all([searchParams, getCurrentUser()]);

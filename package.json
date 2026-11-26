@@ -21,7 +21,6 @@
     "build:vinext": "vite build",
     "start:vinext": "vite preview",
     "deploy:vinext": "vinext-cloudflare deploy --warm-cache",
-    "deploy:response-store": "cf deploy --prebuilt --mode production --worker emotime-response-store",
     "test:play": "tsx scripts/e2e-play-lib.ts",
     "test:play:static": "node scripts/test-play-static.mjs",
     "test:play:billing": "tsx scripts/test-play-billing.ts",
@@ -46,7 +45,6 @@
     "test:growth0": "tsx scripts/test-growth-phase0.ts"
   },
   "dependencies": {
-    "@cloudflare/workers-response-store": "^1.1.5",
     "@mediapipe/tasks-vision": "^1.2.0",
     "@sentry/nextjs": "^11.17.0",
     "@tosspayments/tosspayments-sdk": "^2.10.0",

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import { ChannelLanding, type ChannelLandingCopy } from '@/components/landing/ChannelLanding';
 import { getLocale } from '@/lib/i18n/server';
+import { pageAlternates } from '@/lib/seo';
 
 export async function generateMetadata(): Promise<Metadata> {
   const locale = await getLocale();
@@ -21,6 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
       images: [{ url: '/og/emotihak-og.png', width: 1200, height: 630, alt: title }],
     },
     twitter: { card: 'summary_large_image', title, description, images: ['/og/emotihak-og.png'] },
+    alternates: await pageAlternates('/team'),
   };
 }
 

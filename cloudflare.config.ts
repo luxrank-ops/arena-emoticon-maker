@@ -1,4 +1,4 @@
-import { bindings, defineConfig, defineWorker } from "cf/config";
+import { bindings, defineConfig, defineWorker, triggers } from "cf/config";
 
 export default defineConfig({
   worker: defineWorker({
@@ -10,6 +10,10 @@ export default defineConfig({
     entrypoint: "./worker/index.ts",
     compatibilityDate: "2026-11-04",
     compatibilityFlags: ["nodejs_compat"],
+    // Cron Trigger — 매일 18:00 UTC = 03:00 KST 에 worker/index.ts 의 scheduled 가
+    // /api/cron/purge 를 호출한다 (얼굴 파생 정보 24시간 내 파기 약속의 실제 실행 경로).
+    // 기존 vercel.json 의 크론은 제거해 스케줄을 이곳 한 곳으로 모았다.
+    triggers: [triggers.scheduled({ schedule: "0 18 * * *" })],
     assets: {
       htmlHandling: "none",
       notFoundHandling: "none",

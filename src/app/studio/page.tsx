@@ -19,6 +19,7 @@ import { PRESET_COUNT } from '@/data/emoticon-presets-150';
 import { CURATION_PACKAGES } from '@/data/curation-packages';
 import { SeasonTeaser } from '@/components/season/SeasonTeaser';
 import { seasonQueryString, seasonTeaserViews, seasonTimeContext } from '@/lib/season';
+import { pageAlternates } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
 
@@ -30,6 +31,7 @@ export async function generateMetadata() {
       locale === 'en'
         ? 'Three ways to make stickers: cut your photo out for free, redraw it as an AI character pack, or start from 150 expression presets and 66 drip lines.'
         : '내 사진 누끼로 바로 저장하기, AI 캐릭터로 12컷 그리기, 150종 프리셋·66종 드립으로 만들기 — 세 가지 방법을 한 화면에서 고르세요.',
+    alternates: await pageAlternates('/studio'),
   };
 }
 

@@ -6,8 +6,17 @@ import { isAdmin, planLabel } from '@/lib/admin-access';
 import { withDB } from '@/lib/store';
 import { dailyQuotePicks } from '@/lib/quote-packs';
 import { formatKstMonthDayWeekday, kstDateKey } from '@/lib/time';
+import { pageMetadata } from '@/lib/seo';
 
 export const dynamic = 'force-dynamic';
+
+export async function generateMetadata() {
+  return pageMetadata({
+    path: '/brief',
+    title: '오늘의 이모티콘 브리핑 | 이모티학',
+    description: '요일·시간대·최근에 쓴 컷을 보고 오늘 쓸 이모티콘 컷과 대사를 골라 드려요.',
+  });
+}
 
 export default async function BriefPage() {
   const user = await getCurrentUser();
@@ -115,10 +124,10 @@ export default async function BriefPage() {
       {locked ? (
         <div className="mt-6 flex flex-wrap items-center justify-between gap-3 rounded-2xl border-2 border-ink bg-ink px-5 py-4 text-cream">
           <p className="text-sm font-bold">
-            Free 플랜은 오늘의 브리핑 미리보기만 제공됩니다. Plus는 하루 8컷 브리핑 전체를 볼 수 있어요.
+            지금은 무료 미리보기로 오늘의 브리핑 일부만 보여 드려요. 크레딧 팩이나 Creator Pro를 쓰면 브리핑 컷을 그대로 내 팩으로 만들고 저장할 수 있어요.
           </p>
           <Link href="/pricing" className="btn-primary !px-4 !py-2 text-xs">
-            Plus 살펴보기
+            요금제 보기
           </Link>
         </div>
       ) : null}

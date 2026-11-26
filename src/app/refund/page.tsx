@@ -1,8 +1,11 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { BUSINESS } from '@/lib/business';
+import { pageMetadata } from '@/lib/seo';
 
-export const metadata: Metadata = { title: '환불·청약철회 정책 · 이모티학' };
+export async function generateMetadata(): Promise<Metadata> {
+  return pageMetadata({ path: '/refund', title: '환불·청약철회 정책 · 이모티학' });
+}
 
 export default function RefundPage() {
   const email = BUSINESS.email;

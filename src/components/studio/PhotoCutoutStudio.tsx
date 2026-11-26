@@ -16,6 +16,7 @@ import {
   type MatteInfo,
 } from '@/lib/export';
 import { EMOTIONS } from '@/lib/art/sticker';
+import { formatBytes } from '@/lib/packager';
 import { LAYER_EFFECTS, TEXT_STYLES } from '@/lib/studio/layers';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
@@ -618,15 +619,19 @@ export function PhotoCutoutStudio({
       track('sticker_export', { format: 'zip', count: list.length, pack_format: packFormat });
       track('sticker_download', { format: 'zip', count: list.length });
       const usable = result.validation.exportable;
+      // 문구는 실제 검증 결과(가장 큰 파일 크기 / 적용된 한도)를 그대로 쓴다.
+      // 움직이는 팩의 한도는 150KB 가 아니라 2MB 이므로 '150KB 이하 확인'으로 단정하지 않는다.
+      const limit = formatBytes(result.maxBytes);
+      const heaviest = formatBytes(result.heaviestBytes);
       setNotice(
         usable
           ? t(
-              `${list.length}컷 카카오 규격 ZIP을 내려받았어요 (${packFormat.toUpperCase()}). 360×360 · 개당 150KB 이하 확인${result.compressed > 0 ? ` · 자동 압축 ${result.compressed}컷` : ''}. 카카오 공식 제안은 32컷(움티 24컷)이라 개수는 다르지만, 내 대화방에 바로 쓸 수 있어요.`,
-              `Downloaded a ${list.length}-cut ZIP (${packFormat.toUpperCase()}, 360×360, under 150KB each).`,
+              `${list.length}컷 카카오 규격 ZIP을 내려받았어요 (${packFormat.toUpperCase()}). 360×360 · 개당 ${limit} 이하 기준 충족 (가장 큰 파일 ${heaviest})${result.compressed > 0 ? ` · 자동 압축 ${result.compressed}컷` : ''}. 카카오 공식 제안은 32컷(움티 24컷)이라 개수는 다르지만, 내 대화방에 바로 쓸 수 있어요.`,
+              `Downloaded a ${list.length}-cut ZIP (${packFormat.toUpperCase()}, 360×360, each within ${limit}; largest ${heaviest}).`,
             )
           : t(
-              `${list.length}컷 ZIP을 내려받았어요. ${result.validation.summary}`,
-              `Downloaded a ${list.length}-cut ZIP. ${result.validation.summary}`,
+              `${list.length}컷 ZIP을 내려받았어요. ${result.validation.summary} (가장 큰 파일 ${heaviest} · 한도 ${limit})`,
+              `Downloaded a ${list.length}-cut ZIP. ${result.validation.summary} (largest ${heaviest} · limit ${limit})`,
             ),
       );
     } catch {

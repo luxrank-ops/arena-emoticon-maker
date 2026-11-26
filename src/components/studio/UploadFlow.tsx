@@ -28,6 +28,11 @@ import { clearStudioRetry, loadStudioRetry, saveStudioRetry } from '@/lib/studio
 import { rememberedShareAttribution, rememberShareAttribution } from '@/lib/share-attribution';
 import type { SubjectKind, Tone } from '@/lib/types';
 
+// 하단 고정 CTA — 모바일에서는 하단 탭바(3.375rem)+안전 영역 위에 붙고, 배경은 불투명하게 둔다.
+// (반투명이면 뒤 카드가 비쳐 '가려진' 것처럼 보였다) 데스크톱은 탭바가 없어 바닥에 붙인다.
+const STICKY_CTA =
+  'sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 rounded-2xl border border-line bg-paper p-2 shadow-soft lg:bottom-3';
+
 const CONSENT_VERSION = 'v1.2';
 const DRAFT_KEY = 'emotime:studio:draft:v1';
 
@@ -504,7 +509,7 @@ export function UploadFlow({
           locale={locale}
           subjectKind={subjectKind}
         />
-        <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-soft backdrop-blur">
+        <div className={STICKY_CTA}>
           <button type="button" className="btn-primary min-h-14 w-full !py-4 text-base" onClick={() => { setMotion('forward'); setPhotoPhase('mode'); }}>
             {format ? t(`${(formatInfo?.label ?? '표현 형태').replace(/\s*팩$/, '')} 팩으로 시작`, `Start a ${(formatInfo?.labelEn ?? 'format').replace(/\s*pack$/, '')} pack`) : t('기본 감정 팩으로 시작', 'Start a classic pack')}<span aria-hidden="true"> →</span>
           </button>
@@ -547,7 +552,7 @@ export function UploadFlow({
             );
           })}
         </div>
-        <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-soft backdrop-blur">
+        <div className={STICKY_CTA}>
           <button type="button" className="btn-primary min-h-14 w-full !py-4 text-base" disabled={!mode} onClick={() => { setMotion('forward'); setPhotoPhase('upload'); }}>{t('다음 · 사진 선택', 'Next · Choose a photo')}<span aria-hidden="true">→</span></button>
           <p className="py-2 text-center text-[11px] text-sub">{t('구도는 다음 단계에서도 다시 바꿀 수 있어요.', 'You can change the composition again later.')}</p>
         </div>
@@ -750,7 +755,7 @@ export function UploadFlow({
           </section>
         </div>
         {errorNotice}
-        <div className={clsx('rounded-2xl border border-line bg-paper/95 p-2 backdrop-blur', analysis && 'sticky bottom-3 z-20 shadow-soft')}>
+        <div className={clsx('rounded-2xl border border-line bg-paper p-2', analysis && STICKY_CTA)}>
           <button className="btn-primary min-h-14 w-full !py-4 text-base" disabled={!analysis?.ok || !mode || busy} onClick={goToSettings}>{t('다음 · 스타일 선택', 'Next · Choose a style')}<span aria-hidden="true">→</span></button>
           <p className="py-2 text-center text-[11px] text-sub">{t('사진 분석은 브라우저에서 진행돼요. 확인이 끝나면 버튼이 활성화됩니다.', 'Browser-based photo checks enable this button when complete.')}</p>
         </div>
@@ -819,7 +824,7 @@ export function UploadFlow({
           </div>
         </div>
       {errorNotice}
-      <div className="sticky bottom-3 z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-soft backdrop-blur" aria-busy={busy}>
+      <div className={STICKY_CTA} aria-busy={busy}>
         <div className="flex gap-2">
           <button type="button" disabled={busy} onClick={goToPhoto} className="btn-ghost min-h-12 w-20 shrink-0 !px-2 text-center text-xs sm:w-auto sm:flex-1">{t('← 이전', '← Back')}</button>
           <button className="btn-primary min-h-14 flex-1 !px-3 !py-4 text-sm sm:flex-[2] sm:text-base" disabled={!ready} onClick={submit}>{busy ? t('처리 중…', 'Working…') : t('다음 · 캐릭터 시안 만들기 →', 'Next · Create character drafts →')}</button>
