@@ -154,7 +154,7 @@ export function EnglishLanding({ aiEnabled = true }: { aiEnabled?: boolean }) {
           <div className="mt-6 grid gap-3 sm:grid-cols-3">
             <div className="rounded-2xl border border-line bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-sub">Single pack</p><p className="mt-1 text-xl font-black">₩5,900</p><p className="mt-1 text-[11px] text-sub">12-cut unlock · high-res transparent PNG · ZIP</p></div>
             <div className="rounded-2xl border border-line bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-sub">Theme credits</p><p className="mt-1 text-xl font-black">₩9,900 ~ ₩22,000</p><p className="mt-1 text-[11px] text-sub">30 · 48 · 80 credits, never expire</p></div>
-            <div className="rounded-2xl border border-line bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-sub">Creator Pro</p><p className="mt-1 text-xl font-black">₩19,900 / mo</p><p className="mt-1 text-[11px] text-sub">32 motion cuts · commercial licence · submission sheet</p></div>
+            <div className="rounded-2xl border border-line bg-white p-4"><p className="text-xs font-black uppercase tracking-widest text-sub">Creator Pro</p><p className="mt-1 text-xl font-black">₩19,900 / mo</p><p className="mt-1 text-[11px] text-sub">80 credits/mo · 32 motion cuts · commercial licence · submission sheet</p></div>
           </div>
         </div>
       </section>
