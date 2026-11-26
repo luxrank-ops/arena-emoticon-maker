@@ -9,16 +9,26 @@ import { checkoutSuspended, paymentsUnavailable } from '@/lib/payments';
 import { PLAY_CREDITS_PRODUCT_ID, PLAY_SUBSCRIPTION_PRODUCT_ID } from '@/lib/play-products';
 import { PlayBillingButton } from '@/components/payments/PlayBillingButton';
 import { pageMetadata } from '@/lib/seo';
+import { getLocale } from '@/lib/i18n/server';
+import { tr } from '@/lib/i18n/locale';
 
 export const dynamic = 'force-dynamic';
 
 // 사이트맵 priority 0.9 인데 고유 메타가 없어 기본 title 이 복제되던 페이지.
 export async function generateMetadata() {
+  const locale = await getLocale();
   return pageMetadata({
     path: '/pricing',
-    title: '요금제 — 12컷 미리보기 · 단건 완성권 · 크레딧 · Creator Pro | 이모티학',
-    description:
+    title: tr(
+      locale,
+      '요금제 — 12컷 미리보기 · 단건 완성권 · 크레딧 · Creator Pro | 이모티학',
+      'Pricing — 12-cut preview, single pack, credits, Creator Pro | EmotiHak',
+    ),
+    description: tr(
+      locale,
       '12컷 전체를 무료로 미리 보고 필요한 만큼만 결제하세요. 단건 팩 완성권 5,900원, 무기한 크레딧 팩 9,900원부터, Creator Pro 19,900원. 구독 없이 1회 결제.',
+      'Preview all 12 cuts free, then pay only for what you need. Single pack ₩5,900, credit packs from ₩9,900, Creator Pro ₩19,900. One-time payment, no subscription.',
+    ),
   });
 }
 

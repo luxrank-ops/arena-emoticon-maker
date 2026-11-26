@@ -7,14 +7,21 @@ import { withDB } from '@/lib/store';
 import { dailyQuotePicks } from '@/lib/quote-packs';
 import { formatKstMonthDayWeekday, kstDateKey } from '@/lib/time';
 import { pageMetadata } from '@/lib/seo';
+import { getLocale } from '@/lib/i18n/server';
+import { tr } from '@/lib/i18n/locale';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata() {
+  const locale = await getLocale();
   return pageMetadata({
     path: '/brief',
-    title: '오늘의 이모티콘 브리핑 | 이모티학',
-    description: '요일·시간대·최근에 쓴 컷을 보고 오늘 쓸 이모티콘 컷과 대사를 골라 드려요.',
+    title: tr(locale, '오늘의 이모티콘 브리핑 | 이모티학', "Today's sticker brief | EmotiHak"),
+    description: tr(
+      locale,
+      '요일·시간대·최근에 쓴 컷을 보고 오늘 쓸 이모티콘 컷과 대사를 골라 드려요.',
+      'Cuts and lines picked for today from the weekday, the time and what you sent recently.',
+    ),
   });
 }
 

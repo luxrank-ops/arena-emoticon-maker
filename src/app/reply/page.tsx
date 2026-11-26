@@ -4,14 +4,21 @@ import { getCurrentUser } from '@/lib/session';
 import { withDB } from '@/lib/store';
 import { watermarkFor } from '@/lib/admin-access';
 import { pageMetadata } from '@/lib/seo';
+import { getLocale } from '@/lib/i18n/server';
+import { tr } from '@/lib/i18n/locale';
 
 export const dynamic = 'force-dynamic';
 
 export async function generateMetadata() {
+  const locale = await getLocale();
   return pageMetadata({
     path: '/reply',
-    title: '톡 답장 추천 — 대화 넣으면 답장 컷 | 이모티학',
-    description: '받은 대화를 붙여 넣으면 지금 보낼 답장 컷을 골라 드려요. 내 이모티콘 팩에서 바로 전송.',
+    title: tr(locale, '톡 답장 추천 — 대화 넣으면 답장 컷 | 이모티학', 'Reply picker for your chats | EmotiHak'),
+    description: tr(
+      locale,
+      '받은 대화를 붙여 넣으면 지금 보낼 답장 컷을 골라 드려요. 내 이모티콘 팩에서 바로 전송.',
+      'Paste the chat you received and get the right sticker reply from your own packs.',
+    ),
   });
 }
 
