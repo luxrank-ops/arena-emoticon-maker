@@ -6,6 +6,7 @@ import { withDB } from '@/lib/store';
 import { PLANS, won } from '@/lib/pricing';
 import { creditsLabel, effectivePlan, hasPlayEntitlement, isAdmin, isFullAccess, planLabel } from '@/lib/admin-access';
 import { formatKstDate, formatKstDateTime } from '@/lib/time';
+import { packDisplayTitle } from '@/lib/pack-title';
 import { PaymentOrderAction } from '@/components/payments/PaymentOrderAction';
 
 export const dynamic = 'force-dynamic';
@@ -122,7 +123,7 @@ export default async function BillingPage() {
               {packs.map((p) => (
                 <li key={p.id} className="flex items-center justify-between py-2">
                   <Link href={`/studio/pack/${p.id}`} className="text-[13px] font-bold hover:underline">
-                    {p.title}
+                    {packDisplayTitle(p, 'ko')}
                   </Link>
                   <span className="text-[11px] text-sub">
                     {p.size}컷 · {formatKstDate(p.createdAt)}
