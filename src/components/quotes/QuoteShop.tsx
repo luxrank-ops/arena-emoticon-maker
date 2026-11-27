@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { usePathname, useSearchParams } from 'next/navigation';
 import clsx from 'clsx';
 import { Sticker } from '@/components/Sticker';
 import { BACKGROUNDS, DEFAULT_PALETTE, DEFAULT_SIGNATURE, EMOTIONS, signatureFromSeed } from '@/lib/art/sticker';
@@ -10,6 +11,7 @@ import { exportQuotePackZip } from '@/lib/quote-export';
 import { sampleCutFor } from '@/lib/quote-samples';
 import { layerFromLine, type TextLayer } from '@/lib/studio/layers';
 import type { QuoteLine, QuotePackView } from '@/lib/quote-packs';
+import { quoteSelectionHref, resolveQuoteSelection } from '@/lib/quote-navigation';
 import type { BackgroundKey, Emotion, StickerSpec } from '@/lib/types';
 
 function seedOf(id: string) {
@@ -62,8 +64,6 @@ export function QuoteShop({
   unlimited,
   watermark,
   isAuthenticated,
-  initialPackId,
-  initialGroupId,
 }: {
   initialPacks: QuotePackView[];
   initialOwnedIds: string[];
@@ -71,21 +71,16 @@ export function QuoteShop({
   unlimited: boolean;
   watermark: boolean;
   isAuthenticated: boolean;
-  /** /presets 테마 카드에서 넘어올 때 그 팩을 바로 연다 */
-  initialPackId?: string;
-  /** 그 팩 안의 세부 테마(묶음)를 미리 골라 둔다 */
-  initialGroupId?: string;
 }) {
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [packs, setPacks] = useState(initialPacks);
   const [ownedIds, setOwnedIds] = useState(initialOwnedIds);
   const [credits, setCredits] = useState(initialCredits);
-  const openingPack = initialPacks.find((pack) => pack.id === initialPackId) ?? initialPacks[0];
-  const [packId, setPackId] = useState(openingPack?.id ?? '');
-  const currentPack = packs.find((pack) => pack.id === packId) ?? packs[0];
-  const [groupId, setGroupId] = useState<string | null>(
-    initialGroupId && openingPack?.groups?.some((group) => group.id === initialGroupId) ? initialGroupId : null,
+  const { currentPack, groupId, visibleLines } = useMemo(
+    () => resolveQuoteSelection(packs, searchParams.get('pack'), searchParams.get('theme')),
+    [packs, searchParams],
   );
-  const visibleLines = (groupId ? currentPack?.lines.filter((line) => line.groupId === groupId) : currentPack?.lines) ?? [];
   const [lineId, setLineId] = useState(visibleLines[0]?.id ?? '');
   const selectedLine = visibleLines.find((line) => line.id === lineId) ?? visibleLines[0];
   const [emotion, setEmotion] = useState<Emotion>(selectedLine?.emotion ?? 'joy');
@@ -97,16 +92,8 @@ export function QuoteShop({
   const [notice, setNotice] = useState('');
   const [error, setError] = useState('');
 
-  // 팩·세부 테마·대사가 바뀌면 고른 값이 그 목록에 없을 때 첫 항목으로 되돌린다.
-  // (사용자가 고른 상태를 유지하려는 의도적 동기화 — 렌더 파생으로 바꾸면 선택이 풀린다.)
+  // URL로 팩·테마가 바뀌면 현재 목록에 없는 대사는 첫 컷으로, 표정은 추천값으로 맞춘다.
   /* eslint-disable react-hooks/set-state-in-effect -- 팩·목록 변경에 맞춘 선택값 보정 */
-  useEffect(() => {
-    if (!currentPack) return;
-    // 팩이 바뀌면 그 팩에 없는 세부 테마는 푼다.
-    if (groupId && !currentPack.groups?.some((group) => group.id === groupId)) setGroupId(null);
-    if (!currentPack.lines.some((line) => line.id === lineId)) setLineId(visibleLines[0]?.id ?? currentPack.lines[0]?.id ?? '');
-  }, [currentPack, groupId, lineId, visibleLines]);
-
   useEffect(() => {
     if (visibleLines.length && !visibleLines.some((line) => line.id === lineId)) setLineId(visibleLines[0].id);
   }, [visibleLines, lineId]);
@@ -124,6 +111,16 @@ export function QuoteShop({
   );
 
   if (!currentPack || !selectedLine || !spec) return null;
+
+  function selectPack(nextPackId: string, nextGroupId: string | null = null) {
+    const href = quoteSelectionHref(pathname, searchParams, nextPackId, nextGroupId);
+    // Next.js syncs native History API updates with useSearchParams, without a server round trip or scroll.
+    if (href !== `${window.location.pathname}${window.location.search}${window.location.hash}`) {
+      window.history.pushState(null, '', href);
+    }
+    setNotice('');
+    setError('');
+  }
 
   async function purchase() {
     setBusy(true);
@@ -197,7 +194,7 @@ export function QuoteShop({
           const packOwned = unlimited || pack.priceCredits === 0 || ownedIds.includes(pack.id);
           const selected = pack.id === currentPack.id;
           return (
-            <button key={pack.id} type="button" aria-pressed={selected} onClick={() => { setPackId(pack.id); setGroupId(null); setNotice(''); setError(''); }} className={clsx('card h-full min-h-[120px] p-3 text-left transition hover:-translate-y-0.5 sm:p-4', index === packs.length - 1 && packs.length % 2 === 1 && 'col-span-2 sm:col-span-1', selected && 'ring-4 ring-coral/30')} style={{ background: selected ? `${pack.accent}20` : undefined }}>
+            <button key={pack.id} type="button" aria-pressed={selected} onClick={() => selectPack(pack.id)} className={clsx('card h-full min-h-[120px] p-3 text-left transition hover:-translate-y-0.5 sm:p-4', index === packs.length - 1 && packs.length % 2 === 1 && 'col-span-2 sm:col-span-1', selected && 'ring-4 ring-coral/30')} style={{ background: selected ? `${pack.accent}20` : undefined }}>
               <div className="flex items-start justify-between gap-2"><span className="text-2xl" aria-hidden="true">{pack.emoji}</span><span className={clsx('chip !px-2 !py-0.5 !text-[10px]', packOwned ? '!bg-mint/10 !text-ink' : '!bg-cream')}>{packOwned ? pack.priceCredits === 0 ? '무료' : '보유함' : `${pack.priceCredits}크레딧`}</span></div>
               <h2 className="mt-2 text-sm font-black">{pack.title}</h2>
               <p className="mt-1 text-[11px] leading-snug text-sub">{pack.genre} · {pack.lineCount}컷</p>
@@ -206,11 +203,11 @@ export function QuoteShop({
         })}
       </div>
 
-      <section className="grid gap-5 lg:grid-cols-[0.9fr_1.1fr]">
+      <section id="quote-studio" tabIndex={-1} aria-labelledby="quote-studio-title" className="grid scroll-mt-24 gap-5 lg:scroll-mt-36 lg:grid-cols-[0.9fr_1.1fr]">
         <div className="card overflow-hidden">
           <div className="border-b-2 border-line p-5" style={{ background: `${currentPack.accent}18` }}>
             <p className="eyebrow">{currentPack.genre}</p>
-            <h2 className="mt-1 text-2xl font-black">{currentPack.emoji} {currentPack.title}</h2>
+            <h2 id="quote-studio-title" className="mt-1 text-2xl font-black">{currentPack.emoji} {currentPack.title}</h2>
             <p className="mt-2 text-sm font-bold">{currentPack.tagline}</p>
             <p className="mt-1 text-xs leading-relaxed text-sub">{currentPack.description}</p>
           </div>
@@ -263,14 +260,14 @@ export function QuoteShop({
         <div className="mb-3 flex flex-wrap items-end justify-between gap-2"><div><h2 className="text-lg font-black">대사를 골라 감정 컷 만들기</h2><p className="mt-1 text-xs text-sub">각 대사의 추천 표정을 그대로 쓰거나, 위에서 다른 감정을 선택할 수 있어요.</p></div><span className="text-xs font-bold text-sub">{visibleLines.length} / {currentPack.lineCount}컷 공개</span></div>
         {currentPack.groups?.length ? (
           <div role="group" aria-label="세부 테마 선택" className="mb-3 flex flex-wrap gap-1.5">
-            <button type="button" aria-pressed={groupId === null} onClick={() => setGroupId(null)} className={clsx('rounded-full border px-3 py-1.5 text-[11px] font-black transition', groupId === null ? 'border-primary bg-primary text-white' : 'border-line bg-white text-sub hover:text-ink')}>
+            <button type="button" aria-pressed={groupId === null} onClick={() => selectPack(currentPack.id)} className={clsx('rounded-full border px-3 py-1.5 text-[11px] font-black transition', groupId === null ? 'border-primary bg-primary text-white' : 'border-line bg-white text-sub hover:text-ink')}>
               전체 {currentPack.lineCount}컷
             </button>
             {currentPack.groups.map((group) => {
               const count = currentPack.lines.filter((line) => line.groupId === group.id).length;
               const active = groupId === group.id;
               return (
-                <button key={group.id} type="button" aria-pressed={active} onClick={() => setGroupId(active ? null : group.id)} className={clsx('rounded-full border px-3 py-1.5 text-[11px] font-black transition', active ? 'border-primary bg-primary text-white' : 'border-line bg-white text-sub hover:text-ink')}>
+                <button key={group.id} type="button" aria-pressed={active} onClick={() => selectPack(currentPack.id, active ? null : group.id)} className={clsx('rounded-full border px-3 py-1.5 text-[11px] font-black transition', active ? 'border-primary bg-primary text-white' : 'border-line bg-white text-sub hover:text-ink')}>
                   <span aria-hidden="true">{group.emoji}</span> {group.label} {count}
                 </button>
               );

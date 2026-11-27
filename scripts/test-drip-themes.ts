@@ -14,7 +14,8 @@ function check(name: string, condition: boolean, extra = '') {
 }
 
 const { DRIP_THEMES, DRIP_LINES, DRIP_THEME_COUNT, DRIP_LINE_COUNT, DRIP_PACK_ID, dripThemeById, dripLineById } = await import('../src/data/drip-themes');
-const { QUOTE_PACKS, quotePackById } = await import('../src/lib/quote-packs');
+const { QUOTE_PACKS, quotePackById, quotePackView } = await import('../src/lib/quote-packs');
+const { quoteSelectionHref, resolveQuoteSelection } = await import('../src/lib/quote-navigation');
 const { decorMotifFor } = await import('../src/lib/studio/decor');
 const { PACK_FORMATS, PACK_FORMAT_IDS, packFormatById, formatCuts, defaultLayerOf } = await import('../src/lib/pack-formats');
 const read = (file: string) => readFileSync(join(process.cwd(), file), 'utf8');
@@ -96,8 +97,52 @@ check('기존 형태 7종 유지', PACK_FORMATS.length === 8 && ['situation', 'p
 console.log('\n[5] 화면 연결');
 check('/presets 에 테마별 추천 대사 섹션', read('src/app/presets/page.tsx').includes('DripThemeSection') && read('src/components/presets/DripThemeSection.tsx').includes('DRIP_THEMES'));
 check('테마 카드가 대사 스튜디오로 연결', read('src/components/presets/DripThemeSection.tsx').includes('/quotes?pack=') && read('src/components/presets/DripThemeSection.tsx').includes('format=drip'));
-check('/quotes 가 팩·테마 딥링크를 읽는다', read('src/app/quotes/page.tsx').includes('searchParams') && read('src/app/quotes/page.tsx').includes('initialGroupId') && read('src/components/quotes/QuoteShop.tsx').includes('currentPack.groups'));
-check('/quotes 상단에 NEW 드립 안내', read('src/app/quotes/page.tsx').includes('킹받는 반전·드립'));
+const quotePage = read('src/app/quotes/page.tsx');
+const quoteShop = read('src/components/quotes/QuoteShop.tsx');
+const quoteShortcut = read('src/components/quotes/QuotePackShortcut.tsx');
+check('/quotes 가 팩·테마 URL을 현재 선택에 반영', quoteShop.includes('useSearchParams()') && quoteShop.includes("resolveQuoteSelection(packs, searchParams.get('pack'), searchParams.get('theme'))"));
+check('/quotes 상단에 NEW 드립 안내', quotePage.includes('킹받는 반전·드립'));
+check('NEW 배너가 드립 팩 선택과 스튜디오 앵커를 함께 연다', quotePage.includes('`/quotes?pack=${DRIP_PACK_ID}#quote-studio`') && quoteShop.includes('id="quote-studio"') && quoteShop.includes('id="quote-studio-title"'));
+check('NEW 배너가 언어 경로·터치 크기·키보드 포커스를 지원', quotePage.includes('localizedPath(locale,') && quoteShortcut.includes('min-h-11') && quoteShortcut.includes('focus-visible:ring-4'));
+check('같은 배너 재클릭도 실제 영역으로 스크롤·포커스 이동', quoteShortcut.includes('onNavigate=') && quoteShortcut.includes('event.preventDefault()') && quoteShortcut.includes('target.scrollIntoView(') && quoteShortcut.includes('target.focus({ preventScroll: true })'));
+check('화면 선택은 서버 요청·자동 스크롤 없이 URL을 갱신', quoteShop.includes("window.history.pushState(null, '', href)") && quoteShop.includes('selectPack(currentPack.id, active ? null : group.id)'));
+
+console.log('\n[6] 같은 페이지 바로가기·URL 선택 회귀');
+const views = QUOTE_PACKS.map((item) => quotePackView(item, item.priceCredits === 0));
+const resolveUrl = (href: string) => {
+  const url = new URL(href, 'https://emotihak.com');
+  return resolveQuoteSelection(views, url.searchParams.get('pack'), url.searchParams.get('theme'));
+};
+const opening = resolveUrl('/quotes');
+check('기본 진입은 드립 전체 66컷', opening.currentPack?.id === DRIP_PACK_ID && opening.groupId === null && opening.visibleLines.length === 66);
+check('7개 테마 딥링크가 각각 정확한 대사만 선택', DRIP_THEMES.every((theme) => {
+  const selection = resolveUrl(`/quotes?pack=${DRIP_PACK_ID}&theme=${theme.id}`);
+  return selection.currentPack?.id === DRIP_PACK_ID && selection.groupId === theme.id && selection.visibleLines.map((line) => line.id).join(',') === theme.lines.map((line) => line.id).join(',');
+}));
+const dailyHref = quoteSelectionHref('/quotes', new URLSearchParams(`pack=${DRIP_PACK_ID}&theme=${DRIP_THEMES[0].id}`), 'daily-cuts');
+const daily = resolveUrl(dailyHref);
+check('다른 팩을 고르면 URL·대사가 바뀌고 이전 테마가 해제', dailyHref === '/quotes?pack=daily-cuts' && daily.currentPack?.id === 'daily-cuts' && daily.groupId === null && daily.visibleLines.length === 6);
+const shortcutHref = `/quotes?pack=${DRIP_PACK_ID}#quote-studio`;
+const reopened = resolveUrl(shortcutHref);
+check('다른 팩에서 NEW 배너를 누르면 드립 전체로 복귀', reopened.currentPack?.id === DRIP_PACK_ID && reopened.groupId === null && reopened.visibleLines.length === 66);
+const themeHref = quoteSelectionHref('/quotes', new URLSearchParams(`pack=${DRIP_PACK_ID}`), DRIP_PACK_ID, DRIP_THEMES[1].id);
+check('세부 테마 선택은 공유 가능한 URL로 반영', resolveUrl(themeHref).groupId === DRIP_THEMES[1].id && resolveUrl(themeHref).visibleLines.length === 12);
+check('테마 선택 뒤 배너 재클릭은 전체 66컷으로 복귀', resolveUrl(shortcutHref).groupId === null && resolveUrl(shortcutHref).visibleLines.length === 66);
+const allHref = quoteSelectionHref('/quotes', new URL(themeHref, 'https://emotihak.com').searchParams, DRIP_PACK_ID);
+check('활성 테마 해제는 theme 쿼리를 제거', allHref === `/quotes?pack=${DRIP_PACK_ID}` && resolveUrl(allHref).visibleLines.length === 66);
+check('뒤로/앞으로의 URL은 원래 팩·테마를 재현', resolveUrl(dailyHref).currentPack?.id === 'daily-cuts' && resolveUrl(themeHref).groupId === DRIP_THEMES[1].id && resolveUrl(shortcutHref).visibleLines.length === 66);
+const invalidPack = resolveUrl('/quotes?pack=missing&theme=missing');
+check('잘못된 팩·테마는 첫 팩 전체로 폴백', invalidPack.currentPack?.id === DRIP_PACK_ID && invalidPack.groupId === null && invalidPack.visibleLines.length === 66);
+const wrongGroup = resolveUrl(`/quotes?pack=daily-cuts&theme=${DRIP_THEMES[0].id}`);
+check('다른 팩의 테마를 강제로 넣어도 빈 목록이 되지 않는다', wrongGroup.groupId === null && wrongGroup.visibleLines.length === 6);
+check('유효한 팩의 잘못된 테마는 전체로 폴백', resolveUrl(`/quotes?pack=${DRIP_PACK_ID}&theme=missing`).visibleLines.length === 66);
+const locked = resolveUrl('/quotes?pack=film-romance');
+check('유료 팩의 잠긴 대사는 URL 변경으로 공개되지 않는다', locked.currentPack?.access === 'PREVIEW' && locked.visibleLines.length === 2);
+const empty = resolveQuoteSelection([], null, null);
+check('빈 팩 목록도 안전하게 처리', empty.currentPack === undefined && empty.groupId === null && empty.visibleLines.length === 0);
+const localizedHref = quoteSelectionHref('/en/quotes', new URLSearchParams('utm_source=banner&pack=daily-cuts&theme=old'), DRIP_PACK_ID);
+check('영문 경로·다른 쿼리는 유지하며 이전 테마만 제거', localizedHref === '/en/quotes?utm_source=banner&pack=drip-twist');
+assert.deepEqual(resolveUrl(shortcutHref).visibleLines.map((line) => line.id), opening.visibleLines.map((line) => line.id));
 
 console.log(`\n결과: ${passed} passed / ${failed} failed`);
 if (failed > 0) process.exit(1);
