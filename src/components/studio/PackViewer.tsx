@@ -23,7 +23,7 @@ import type { PackExportState } from '@/lib/packs';
 import { packDisplayTitle } from '@/lib/pack-title';
 import type { ReviewSheet } from '@/lib/reviewer-sheet';
 import type { ReferralSummary } from '@/lib/referral';
-import { PREVIEW_WATERMARK, TRIAL_MESSAGES } from '@/lib/trial-policy';
+import { PREVIEW_FREE_CUTS, PREVIEW_WATERMARK, TRIAL_MESSAGES } from '@/lib/trial-policy';
 
 export function PackViewer({
   pack: initialPack,
@@ -82,18 +82,26 @@ export function PackViewer({
   const packTitle = packDisplayTitle(initialPack, locale);
   const unlocked = exportState?.unlocked ?? !watermark;
   const locked = !unlocked;
+  /** 무료로 그리는 컷 수 — 앞 4컷(2×2). 나머지는 잠금 해제 후 이어서 그린다. */
+  const previewSampleCount = initialPack.preview ? Math.min(total, initialPack.preview.sampleCuts ?? PREVIEW_FREE_CUTS) : total;
+  /** 아직 결제 전인 미리보기 팩 — 잠금 컷은 AI 생성을 요청하지 않는다(원가 방어). */
+  const previewLocked = locked && !!initialPack.preview;
   const lockWatermark = initialPack.preview?.watermark ?? PREVIEW_WATERMARK;
   const [inviteNotice, setInviteNotice] = useState<string | null>(null);
   const [reviewOpen, setReviewOpen] = useState(false);
   const [finalizing, setFinalizing] = useState(false);
-  const finalizedRef = useRef(false);
+  const finalizedRef = useRef(new Set<string>());
   const duoScope = `duo:${initialPack.id}` as const;
   const closeSheet = useCallback(() => { setSelectedId(null); setShareLink(null); }, []);
 
   // AI 컷 생성: 아직 이미지가 없는 컷만 3개씩 병렬로 만든다 (사진은 이 탭의 임시 보관본)
+  //  · 무료 미리보기 팩은 앞 4컷만 그린다 — 5~12번째 컷은 잠금 해제(unlocked) 뒤에 이어서 그린다.
   useEffect(() => {
     if (!aiPack) return;
-    const missing = frames.filter((f) => !f.spec.imageUrl && !genErrors[f.id]).map((f) => f.id);
+    const missing = frames
+      .filter((f) => !f.spec.imageUrl && !genErrors[f.id])
+      .filter((f) => !(previewLocked && f.index >= previewSampleCount))
+      .map((f) => f.id);
     if (missing.length === 0) return;
     const photo = loadPhoto(`pack:${initialPack.id}`);
     if (!photo) {
@@ -118,25 +126,29 @@ export function PackViewer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [genRound]);
 
-  // 잠금 해제 직후: 미리보기(Flash)로 그린 12컷을 고화질(화풍별 최상위 모델)로 한 번 다시 그린다.
-  //  · 추가 결제 없음(finalize) · 사진이 이 탭에 없으면 팩 화면에서 다시 올리면 된다.
+  // 잠금 해제 직후: 미리보기(Flash)로 그린 4컷을 고화질(화풍별 최상위 모델)로 한 번 다시 그린다.
+  //  · 컷별 hiResAt 으로 1회만 마무리한다(반복 호출로 원가가 나가지 않게) · 추가 결제 없음(finalize).
+  //  · 나머지 8컷은 위 생성 효과가 잠금 해제 후에 이어서 그린다.
   useEffect(() => {
-    if (locked || !initialPack.preview || initialPack.hiResAt || finalizedRef.current) return;
+    if (locked || !initialPack.preview) return;
+    const todo = frames.filter((frame) => frame.spec.imageUrl && !frame.hiResAt && !finalizedRef.current.has(frame.id));
+    if (todo.length === 0) return;
     const photo = loadPhoto(`pack:${initialPack.id}`);
     if (!photo) return;
-    finalizedRef.current = true;
+    const ids = todo.map((frame) => frame.id);
+    for (const id of ids) finalizedRef.current.add(id);
     setFinalizing(true);
-    const ids = frames.filter((frame) => frame.spec.imageUrl).map((frame) => frame.id);
     void runLimited(ids, 2, async (id) => {
       try {
         const url = await renderImage({ kind: 'frame', frameId: id, finalize: true }, photo, `pack:${initialPack.id}`, initialPack.subjectKind ?? 'person', formatInfo?.needsSecondPhoto ? duoScope : undefined);
-        setFrames((prev) => prev.map((frame) => (frame.id === id ? { ...frame, spec: { ...frame.spec, imageUrl: url } } : frame)));
+        setFrames((prev) => prev.map((frame) => (frame.id === id ? { ...frame, hiResAt: new Date().toISOString(), spec: { ...frame.spec, imageUrl: url } } : frame)));
       } catch {
         // 한 컷 실패는 무시한다 — 필요하면 '실패한 컷 다시 그리기'로 재시도한다.
+        finalizedRef.current.delete(id);
       }
     }).finally(() => setFinalizing(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [locked]);
+  }, [locked, genRound]);
 
   async function copyInvite() {
     if (!invite) return;
@@ -201,6 +213,13 @@ export function PackViewer({
   const visible = frames.map((f) => ({ ...f, ready: aiPack ? !!f.spec.imageUrl : f.ready }));
   const ready = visible.filter((f) => f.ready).length;
   const done = ready >= total;
+  /** 잠금(미리보기) 상태에서는 무료 4컷 기준으로 진행률을 보여 준다. */
+  const previewTotal = Math.min(total, previewSampleCount);
+  const previewReady = visible.filter((f) => f.ready && f.index < previewSampleCount).length;
+  const lockedCutCount = Math.max(0, total - previewTotal);
+  const displayReady = previewLocked ? previewReady : ready;
+  const displayTotal = previewLocked ? previewTotal : total;
+  const displayDone = previewLocked ? previewReady >= previewTotal : done;
   const selectedFrame = visible.find((frame) => frame.id === selectedId && frame.ready) ?? null;
 
   async function downloadOne(f: FrameView) {
@@ -427,20 +446,23 @@ export function PackViewer({
             <span
               className={clsx(
                 'chip',
-                done ? '!border-mint/60 !bg-mint/10 !text-ink' : '!border-coral/50 !bg-coral/10 !text-coralink',
+                displayDone ? '!border-mint/60 !bg-mint/10 !text-ink' : '!border-coral/50 !bg-coral/10 !text-coralink',
               )}
             >
-              {done ? t('● 생성 완료', '● Complete') : t('● 생성 중', '● Generating')}
+              {displayDone ? t('● 생성 완료', '● Complete') : t('● 생성 중', '● Generating')}
             </span>
+            {previewLocked && lockedCutCount > 0 ? (
+              <span className="chip !border-line !bg-cream !text-sub">{t(`🔒 ${lockedCutCount}컷 잠금`, `🔒 ${lockedCutCount} locked`)}</span>
+            ) : null}
             <span className="text-sm font-black">
-              {ready}/{total}
+              {displayReady}/{displayTotal}
             </span>
           </div>
         </div>
         <div className="mt-3 h-2.5 w-full overflow-hidden rounded-full bg-line/70">
           <div
             className="h-full rounded-full bg-coral transition-[width] duration-500"
-            style={{ width: `${Math.round((ready / total) * 100)}%` }}
+            style={{ width: `${Math.round((displayReady / Math.max(1, displayTotal)) * 100)}%` }}
           />
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
@@ -471,9 +493,9 @@ export function PackViewer({
         <section id="unlock" className="card overflow-hidden scroll-mt-24 border-2 border-primary/40 p-0">
           <div className="bg-primary/10 px-5 py-4">
             <p className="text-xs font-black uppercase tracking-widest text-primary-dark">LOCKED PREVIEW</p>
-            <h2 className="mt-1 text-xl font-black break-keep">{t(`${total}컷 완성! 지금은 워터마크 미리보기예요`, `${total} cuts ready — watermarked preview`)}</h2>
+            <h2 className="mt-1 text-xl font-black break-keep">{t(`무료 ${previewTotal}컷 미리보기 — 잠금 해제하면 ${total}컷 완성`, `Free ${previewTotal}-cut preview — unlock to get all ${total}`)}</h2>
             <p className="mt-2 text-[13px] leading-relaxed text-sub">
-              {t(TRIAL_MESSAGES.lockedExport, 'This pack is a preview. Unlock it to download high-resolution, transparent PNGs and the ZIP.')}
+              {t(TRIAL_MESSAGES.lockedExport, 'The four cuts you see are a watermarked preview. Unlock to draw the remaining cuts and download all stickers in high resolution.')}
             </p>
           </div>
           <div className="p-5">
@@ -489,9 +511,9 @@ export function PackViewer({
               <p className="text-2xl font-black">{(exportState?.unlockPrice ?? 5900).toLocaleString('en-US')}<span className="text-sm font-bold text-sub">원</span></p>
             </div>
             <ul className="mt-3 grid gap-1.5 text-[12px] leading-relaxed text-ink/80 sm:grid-cols-2">
-              <li>· {t('12컷 고화질 · 투명 PNG', '12 high-resolution transparent PNGs')}</li>
-              <li>· {t('워터마크 제거', 'No watermark')}</li>
-              <li>· {t('카카오·라인 규격 ZIP', 'Kakao / LINE spec ZIP')}</li>
+              <li>· {t(`나머지 ${lockedCutCount}컷을 이어서 그려 ${total}컷 전체 완성`, `The remaining ${lockedCutCount} cuts are drawn to finish all ${total}`)}</li>
+              <li>· {t('고화질 · 투명 PNG', 'High-resolution transparent PNGs')}</li>
+              <li>· {t('워터마크 제거 · 카카오·라인 규격 ZIP', 'No watermark · Kakao / LINE spec ZIP')}</li>
               <li>· {t('대사·표정 계속 편집', 'Keep editing captions and expressions')}</li>
             </ul>
             <div className="mt-4">
@@ -506,7 +528,7 @@ export function PackViewer({
               />
             </div>
             <p className="mt-2 text-center text-[10px] leading-relaxed text-sub">
-              {t('결제 즉시 이 팩 전체가 열리고, 12컷을 고화질로 다시 그립니다. 디지털 콘텐츠 사용 시작 후에는 청약철회가 제한될 수 있어요.', 'The whole pack opens right after payment and all cuts are re-rendered at full quality. Digital content usage limits cancellation.')}
+              {t(`결제 즉시 나머지 ${lockedCutCount}컷까지 그려 ${total}컷을 완성하고, 미리보기 컷은 고화질로 다시 그립니다. 디지털 콘텐츠 사용 시작 후에는 청약철회가 제한될 수 있어요.`, 'Right after payment the remaining cuts are drawn to complete the pack, and preview cuts are re-rendered at full quality. Digital content usage limits cancellation.')}
             </p>
             {formatInfo?.needsSecondPhoto ? (
               <p className="mt-1 text-center text-[10px] font-bold text-coralink">{t('2인 케미 팩 완성권 7,900원이 적용됩니다.', 'The duo chemistry unlock (₩7,900) applies.')}</p>
@@ -673,23 +695,33 @@ export function PackViewer({
       ) : null}
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-4">
-        {visible.map((f) => (
+        {visible.map((f) => {
+          const frameLocked = previewLocked && f.index >= previewSampleCount;
+          return (
           <article
             key={f.id}
-            className={clsx('card overflow-hidden p-0 transition hover:shadow-pop', f.ready ? 'motion-safe:animate-grid-in' : 'opacity-60')}
+            className={clsx('card overflow-hidden p-0 transition', f.ready ? 'hover:shadow-pop motion-safe:animate-grid-in' : 'opacity-60', frameLocked ? 'border-dashed' : '')}
             style={f.ready ? { animationDelay: `${Math.min(f.index, 15) * 50}ms` } : undefined}
           >
             <button
               type="button"
-              disabled={!f.ready}
-              aria-haspopup="dialog"
-              aria-label={locked
-                ? t(`${f.label} 미리보기 (잠김)`, `${f.label} preview (locked)`)
-                : f.ready ? t(`${f.label} 컷 관리하기`, `Manage ${f.label} sticker`) : t(`${f.label} 컷 생성 중`, `${f.label} sticker is generating`)}
-              onClick={() => { setSelectedId(f.id); setSheetNotice(null); setShareLink(null); }}
-              className="group flex h-full w-full flex-col text-left disabled:cursor-wait"
+              disabled={!f.ready && !frameLocked}
+              aria-haspopup={frameLocked ? undefined : 'dialog'}
+              aria-label={frameLocked
+                ? t(`${f.label} 컷 — 잠금 해제 후 완성`, `${f.label} sticker, drawn after unlock`)
+                : locked
+                  ? t(`${f.label} 미리보기 (잠김)`, `${f.label} preview (locked)`)
+                  : f.ready ? t(`${f.label} 컷 관리하기`, `Manage ${f.label} sticker`) : t(`${f.label} 컷 생성 중`, `${f.label} sticker is generating`)}
+              onClick={() => {
+                if (frameLocked) {
+                  document.getElementById('unlock')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  return;
+                }
+                setSelectedId(f.id); setSheetNotice(null); setShareLink(null);
+              }}
+              className={clsx('group flex h-full w-full flex-col text-left', !f.ready && !frameLocked && 'disabled:cursor-wait')}
             >
-              <div className={clsx('relative w-full p-2', f.spec.background === 'transparent' ? 'checker' : 'bg-cream')}>
+              <div className={clsx('relative w-full p-2', f.ready && f.spec.background === 'transparent' ? 'checker' : 'bg-cream')}>
                 {f.ready ? (
                   <div className="relative">
                     <Sticker spec={f.spec} ariaLabel={t(`${f.label} 컷`, `${f.label} sticker`)} />
@@ -706,6 +738,14 @@ export function PackViewer({
                       </div>
                     ) : null}
                   </div>
+                ) : frameLocked ? (
+                  <div className="grid aspect-square place-items-center rounded-xl border-2 border-dashed border-line bg-cream p-2 text-center">
+                    <div>
+                      <p className="text-lg leading-none" aria-hidden="true">🔒</p>
+                      <p className="mt-1.5 text-[11px] font-black leading-tight text-ink">{t('잠금 해제 후 완성', 'Drawn after unlock')}</p>
+                      <p className="mt-1 text-[10px] leading-tight text-sub">{t(`${total}컷 중 ${f.index + 1}번째`, `Cut ${f.index + 1} of ${total}`)}</p>
+                    </div>
+                  </div>
                 ) : (
                   <div className="grid aspect-square place-items-center rounded-xl bg-[length:200%_100%] bg-gradient-to-r from-line/20 via-line/50 to-line/20 animate-shimmer">
                     <span className="text-[11px] font-bold text-sub">{t('생성 중…', 'Generating…')}</span>
@@ -717,12 +757,15 @@ export function PackViewer({
                 <p className="truncate text-[13px] font-black">{f.label}</p>
                 <p className="mt-0.5 truncate text-[11px] text-sub">“{f.line}”</p>
                 <span className="mt-2 flex min-h-12 w-full items-center justify-center gap-1 rounded-xl border border-line bg-paper px-2 py-2 text-center text-xs font-semibold transition group-hover:border-primary group-hover:bg-primary/5 group-hover:text-primary-dark">
-                  {locked ? t('미리보기 · 공유', 'Preview · share') : f.ready ? t('관리하기', 'Manage') : t('생성 중…', 'Generating…')}{f.ready ? <span aria-hidden="true">↑</span> : null}
+                  {frameLocked
+                    ? t('잠금 해제하고 보기', 'Unlock to see')
+                    : locked ? t('미리보기 · 공유', 'Preview · share') : f.ready ? t('관리하기', 'Manage') : t('생성 중…', 'Generating…')}{f.ready && !frameLocked ? <span aria-hidden="true">↑</span> : null}
                 </span>
               </div>
             </button>
           </article>
-        ))}
+          );
+        })}
       </div>
 
       <div className={locale === 'en' || locked ? 'hidden' : 'card p-5'}>

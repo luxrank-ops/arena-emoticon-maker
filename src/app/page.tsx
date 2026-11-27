@@ -24,7 +24,7 @@ const steps = [
 ];
 const questions = [
   { q: '사진은 어떻게 사용되나요?', a: '사진은 이 탭에 임시 보관되고, 생성 전 확인과 이미지 생성 시 Google Gemini로 전송됩니다. 원본 사진은 서버에 저장하지 않으며 생성된 시안과 컷은 보관됩니다.' },
-  { q: '몇 장을 만들 수 있고 비용은 얼마인가요?', a: '무료로 12컷 전체를 워터마크 미리보기로 먼저 확인할 수 있어요. 마음에 들면 단건 팩 완성권 5,900원(2인 케미 7,900원 · 반려동물 6,900원)으로 그 팩만 잠금 해제합니다. 여러 팩은 9,900~22,000원 크레딧 팩(1컷=1크레딧)으로 만들고, 작가·브랜드는 Creator Pro 월 19,900원을 쓸 수 있어요.' },
+  { q: '몇 장을 만들고 비용은 얼마인가요?', a: '무료로 4컷을 워터마크로 먼저 확인할 수 있어요. 마음에 들면 단건 팩 완성권 5,900원(2인 케미 7,900원 · 반려동물 6,900원)으로 잠금 해제하면 나머지 8컷까지 그려 12컷 전체를 받습니다. 여러 팩은 9,900~22,000원 크레딧 팩(1컷=1크레딧)으로 만들고, 작가·브랜드는 Creator Pro 월 19,900원을 쓸 수 있어요.' },
   { q: '사진을 다시 올려야 하나요?', a: '사진은 이 브라우저 탭에만 임시 보관됩니다. 탭을 닫거나 다른 기기에서 열면 시안을 만들 때 사용한 같은 사진을 다시 올려 주세요.' },
   { q: '카카오톡에서 사용할 수 있나요?', a: '내려받은 PNG나 GIF를 채팅방에 사진으로 보낼 수 있습니다. 카카오 이모티콘 스토어 정식 출품과 심사 통과는 별개이며 보장되지 않습니다.' },
 ];
@@ -47,7 +47,7 @@ export default async function LandingPage({
   // AI 스튜디오가 관리자 전용으로 잠겨 있는 동안에는 첫 화면이 막다른 길이 되지 않게
   // 지금 100% 동작하는 대사 스튜디오로 주 CTA 를 안내한다.
   const aiEnabled = canUseAiGeneration(user);
-  // 일반 방문자에게는 '12컷 무료 미리보기'가 열려 있다 — 첫 화면에서 그 사실을 분명히 알린다.
+  // 일반 방문자에게는 '4컷 무료 미리보기 → 12컷 완성'이 열려 있다 — 첫 화면에서 그 사실을 분명히 알린다.
   const trial = aiAccess(user) === 'trial';
   if (locale === 'en') {
     return (
@@ -78,7 +78,7 @@ export default async function LandingPage({
       glow: 'shadow-[0_10px_22px_-12px_rgba(168,85,247,0.85)]',
       title: 'AI 캐릭터 이모티콘',
       desc: '내 얼굴로 12컷 표정 팩',
-      cta: aiEnabled ? (trial ? '12컷 무료로 미리보기' : 'AI로 만들기') : 'AI 스튜디오 (준비 중)',
+      cta: aiEnabled ? (trial ? '4컷 무료로 미리보기' : 'AI로 만들기') : 'AI 스튜디오 (준비 중)',
       href: aiEnabled ? '/studio/upload' : '/quotes',
       badge: 'AI',
       badgeClass: 'border-primary/20 bg-primary/[0.07] text-primary-dark',
@@ -124,7 +124,7 @@ export default async function LandingPage({
                 <span aria-hidden="true" className="grid h-5 w-5 place-items-center rounded-full brand-gradient text-[9px] text-white">
                   ✦
                 </span>
-                {trial ? '12컷 전체를 워터마크로 무료 미리보기' : '사람과 반려동물 사진 한 장으로 시작해요'}
+                {trial ? '4컷을 무료로 먼저, 잠금 해제하면 12컷 완성' : '사람과 반려동물 사진 한 장으로 시작해요'}
               </span>
 
               <h1
@@ -280,7 +280,7 @@ export default async function LandingPage({
             <div>
               <p className="eyebrow">KILLER THEMES</p>
               <h2 id="killer-title" className="h2 mt-2">요즘 제일 많이 만드는 두 팩</h2>
-              <p className="mt-2 max-w-2xl break-keep text-sm leading-relaxed text-sub">사진 2장이면 커플·단톡방 케미, 한 장이면 반려동물 집사 밈. 12컷 전체를 먼저 보고 필요한 팩만 잠금 해제해요.</p>
+              <p className="mt-2 max-w-2xl break-keep text-sm leading-relaxed text-sub">사진 2장면 커플·단톡방 케미, 한 장이면 반려동물 집사 밈. 무료 4컷으로 먼저 보고 마음에 들면 잠금 해제로 12컷을 완성해요.</p>
             </div>
             <Link href="/presets" className="group inline-flex items-center gap-1 text-sm font-black text-primary-dark">
               전체 프리셋 보기
@@ -293,7 +293,7 @@ export default async function LandingPage({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/samples/photo/couple-hug.webp" alt="" width={96} height={96} className="h-12 w-12 rounded-2xl border border-white/70 bg-white object-contain shadow-[0_10px_24px_-18px_rgba(255,77,141,0.9)]" />
                 <span className="rounded-full border border-white/80 bg-white/80 px-2.5 py-1 text-[10px] font-black text-primary-dark shadow-sm backdrop-blur">
-                  {trial ? '12컷 무료 미리보기' : '12컷 · 7,900원'}
+                  {trial ? '4컷 무료 미리보기' : '12컷 · 7,900원'}
                 </span>
               </div>
               <div className="flex flex-1 flex-col p-5">
@@ -301,7 +301,7 @@ export default async function LandingPage({
                 <p className="mt-1 break-keep text-sm leading-relaxed text-sub">“퇴근 후 치맥 콜?”, “야근 중 살려줘”, “삐짐 vs 달래기” — 커플·친구 12컷 전용.</p>
                 <p className="mt-3 text-[11px] font-bold text-sub">사진 2장 · 12컷 · 완성권 7,900원</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-black text-primary-dark">
-                  12컷 미리보기
+                  4컷 먼저 보기
                   <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden="true" />
                 </span>
               </div>
@@ -311,7 +311,7 @@ export default async function LandingPage({
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src="/samples/photo/pet-dog-beg.webp" alt="" width={96} height={96} className="h-12 w-12 rounded-2xl border border-white/70 bg-white object-contain shadow-[0_10px_24px_-18px_rgba(14,159,110,0.9)]" />
                 <span className="rounded-full border border-white/80 bg-white/80 px-2.5 py-1 text-[10px] font-black text-mint shadow-sm backdrop-blur">
-                  {trial ? '12컷 무료 미리보기' : '12컷 · 6,900원'}
+                  {trial ? '4컷 무료 미리보기' : '12컷 · 6,900원'}
                 </span>
               </div>
               <div className="flex flex-1 flex-col p-5">
@@ -319,7 +319,7 @@ export default async function LandingPage({
                 <p className="mt-1 break-keep text-sm leading-relaxed text-sub">“간식 내놔”, “산책 가자”, “집사야 일해라”, “밥 줘”, “누가 방귀 꼈어” — 강아지·고양이 12컷.</p>
                 <p className="mt-3 text-[11px] font-bold text-sub">사진 1장 · 12컷 · 완성권 6,900원</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-black text-primary-dark">
-                  12컷 미리보기
+                  4컷 먼저 보기
                   <ChevronRight className="h-4 w-4 transition group-hover:translate-x-0.5" aria-hidden="true" />
                 </span>
               </div>
@@ -356,7 +356,7 @@ export default async function LandingPage({
         <div className="wrap">
           <p className="eyebrow">PRICING</p>
           <h2 id="price-title" className="h2 mt-2">미리 보고, 필요한 만큼만</h2>
-          <p className="mt-2 text-sm leading-relaxed text-sub">12컷 전체를 무료로 확인한 뒤, 팩 하나만 결제하거나 여러 팩을 크레딧으로 만드세요.</p>
+          <p className="mt-2 text-sm leading-relaxed text-sub">무료 4컷으로 먼저 확인한 뒤, 팩 하나만 결제해 12컷을 완성하거나 여러 팩을 크레딧으로 만드세요.</p>
           <div className="mt-5 grid gap-3 md:grid-cols-3">
             {PRICE_TIERS.map((tier) => {
               const card = (

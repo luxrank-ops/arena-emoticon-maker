@@ -27,7 +27,7 @@ import type { Locale } from '@/lib/i18n/locale';
 import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { defaultLayerOf, formatCuts, packFormatById, type PackFormatId } from '@/lib/pack-formats';
 import { layerFromLine, normalizeLayer, normalizeLayers } from '@/lib/studio/layers';
-import { PREVIEW_PACK_SIZE, PREVIEW_WATERMARK } from '@/lib/trial-policy';
+import { PREVIEW_FREE_CUTS, PREVIEW_PACK_SIZE, PREVIEW_WATERMARK } from '@/lib/trial-policy';
 import { SKUS, unlockSkuForPack } from '@/lib/pricing';
 
 
@@ -142,8 +142,9 @@ export async function createPack(
   /** 표정·포즈 프리셋 150종 선택 (컷 수만큼, 중복 없이) */
   presetIds?: number[],
   /**
-   * 무료 12컷 워터마크 미리보기 팩.
-   *  · 크레딧을 차감하지 않고, 첫 팩은 12컷 전체를 저비용(Flash) 렌더로 채운다.
+   * 무료 미리보기 팩 — 크레딧을 차감하지 않는다.
+   *  · 팩은 12컷 구성으로 만들되, 무료로 AI 생성하는 건 앞 PREVIEW_FREE_CUTS(4)컷뿐이다.
+   *  · 나머지 컷은 imageId 없이 두고, 잠금 해제 시 /api/render 의 finalize·일반 렌더가 이어서 그린다.
    *  · 결제(단건 완성권) 전에는 내보내기가 잠긴다 (packExportState).
    */
   opts: { preview?: boolean; curationPackageId?: string } = {},
@@ -340,7 +341,7 @@ export async function createPack(
     renderer: 'ai',
     creditsSpent: opts.preview || unlimited ? 0 : size,
     createdAt: new Date().toISOString(),
-    ...(opts.preview ? { preview: { watermark: PREVIEW_WATERMARK, cuts: PREVIEW_PACK_SIZE, model: 'flash' as const } } : {}),
+    ...(opts.preview ? { preview: { watermark: PREVIEW_WATERMARK, cuts: PREVIEW_PACK_SIZE, sampleCuts: PREVIEW_FREE_CUTS, model: 'flash' as const } } : {}),
     frames,
     // 얼굴 프로필이 파기된 뒤에도 이 팩을 계속 그릴 수 있게 비식별 스냅샷을 고정한다
     identity: {
@@ -437,6 +438,27 @@ export interface PackExportState {
   unlockTitle: string;
   /** 잠긴 이유 — paywall(결제 전) · plan(플랜으로 열림) · unlocked(단건 해제) · legacy */
   reason: 'paywall' | 'plan' | 'unlocked' | 'legacy';
+}
+
+// ── 무료 미리보기 4컷 / 잠금 컷 ────────────────────────
+/** 무료 미리보기에서 실제로 그리는 컷 수 (팩 전체 컷 수를 넘지 않는다) */
+export function previewSampleCuts(pack: Pick<Pack, 'preview' | 'frames'>): number {
+  if (!pack.preview) return pack.frames.length;
+  const sample = pack.preview.sampleCuts ?? PREVIEW_FREE_CUTS;
+  return Math.min(pack.frames.length, Math.max(1, sample));
+}
+
+/**
+ * 이 컷이 아직 "결제 후에 그리는" 잠금 컷인가.
+ *  · 무료 미리보기 팩이 아직 잠겨 있을 때, 앞 sampleCuts 컷을 벗어난 컷은 이미지를 만들지 않는다(원가 방어).
+ *  · 잠금 해제(unlockedAt) 후에는 모든 컷을 이어서 그려 12컷을 완성한다.
+ */
+export function previewFrameLocked(
+  pack: Pick<Pack, 'preview' | 'unlockedAt' | 'frames'>,
+  frame: Pick<Frame, 'index'>,
+): boolean {
+  if (!pack.preview || pack.unlockedAt) return false;
+  return frame.index >= previewSampleCuts(pack);
 }
 
 /**

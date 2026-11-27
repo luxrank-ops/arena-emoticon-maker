@@ -1,11 +1,13 @@
 // ─────────────────────────────────────────────────────────────
-// 무료 미리보기(일반 방문자) — 원가 방어형 12컷 워터마크 맛보기
+// 무료 미리보기(일반 방문자) — 원가 방어형 4컷 워터마크 맛보기 (2026-11-27 원가 절감 개편)
 //  · 배경: 유료 등급 정비 기간에 GENERATION_ADMIN_ONLY=1 이라 일반 방문자는 AI 이모티콘을
 //    한 장도 만들어 볼 수 없었다. 체험 없이 결제를 기대할 수 없으니 '맛보기'만 연다.
 //  · 원가: 컷·시안 1장 = Gemini 이미지 1회 호출(약 $0.03~0.04, 실사 스티커는 상위 모델).
-//    방문자 1명이 시안 1장 + 컷 2장을 만들면 원가가 실제로 나가므로, 단순 개방은 불가하다.
+//    방문자 1명이 시안 1장 + 미리보기 4컷을 만들면 원가가 실제로 나가므로, 단순 개방은 불가하다.
+//    무료로 그리는 컷을 12 → 4로 줄여 체험 1회 원가를 1/3로 낮췄다(잠금 해제 후 나머지 8컷 생성).
 //  · 그래서 상한을 코드가 아니라 '저장소 카운터'로 강제한다(쿠키 삭제·새 탭으로 우회 불가):
-//      사용자(게스트 세션·계정) 하루 상한 / IP(해시) 하루 상한 / 전체 하루·월 상한.
+//      계정(게스트 세션 포함) 생애 미리보기 1팩(pack:life — 날짜로 초기화되지 않는다) /
+//      IP(해시) 하루 상한 / 전체 하루·월 상한.
 //    카운터는 DB 스냅샷(Cloudflare KV CAS)에 있으므로 여러 인스턴스에서도 함께 센다.
 //  · 이 모듈은 서버 전용이다(노드 crypto·저장소 사용). UI 는 타입만 가져다 쓴다.
 // ─────────────────────────────────────────────────────────────
@@ -13,13 +15,13 @@ import { createHash } from 'node:crypto';
 import { trialFreeEnabled } from '@/lib/admin-access';
 import { uid, withDB } from '@/lib/store';
 import { kstDateKey } from '@/lib/time';
-import { TRIAL_MESSAGES } from '@/lib/trial-policy';
+import { PREVIEW_FREE_CUTS, TRIAL_MESSAGES } from '@/lib/trial-policy';
 import type { TrialUsage } from '@/lib/types';
 
 export { TRIAL_CUT_EMOTIONS, TRIAL_MESSAGES, TRIAL_VARIANT_KEYS, trialToneAllowed } from '@/lib/trial-policy';
 
 export interface TrialLimits {
-  /** 사용자 1명이 하루에 쓸 수 있는 AI 이미지 수 (시안 1 + 미리보기 12컷 + 재시도 여유) */
+  /** 사용자 1명이 하루에 쓸 수 있는 AI 이미지 수 (시안 1 + 미리보기 4컷 + 재시도 여유) */
   imagesPerUserDay: number;
   /** IP 1곳이 하루에 쓸 수 있는 AI 이미지 수 */
   imagesPerIpDay: number;
@@ -27,11 +29,11 @@ export interface TrialLimits {
   imagesPerDay: number;
   /** 전체 방문자 한 달 AI 이미지 수 — 월 예산 방어 */
   imagesPerMonth: number;
-  /** 사용자 1명이 하루에 만들 수 있는 '미리보기 컷' 수 (시안 제외, 한 팩 = 12컷) */
+  /** 사용자 1명이 하루에 만들 수 있는 '미리보기 컷' 수 (시안 제외, 한 팩 = 무료 4컷) */
   cutsPerUserDay: number;
-  /** 사용자 1명이 하루에 만들 수 있는 '미리보기 팩' 수 (12컷 전체) */
-  previewPacksPerUserDay: number;
-  /** IP 1곳이 하루에 만들 수 있는 미리보기 팩 수 */
+  /** 계정 1개가 평생 만들 수 있는 '무료 미리보기 팩' 수 — 기본 1 (계정당 최초 1회) */
+  previewPacksPerUser: number;
+  /** IP 1곳이 하루에 만들 수 있는 미리보기 팩 수 (계정 기준 생애 1회의 보조 방어) */
   previewPacksPerIpDay: number;
   /** 사용자 1명 하루 사진 특징 재확인(AI 비전) 횟수 */
   prepsPerUserDay: number;
@@ -49,9 +51,11 @@ function envInt(name: string, fallback: number, min: number, max: number): numbe
 
 /**
  * 무료 체험 상한 (기본값).
- *  · 미리보기는 저비용 Flash 모델(장당 약 $0.02)로 그린다 — 12컷 팩 1개 ≈ $0.24.
+ *  · 미리보기는 저비용 Flash 모델(장당 약 $0.02)로 그린다 — 무료 4컷 ≈ $0.08 (잠금 해제 후 8컷 추가).
  *  · 하루 전체 45장 ≈ $0.9(≈1,300원), 한 달 900장 ≈ $18(≈2.6만원).
  *  · 월 5만원 예산 알림 안에서 안전하도록 하루·월 상한을 함께 둔다.
+ *  · 2026-11-27 사용자 지시: 미리보기 팩은 '하루 1팩'이 아니라 **계정당 최초 1팩(평생 1회)**.
+ *    같은 계정은 날이 바뀌어도 다시 만들 수 없고(생애 키), IP·전체 상한만 보조 방어로 남긴다.
  */
 export function trialLimits(): TrialLimits {
   return {
@@ -59,8 +63,8 @@ export function trialLimits(): TrialLimits {
     imagesPerIpDay: envInt('TRIAL_IMAGES_PER_IP_DAY', 24, 1, 60),
     imagesPerDay: envInt('TRIAL_IMAGES_PER_DAY', 45, 1, 240),
     imagesPerMonth: envInt('TRIAL_IMAGES_PER_MONTH', 900, 1, 6000),
-    cutsPerUserDay: envInt('TRIAL_CUTS_PER_USER_DAY', 12, 1, 24),
-    previewPacksPerUserDay: envInt('TRIAL_PREVIEW_PACKS_PER_USER_DAY', 1, 1, 2),
+    cutsPerUserDay: envInt('TRIAL_CUTS_PER_USER_DAY', PREVIEW_FREE_CUTS, 1, 24),
+    previewPacksPerUser: envInt('TRIAL_PREVIEW_PACKS_PER_USER', 1, 1, 3),
     previewPacksPerIpDay: envInt('TRIAL_PREVIEW_PACKS_PER_IP_DAY', 2, 1, 4),
     prepsPerUserDay: envInt('TRIAL_PREPS_PER_USER_DAY', 4, 1, 20),
     prepsPerIpDay: envInt('TRIAL_PREPS_PER_IP_DAY', 8, 1, 40),
@@ -93,8 +97,8 @@ export interface TrialStatus {
   imagesLeftToday: number;
   /** 이번 달 남은 전체 이미지 수 */
   imagesLeftThisMonth: number;
-  /** 오늘 남은 미리보기 팩 수 (12컷 전체) */
-  previewPacksLeftToday: number;
+  /** 남은 무료 미리보기 팩 수 — 계정당 최초 1팩(생애 기준). 이미 쓰면 0 이고 내일도 0 이다. */
+  previewPacksLeft: number;
 }
 
 interface TrialSubject {
@@ -105,6 +109,12 @@ interface TrialSubject {
 
 const dayKey = () => kstDateKey();
 const monthOf = (day: string) => day.slice(0, 7);
+/**
+ * 계정당 생애 미리보기 팩 버켓 — 날짜가 붙지 않는다.
+ *  · '하루 1팩'이 아니라 '계정당 최초 1팩'이라 날이 바뀌어도 초기화되지 않는다.
+ *  · 정리(prune) 단계에서도 ':life:' 가 들어간 버켓은 버리지 않는다.
+ */
+const lifePackBucket = (userId: string) => `pack:life:${userId}`;
 
 function bucketCount(rows: TrialUsage[], bucket: string): number {
   return rows.find((row) => row.bucket === bucket)?.count ?? 0;
@@ -140,10 +150,10 @@ function statusFrom(rows: TrialUsage[], subject: TrialSubject, limits: TrialLimi
     cutsLeftToday: Math.max(0, Math.min(limits.cutsPerUserDay - cutsUsedToday, userImagesLeft, ipImagesLeft, dailyLeft)),
     imagesLeftToday: Math.max(0, Math.min(userImagesLeft, ipImagesLeft, dailyLeft)),
     imagesLeftThisMonth: Math.max(0, limits.imagesPerMonth - bucketCount(rows, `img:all:${month}`)),
-    previewPacksLeftToday: Math.max(0, Math.min(
-      limits.previewPacksPerUserDay - bucketCount(rows, `pack:user:${subject.userId}:${day}`),
+    previewPacksLeft: Math.max(0, Math.min(
+      limits.previewPacksPerUser - bucketCount(rows, lifePackBucket(subject.userId)),
       limits.previewPacksPerIpDay - bucketCount(rows, `pack:ip:${subject.ipHash}:${day}`),
-      Math.floor((limits.imagesPerDay - bucketCount(rows, `img:all:${day}`)) / 12),
+      Math.floor((limits.imagesPerDay - bucketCount(rows, `img:all:${day}`)) / PREVIEW_FREE_CUTS),
     )),
   };
 }
@@ -169,7 +179,7 @@ export async function trialStatusFor(subject: TrialSubject): Promise<TrialStatus
 /**
  * 실제 AI 호출 직전에만 1회 소비한다 (실패한 호출도 원가 방어를 위해 시도로 센다).
  *  · kind='image': 시안·체험 컷 공통 이미지 카운터(사용자·IP·전체·월)
- *  · kind='cut'  : 체험 컷 카운터(사용자 하루 2컷)를 함께 센다
+ *  · kind='cut'  : 체험 컷 카운터(사용자 하루 4컷 = 무료 미리보기 한 팩)를 함께 센다
  *  · 상한을 넘으면 아무것도 쓰지 않고 TrialLimitError 를 던진다 (업무 오류는 폴백 없이 전파).
  */
 export async function consumeTrialImage(
@@ -196,8 +206,8 @@ export async function consumeTrialImage(
 }
 
 /**
- * 무료 12컷 미리보기 팩 1개를 연다.
- *  · 사용자·IP 하루 상한을 함께 세고, 이미지 상한이 12컷을 감당할 수 있는지도 확인한다.
+ * 무료 미리보기 팩 1개를 연다 (팩은 12컷 구성, 무료로 그리는 건 앞 4컷).
+ *  · 계정당 최초 1팩(생애 키)이라 날이 바뀌어도 다시 열리지 않는다. IP 하루 상한과 이미지 상한은 보조 방어다.
  *  · 실제 컷 이미지는 이어지는 /api/render 가 'cut' 카운터로 한 장씩 소비한다.
  */
 export async function consumeTrialPreviewPack(subject: TrialSubject): Promise<TrialStatus> {
@@ -205,7 +215,7 @@ export async function consumeTrialPreviewPack(subject: TrialSubject): Promise<Tr
   const day = dayKey();
   const month = monthOf(day);
   const counters: Counter[] = [
-    { bucket: `pack:user:${subject.userId}:${day}`, limit: limits.previewPacksPerUserDay, scope: 'pack' },
+    { bucket: lifePackBucket(subject.userId), limit: limits.previewPacksPerUser, scope: 'pack' },
     { bucket: `pack:ip:${subject.ipHash}:${day}`, limit: limits.previewPacksPerIpDay, scope: 'ip' },
   ];
   return withDB((db) => {
@@ -216,16 +226,16 @@ export async function consumeTrialPreviewPack(subject: TrialSubject): Promise<Tr
       limits.imagesPerDay - bucketCount(rows, `img:all:${day}`),
       limits.imagesPerMonth - bucketCount(rows, `img:all:${month}`),
     );
-    if (imagesLeft < 12) throw new TrialLimitError('daily');
+    if (imagesLeft < PREVIEW_FREE_CUTS) throw new TrialLimitError('daily');
     applyCounters(db, counters, day, month);
     return statusFrom(db.trialUsage, subject, limits);
   });
 }
 
-/** 읽기 전용 — 오늘 미리보기 팩을 만들 수 있는지 (화면 버튼 상태) */
+/** 읽기 전용 — 이 계정이 무료 미리보기 팩을 만들 수 있는지 (화면 버튼 상태) */
 export async function trialPreviewPackAllowed(subject: TrialSubject): Promise<boolean> {
   const status = await trialStatusFor(subject);
-  return status.enabled && status.previewPacksLeftToday > 0 && status.imagesLeftToday >= 12;
+  return status.enabled && status.previewPacksLeft > 0 && status.imagesLeftToday >= PREVIEW_FREE_CUTS;
 }
 
 /**
@@ -251,7 +261,8 @@ interface Counter {
 
 /** 상한을 먼저 모두 확인한 뒤에만 증가시킨다 (하나라도 넘으면 아무것도 쓰지 않는다). */
 function applyCounters(db: { trialUsage: TrialUsage[] }, counters: Counter[], day: string, month: string): void {
-  const keep = (bucket: string) => bucket.endsWith(day) || bucket.endsWith(month);
+  // 창이 지난 카운터는 버린다. 단 '계정당 생애'(pack:life:...) 버켓은 날짜가 없어 영구 보존한다.
+  const keep = (bucket: string) => bucket.startsWith('pack:life:') || bucket.endsWith(day) || bucket.endsWith(month);
   // 창이 지난 카운터는 버린다 (저장소가 무한히 커지지 않게)
   db.trialUsage = (Array.isArray(db.trialUsage) ? db.trialUsage : []).filter((row) => keep(row.bucket));
   for (const counter of counters) {

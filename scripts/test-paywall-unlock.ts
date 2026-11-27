@@ -29,11 +29,11 @@ const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf
 const pricing = await import('../src/lib/pricing');
 const { withDB } = await import('../src/lib/store');
 const { withPaymentDB } = await import('../src/lib/store');
-const { createSheet, chooseSheet, createPack, packExportState, unlockPack, getPackView } = await import('../src/lib/packs');
+const { createSheet, chooseSheet, createPack, packExportState, unlockPack, getPackView, previewFrameLocked, previewSampleCuts } = await import('../src/lib/packs');
 const { newImageId, saveImage } = await import('../src/lib/images');
 const { DEFAULT_PALETTE, DEFAULT_SIGNATURE } = await import('../src/lib/art/sticker');
 const { confirmCheckout } = await import('../src/lib/checkout');
-const { PREVIEW_WATERMARK, PREVIEW_PACK_SIZE } = await import('../src/lib/trial-policy');
+const { PREVIEW_WATERMARK, PREVIEW_PACK_SIZE, PREVIEW_FREE_CUTS } = await import('../src/lib/trial-policy');
 
 console.log('\n[1] 3단 가격 매트릭스 — 서버 금액 검증표(SKUS)와 화면이 같은 값');
 check('단건 팩 완성권 ₩5,900', pricing.SKUS['pack-unlock-single'].price === 5900 && pricing.SKUS['pack-unlock-single'].kind === 'unlock');
@@ -52,8 +52,9 @@ check(
 );
 check('팩 구성별 완성권 자동 선택', pricing.unlockSkuForPack('duo-chemi', 'person') === 'pack-unlock-duo' && pricing.unlockSkuForPack(null, 'pet') === 'pack-unlock-pet' && pricing.unlockSkuForPack('situation', 'person') === 'pack-unlock-single');
 check('미리보기 워터마크 문구 노출', PREVIEW_WATERMARK === '이모티학으로 내 얼굴 짤 만들기' && PREVIEW_PACK_SIZE === 12);
+check('무료로 그리는 컷은 4컷 (2×2)', PREVIEW_FREE_CUTS === 4);
 
-console.log('\n[2] 무료 12컷 미리보기 팩 — 크레딧 0, 워터마크, 잠김');
+console.log('\n[2] 무료 미리보기 팩 — 12컷 구성 · 무료 생성은 앞 4컷 · 크레딧 0 · 워터마크 · 잠김');
 const now = new Date().toISOString();
 await withDB((db) => {
   db.users.push({ id: 'u-free', name: 'free', plan: 'FREE', credits: 12, role: 'user', createdAt: now, lastGrantAt: now });
@@ -73,9 +74,13 @@ await chooseSheet('u-free', sheet.id, 'A');
 const before = await withDB((db) => db.users.find((u) => u.id === 'u-free')!.credits);
 const preview = await createPack('u-free', sheet.id, 12, '미리보기', false, undefined, 'ko', undefined, undefined, { preview: true });
 const afterCredits = await withDB((db) => db.users.find((u) => u.id === 'u-free')!.credits);
-check('미리보기 팩은 12컷', preview.frames.length === 12 && preview.size === 12);
+check('미리보기 팩은 12컷 구성', preview.frames.length === 12 && preview.size === 12);
 check('미리보기 팩은 크레딧을 쓰지 않는다', afterCredits === before && preview.creditsSpent === 0);
 check('미리보기 팩에 워터마크 문구·Flash 표시', preview.preview?.watermark === PREVIEW_WATERMARK && preview.preview?.model === 'flash');
+check('미리보기 팩은 무료 4컷만 그린다 (sampleCuts=4)', preview.preview?.sampleCuts === 4 && previewSampleCuts(preview) === 4);
+check('앞 4컷(0~3)은 무료 생성 대상', preview.frames.slice(0, 4).every((frame) => !previewFrameLocked(preview, frame)));
+check('나머지 8컷(4~11)은 잠금 — 결제 후에 그린다', preview.frames.slice(4).every((frame) => previewFrameLocked(preview, frame)));
+check('미리보기 팩은 이미지가 아직 없다 (AI 생성은 화면이 컷별로 요청)', preview.frames.every((frame) => !frame.imageId));
 const freeViewer = { role: 'user' as const, plan: 'FREE' as const, credits: 12 };
 const lockedState = packExportState(preview, freeViewer);
 check('무료 등급은 잠김 · 워터마크 · 5,900원 완성권', !lockedState.unlocked && lockedState.watermark && lockedState.unlockSku === 'pack-unlock-single' && lockedState.unlockPrice === 5900);
@@ -113,6 +118,7 @@ const result = await confirmCheckout('u-free', { orderId, paymentKey: `mock_${or
 check('정상 승인 후 kind=unlock', result.kind === 'unlock' && result.packId === preview.id);
 const unlockedPack = await withDB((db) => db.packs.find((p) => p.id === preview.id)!);
 check('팩에 잠금 해제 시각·SKU 기록', !!unlockedPack.unlockedAt && unlockedPack.unlockSku === 'pack-unlock-single');
+check('잠금 해제 후에는 12컷 모두 생성 대상(잠금 해제)', unlockedPack.frames.every((frame) => !previewFrameLocked(unlockedPack, frame)));
 const openState = packExportState(unlockedPack, freeViewer);
 check('잠금 해제 후 내보내기 열림 · 워터마크 없음', openState.unlocked && !openState.watermark && openState.reason === 'unlocked');
 const again = await confirmCheckout('u-free', { orderId, paymentKey: `mock_${orderId}`, amount: 5900 });
@@ -140,6 +146,12 @@ check('주문 생성이 팩 소유·잠금 상태를 확인', checkoutRoute.incl
 check('잠금 해제한 팩은 규격 ZIP 을 연다', read('src/app/studio/pack/[id]/page.tsx').includes('packaging: view.exportState.unlocked'));
 const render = read('src/app/api/render/route.ts');
 check('미리보기는 Flash · 잠금 해제 후 고화질', render.includes("as 'preview' | 'final'") && render.includes('hiResAt'));
+check('잠긴 컷 요청은 서버가 403 으로 막음', render.includes('previewFrameLocked(pack, frame)') && render.includes("fail(code, (e as Error).message, 403)"));
+check('잠금 해제 팩 마무리는 체험 한도·과금 없이', render.includes('paidUnlock') && render.includes('access === \'trial\' && !paidUnlock'));
+check('컷별 고화질 마감(hiResAt)으로 반복 생성 방지', render.includes('frame.hiResAt = now'));
+const packViewer = read('src/components/studio/PackViewer.tsx');
+check('팩뷰어가 무료 4컷만 요청하고 잠금 컷에 안내', packViewer.includes('previewLocked && f.index >= previewSampleCount') && packViewer.includes('🔒 ${lockedCutCount}컷 잠금'));
+check('팩뷰어가 잠금 해제 후 나머지 컷을 이어서 생성', packViewer.includes('나머지 ${lockedCutCount}컷을 이어서 그려'));
 check('워터마크 문구를 내보내기에 전달', read('src/lib/export.ts').includes('watermarkText'));
 
 console.log(`\n페이월·잠금 해제 테스트: ${passed} 통과, ${failed} 실패`);

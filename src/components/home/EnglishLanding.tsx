@@ -142,13 +142,13 @@ export function EnglishLanding({ aiEnabled = true }: { aiEnabled?: boolean }) {
               <span className="text-3xl" aria-hidden="true">💞</span>
               <h3 className="mt-2 text-lg font-black">Duo chemistry pack</h3>
               <p className="mt-1 text-sm leading-relaxed text-sub">Two photos, twelve couple and group-chat cuts — chi-maek after work, overtime rescue, sulking vs soothing.</p>
-              <span className="mt-4 text-sm font-black text-coralink group-hover:underline">Preview 12 cuts →</span>
+              <span className="mt-4 text-sm font-black text-coralink group-hover:underline">Preview 4 cuts →</span>
             </Link>
             <Link href="/en/studio/upload?format=pet-meme&subject=pet" className="card group flex flex-col p-5 transition hover:-translate-y-0.5 hover:shadow-pop">
               <span className="text-3xl" aria-hidden="true">🐾</span>
               <h3 className="mt-2 text-lg font-black">Pet butler meme pack</h3>
               <p className="mt-1 text-sm leading-relaxed text-sub">One dog or cat photo, twelve butler memes — give me a treat, walk time, feed me, who farted.</p>
-              <span className="mt-4 text-sm font-black text-coralink group-hover:underline">Preview 12 cuts →</span>
+              <span className="mt-4 text-sm font-black text-coralink group-hover:underline">Preview 4 cuts →</span>
             </Link>
           </div>
           <div className="mt-6 grid gap-3 sm:grid-cols-3">

@@ -23,6 +23,7 @@ function check(name: string, cond: boolean, extra = '') {
 
 const read = (file: string) => readFileSync(path.join(process.cwd(), file), 'utf8');
 const trial = await import('../src/lib/free-trial');
+const trialPolicy = await import('../src/lib/trial-policy');
 const adminAccess = await import('../src/lib/admin-access');
 const { withDB } = await import('../src/lib/store');
 
@@ -51,13 +52,14 @@ check('일반 스타일은 체험 허용', trial.trialToneAllowed('2d-cute') ===
 
 console.log('\n[2] 기본 상한 값');
 const limits = trial.trialLimits();
-check('사용자 하루 미리보기 컷 12장 (한 팩 전체)', limits.cutsPerUserDay === 12, JSON.stringify(limits));
-check('사용자 하루 이미지 18장 (시안 1 + 12컷 + 재시도 여유)', limits.imagesPerUserDay === 18);
+check('사용자 하루 미리보기 컷 4장 (무료 4컷 = 한 팩)', limits.cutsPerUserDay === 4, JSON.stringify(limits));
+check('사용자 하루 이미지 18장 (시안 1 + 무료 4컷 + 잠금 해제 전 재시도 여유)', limits.imagesPerUserDay === 18);
 check('전체 하루 45장', limits.imagesPerDay === 45);
 check('전체 월 900장', limits.imagesPerMonth === 900);
-check('사용자 하루 미리보기 팩 1개', limits.previewPacksPerUserDay === 1);
+check('계정당 미리보기 팩은 생애 1개', limits.previewPacksPerUser === 1);
+check('무료 미리보기 컷 수 상수는 4 (2×2 그리드)', trialPolicy.PREVIEW_FREE_CUTS === 4 && trialPolicy.PREVIEW_PACK_SIZE === 12);
 
-console.log('\n[3] 사용자 하루 12컷(한 팩) 제한 (쿠키를 바꿔도 IP·사용자 카운터가 남는다)');
+console.log('\n[3] 사용자 하루 무료 4컷 제한 (쿠키를 바꿔도 IP·사용자 카운터가 남는다)');
 // 전체·IP 상한은 넉넉히 두고 사용자 상한만 본다
 process.env.TRIAL_IMAGES_PER_DAY = '100';
 process.env.TRIAL_IMAGES_PER_MONTH = '1000';
@@ -65,32 +67,44 @@ process.env.TRIAL_IMAGES_PER_IP_DAY = '20';
 const userA = { userId: 'guest_a', ipHash: 'ip-a' };
 await trial.consumeTrialImage(userA, 'image'); // 시안
 let afterOne = await trial.consumeTrialImage(userA, 'cut');
-for (let cut = 2; cut <= 12; cut++) afterOne = await trial.consumeTrialImage(userA, 'cut');
-check('12컷째까지 허용 (한 팩 전체)', afterOne.cutsUsedToday === 12);
+for (let cut = 2; cut <= 4; cut++) afterOne = await trial.consumeTrialImage(userA, 'cut');
+check('무료 4컷째까지 허용 (미리보기 한 팩)', afterOne.cutsUsedToday === 4);
 check('남은 컷 0', afterOne.cutsLeftToday === 0);
 let cutLimit: unknown = null;
 try { await trial.consumeTrialImage(userA, 'cut'); } catch (e) { cutLimit = e; }
-check('13컷째는 TRIAL_LIMIT', (cutLimit as { code?: string })?.code === 'TRIAL_LIMIT', JSON.stringify(cutLimit));
-check('13컷째 차단 사유 = user', (cutLimit as { scope?: string })?.scope === 'user');
+check('5컷째는 TRIAL_LIMIT', (cutLimit as { code?: string })?.code === 'TRIAL_LIMIT', JSON.stringify(cutLimit));
+check('5컷째 차단 사유 = user', (cutLimit as { scope?: string })?.scope === 'user');
 check('차단은 429 로 응답', (cutLimit as { status?: number })?.status === 429);
-check('차단 문구에 내일 안내', /내일/.test((cutLimit as Error)?.message ?? ''));
+check('차단 문구에 계정당 1회 안내', /계정당/.test((cutLimit as Error)?.message ?? ''));
 const statusA = await trial.trialStatusFor(userA);
 check('상태 조회: 남은 컷 0', statusA.cutsLeftToday === 0);
-check('상태 조회: 남은 이미지 5 (18-13)', statusA.imagesLeftToday === 5, JSON.stringify(statusA));
+check('상태 조회: 남은 이미지 13 (18-5)', statusA.imagesLeftToday === 13, JSON.stringify(statusA));
 
-console.log('\n[3a] 미리보기 팩은 사용자·IP 하루 1팩, 이미지 12장을 감당할 때만 열린다');
+console.log('\n[3a] 미리보기 팩은 계정당 최초 1팩(생애 1회), 이미지 4컷을 감당할 때만 열린다');
 process.env.TRIAL_IMAGES_PER_DAY = '100';
 process.env.TRIAL_IMAGES_PER_MONTH = '1000';
 process.env.TRIAL_IMAGES_PER_USER_DAY = '18';
 process.env.TRIAL_IMAGES_PER_IP_DAY = '24';
 const packSubject = { userId: 'guest_pack', ipHash: 'ip-pack' };
 const packStatus = await trial.consumeTrialPreviewPack(packSubject);
-check('첫 미리보기 팩은 열린다', packStatus.previewPacksLeftToday === 0, JSON.stringify(packStatus));
+check('첫 미리보기 팩은 열린다', packStatus.previewPacksLeft === 0, JSON.stringify(packStatus));
 let packBlocked: unknown = null;
 try { await trial.consumeTrialPreviewPack(packSubject); } catch (e) { packBlocked = e; }
-check('같은 날 두 번째 팩은 TRIAL_LIMIT', (packBlocked as { code?: string })?.code === 'TRIAL_LIMIT', JSON.stringify(packBlocked));
+check('같은 계정 두 번째 팩은 TRIAL_LIMIT', (packBlocked as { code?: string })?.code === 'TRIAL_LIMIT', JSON.stringify(packBlocked));
 check('팩 차단 문구는 잠금 해제 안내', /잠금 해제/.test((packBlocked as Error)?.message ?? ''));
 check('미리보기 팩 가능 여부는 읽기 전용으로 확인', (await trial.trialPreviewPackAllowed({ userId: 'guest_pack2', ipHash: 'ip-pack2' })) === true);
+
+console.log('\n[3a-1] 계정당 최초 1회 — 날짜가 바뀌어도(생애 키) 다시 열리지 않는다');
+const lifeRows = await withDB((db) => db.trialUsage.map((row) => row.bucket));
+check('계정 팩 카운터는 날짜 없는 생애 키(pack:life)', lifeRows.includes('pack:life:guest_pack') && !lifeRows.some((bucket) => bucket.startsWith('pack:user:guest_pack')));
+// 다른 날의 카운터를 소비하면 applyCounters 가 지난 날 버켓을 버린다 — 생애 키는 남아야 한다.
+await trial.consumeTrialImage({ userId: 'guest_pack', ipHash: 'ip-pack' }, 'image');
+const afterPruneLife = await withDB((db) => db.trialUsage.map((row) => row.bucket));
+check('생애 키는 정리(prune) 후에도 남아 있다', afterPruneLife.includes('pack:life:guest_pack'));
+let nextDay: unknown = null;
+try { await trial.consumeTrialPreviewPack(packSubject); } catch (e) { nextDay = e; }
+check('다음 날에도 같은 계정은 팩을 만들 수 없다 (하루 리셋 없음)', (nextDay as { code?: string })?.code === 'TRIAL_LIMIT');
+check('IP 한도는 보조 방어로 유지', limits.previewPacksPerIpDay >= 1);
 
 console.log('\n[3b] 사진 특징 재확인(AI 비전)도 체험 상한이 있다');
 process.env.TRIAL_PREPS_PER_USER_DAY = '2';
@@ -161,7 +175,7 @@ console.log('\n[8] 라우트·화면 배선 (체험 경로가 팩 대량 생성�
 const render = read('src/app/api/render/route.ts');
 check('렌더가 체험 카운터를 소비', render.includes('consumeTrialImage'));
 check('렌더에 체험 컷(preview) 대상', render.includes("kind: z.literal('preview')"));
-check('렌더가 미리보기 팩이 아닌 팩 컷은 막음', /access === 'trial' && plan\.kind === 'frame' && !\('previewPack' in plan && plan\.previewPack\)/.test(render));
+check('렌더가 미리보기 팩이 아닌 팩 컷은 막음', /access === 'trial' && !paidUnlock && plan\.kind === 'frame' && !\('previewPack' in plan && plan\.previewPack\)/.test(render));
 check('렌더가 미리보기 팩은 Flash(저비용) 품질로 표시', render.includes("as 'preview' | 'final'") && render.includes('pack.preview && pack.unlockedAt'));
 check('렌더가 잠금 해제 후 고화질 재생성을 지원', render.includes('finalize: z.boolean().optional()'));
 check('렌더가 체험 스타일을 제한', render.includes('trialToneAllowed(plan.tone)'));
@@ -178,10 +192,22 @@ check('시트 화면이 체험 상태를 내려줌', read('src/app/studio/sheet/
 check('시트 선택 화면에 12컷 미리보기 패널', read('src/components/studio/SheetPicker.tsx').includes('createPreview'));
 check('미리보기 팩은 12컷 고정', read('src/components/studio/SheetPicker.tsx').includes('PREVIEW_PACK_SIZE'));
 check('업로드 화면에 체험 안내', read('src/components/studio/UploadPageContent.tsx').includes('TRIAL_MESSAGES.banner'));
-check('홈에 12컷 미리보기 CTA', read('src/app/page.tsx').includes('12컷 무료로 미리보기'));
+check('홈에 무료 4컷 미리보기 CTA', read('src/app/page.tsx').includes('4컷 무료로 미리보기'));
+// 2026-11-27 원가 절감 — 무료로 그리는 건 앞 4컷, 잠금 컷은 서버가 막는다.
+check('렌더가 잠금 컷(5~12번째)을 서버에서 차단', render.includes('previewFrameLocked') && render.includes('PREVIEW_CUT_LOCKED'));
+check('렌더가 잠금 해제한 팩의 마무리는 체험 한도에서 뺌', render.includes('paidUnlock') && render.includes('access === \'trial\' && !paidUnlock'));
+check('팩뷰어가 무료 4컷만 생성하고 잠금 컷을 표시', read('src/components/studio/PackViewer.tsx').includes('previewLocked && f.index >= previewSampleCount') && read('src/components/studio/PackViewer.tsx').includes('잠금 해제 후 완성'));
+check('시트 화면이 무료 4컷 미리보기를 안내', read('src/components/studio/SheetPicker.tsx').includes('무료 4컷 미리보기'));
+const pets = read('src/app/pets/page.tsx');
+check('/pets 시작 버튼이 반려동물 모드로 바로 연결', pets.includes("format: 'pet-meme'") && pets.includes("subject: 'pet'"));
+const landing = read('src/components/landing/ChannelLanding.tsx');
+check('ChannelLanding 이 format·subject 쿼리를 넘김', landing.includes("params.set('format', copy.format)") && landing.includes("params.set('subject', copy.subject)"));
+check('/couple 은 2인 케미, /team 은 상황·행동으로 연결', read('src/app/couple/page.tsx').includes("format: 'duo-chemi'") && read('src/app/team/page.tsx').includes("format: 'situation'"));
 const cf = read('cloudflare.config.ts');
 check('Worker 변수에 체험 개방 스위치', /TRIAL_FREE_ENABLED:\s*bindings\.text\("1"\)/.test(cf));
-check('Worker 변수에 미리보기 하루 상한', /TRIAL_PREVIEW_PACKS_PER_USER_DAY:\s*bindings\.text\("1"\)/.test(cf));
+check('Worker 변수에 계정당 생애 1팩 상한', /TRIAL_PREVIEW_PACKS_PER_USER:\s*bindings\.text\("1"\)/.test(cf));
+check('Worker 변수에 IP 보조 상한 유지', /TRIAL_PREVIEW_PACKS_PER_IP_DAY:\s*bindings\.text\("2"\)/.test(cf));
+check('일일 팩 상한 변수는 제거됨', !cf.includes('TRIAL_PREVIEW_PACKS_PER_USER_DAY'));
 check('원가 보호 플래그(관리자 전용)는 그대로 1', /GENERATION_ADMIN_ONLY:\s*bindings\.text\("1"\)/.test(cf));
 check('결제 가드는 건드리지 않음 (PLAY_BILLING_ENABLED=0)', /PLAY_BILLING_ENABLED:\s*bindings\.text\("0"\)/.test(cf));
 

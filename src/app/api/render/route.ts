@@ -19,6 +19,7 @@ import { formatCutByTemplate, packFormatById } from '@/lib/pack-formats';
 import { deleteImage, loadImage, newImageId, saveImage } from '@/lib/images';
 import { applyCredits, CreditError } from '@/lib/credits';
 import type { Emotion, Tone } from '@/lib/types';
+import { previewFrameLocked } from '@/lib/packs';
 import { consumePlayGeneration } from '@/lib/play-usage';
 
 // Gemini 생성(최대 ~55초) + 변환 여유를 위해 함수 실행 시간을 늘린다
@@ -121,9 +122,18 @@ export async function POST(req: Request) {
         if (!pack) throw Object.assign(new Error('컷을 찾을 수 없습니다'), { code: 'FRAME_NOT_FOUND' });
         const frame = pack.frames.find((f) => f.id === target.frameId)!;
         if (frame.hiddenAt) throw Object.assign(new Error('컷을 찾을 수 없습니다'), { code: 'FRAME_NOT_FOUND' });
+        // 무료 미리보기 팩: 무료로 그리는 앞 4컷을 넘어선 컷은 잠금 해제 전에 만들지 않는다 (원가 방어).
+        //  · 화면은 잠금 컷을 요청하지 않지만, 직접 호출로 12컷을 모두 그려 받는 우회를 서버에서 막는다.
+        if (previewFrameLocked(pack, frame)) {
+          throw Object.assign(new Error(TRIAL_MESSAGES.previewCutsLocked), { code: 'PREVIEW_CUT_LOCKED' });
+        }
         const sheet = db.sheets.find((s) => s.id === pack.sheetId && s.userId === user.id);
         const chosenImageId = pack.characterReferenceImageId ?? sheet?.variants.find((variant) => variant.key === sheet.chosenKey)?.imageId;
-        if (frame.imageId && !target.force && !target.finalize) return { existing: frame.imageId as string };
+        /** 미리보기 팩을 결제로 잠금 해제한 뒤의 마무리 렌더 — 체험 한도·스타일 제한·과금 대상이 아니다. */
+        const paidUnlock = !!pack.preview && !!pack.unlockedAt;
+        /** 잠금 해제 후 아직 고화질로 다시 그리지 않은 미리보기 컷 */
+        const needsFinalize = !!target.finalize && paidUnlock && !frame.hiResAt && !!frame.imageId;
+        if (frame.imageId && !target.force && !needsFinalize) return { existing: frame.imageId as string };
         // 표정·포즈 프리셋을 고른 컷이면 표정·포즈·이펙트를 그대로 프롬프트에 넣는다.
         const framePreset = presetById(frame.presetId);
         return {
@@ -144,6 +154,9 @@ export async function POST(req: Request) {
           previousImageId: frame.imageId as string | undefined,
           /** 무료 미리보기 팩: Flash 모델로 그리고 내보내기는 잠긴다 */
           previewPack: !!pack.preview && !pack.unlockedAt,
+          /** 잠금 해제한 미리보기 팩 — 나머지 컷·고화질 마무리를 체험 한도 없이 그린다 */
+          paidUnlock,
+          finalizeTarget: needsFinalize,
           quality: (pack.preview && pack.unlockedAt ? 'final' : pack.preview ? 'preview' : 'final') as 'preview' | 'final',
           isPreviewPack: !!pack.preview,
           format: pack.format,
@@ -227,13 +240,15 @@ export async function POST(req: Request) {
       return ok({ imageId: plan.existing, imageUrl: `/api/images/${plan.existing}` });
     }
 
-    // 무료 체험은 미리보기 팩의 컷만 만들 수 있다 (12컷 상한은 free-trial 카운터가 막는다).
-    if (access === 'trial' && plan.kind === 'frame' && !('previewPack' in plan && plan.previewPack)) {
+    // 무료 체험은 미리보기 팩의 무료 4컷만 만들 수 있다 (컷 상한은 free-trial 카운터가 막는다).
+    //  · 결제로 잠금 해제한 미리보기 팩은 유료 완성 단계이므로 체험 한도와 무관하게 마무리한다.
+    const paidUnlock = plan.kind === 'frame' && 'paidUnlock' in plan && plan.paidUnlock === true;
+    if (access === 'trial' && !paidUnlock && plan.kind === 'frame' && !('previewPack' in plan && plan.previewPack)) {
       return fail('TRIAL_ONLY', TRIAL_MESSAGES.packBlocked, 403);
     }
 
-    // 무료 체험 제한 — 스타일(실사 스티커 제외)과 시안 1장.
-    if (access === 'trial') {
+    // 무료 체험 제한 — 스타일(실사 스티커 제외)과 시안 1장. 결제한 완성 단계에는 적용하지 않는다.
+    if (access === 'trial' && !paidUnlock) {
       if (!trialToneAllowed(plan.tone)) return fail('TRIAL_TONE_LIMITED', TRIAL_MESSAGES.toneBlocked, 403);
       if (plan.kind === 'sheet' && !(TRIAL_VARIANT_KEYS as readonly string[]).includes(plan.variantKey)) {
         return fail('TRIAL_ONLY', '무료 체험에서는 시안 1장만 만들 수 있어요.', 403);
@@ -293,7 +308,8 @@ export async function POST(req: Request) {
 
     try {
       // 무료 체험은 실제 생성 직전에 상한을 1회 소비한다 (실패한 호출도 원가 방어를 위해 시도로 센다).
-      const trial = access === 'trial'
+      //  · 결제로 잠금 해제한 팩의 마무리(나머지 8컷·고화질 재생성)는 유료 단계라 체험 한도에서 제외한다.
+      const trial = access === 'trial' && !paidUnlock
         ? await consumeTrialImage({ userId: user.id, ipHash: trialIpHash(req) }, plan.kind === 'preview' || (plan.kind === 'frame' && ('previewPack' in plan) && plan.previewPack) ? 'cut' : 'image')
         : null;
       // 실제 AI 생성이 필요하고 참조·요금 검증이 끝난 뒤에만 공정 이용 1회를 소비한다.
@@ -342,9 +358,12 @@ export async function POST(req: Request) {
           else {
             frame.imageId = imageId;
             frame.accessoryIds = plan.accessoryIds;
-            // 잠금 해제 뒤 고화질로 다시 그린 시각을 남긴다 (심사 시트·고객지원 추적용).
+            // 잠금 해제 뒤 고화질(최종 품질)로 그린 시각을 컷에 남긴다.
+            //  · 화면은 이 값을 보고 아직 Flash 미리보기인 컷만 finalize 한다 (같은 컷 반복 생성 방지).
             if (pack && ('isPreviewPack' in plan) && plan.isPreviewPack && ('quality' in plan) && plan.quality === 'final') {
-              pack.hiResAt = new Date().toISOString();
+              const now = new Date().toISOString();
+              frame.hiResAt = now;
+              pack.hiResAt = now;
             }
           }
         } else if (plan.kind === 'sheet') {
@@ -399,6 +418,8 @@ export async function POST(req: Request) {
       return fail(code, (e as Error).message, 404);
     }
     if (code === 'REFERENCE_REQUIRED') return fail(code, (e as Error).message, 409);
+    // 무료 미리보기 팩의 잠금 컷(5~12번째) 요청 — 결제 전에는 그리지 않는다.
+    if (code === 'PREVIEW_CUT_LOCKED') return fail(code, (e as Error).message, 403);
     return handleError(e);
   }
 }

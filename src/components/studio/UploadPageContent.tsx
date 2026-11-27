@@ -17,9 +17,9 @@ export async function UploadPageContent({ step }: { step: 'photo' | 'settings' }
     <div className="wrap py-6 sm:py-10">
       {access === 'trial' ? (
         <div role="status" className="mx-auto mb-6 max-w-3xl rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary-dark">
-          <p>{tr(locale, TRIAL_MESSAGES.banner, 'Free trial: one draft and up to two stickers. Full packs open at launch.')}</p>
+          <p>{tr(locale, TRIAL_MESSAGES.banner, 'Free preview: one draft, then 4 of the 12 cuts with a watermark. Unlock to finish all 12.')}</p>
           <p className="mt-1 text-[11px] font-bold text-sub">
-            {tr(locale, '12컷 미리보기는 워터마크·저해상도이며, 결제 전에는 내보내기가 잠깁니다. 마음에 들면 ₩5,900에 잠금 해제하세요.', 'The 12-cut preview is watermarked and low-resolution; exports stay locked until you unlock the pack from ₩5,900.')}
+            {tr(locale, '무료 4컷 미리보기는 워터마크·저해상도이며, 결제 전에는 내보내기가 잠깁니다. 마음에 들면 ₩5,900에 잠금 해제하면 나머지 8컷까지 그려 12컷을 완성해요.', 'The free 4-cut preview is watermarked and low-resolution; exports stay locked until you unlock. Unlocking from ₩5,900 draws the remaining 8 cuts for all 12.')}
           </p>
         </div>
       ) : access === 'blocked' ? (
