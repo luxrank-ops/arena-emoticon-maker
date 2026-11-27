@@ -481,15 +481,20 @@ export function UploadFlow({
     <>
       {stepHeader}
       <div key="format" className={clsx('mx-auto max-w-3xl space-y-4', motionClass)}>
-        {/* AI 생성 없이 바로 누끼 — 사진을 올린 뒤 기다릴 필요 없이 즉시 투명 PNG 로 나간다. */}
+        {/* AI 생성 없이 바로 누끼 — 사진을 올린 뒤 기다릴 필요 없이 즉시 PNG 로 나간다.
+            반려동물 모드에서는 누끼 대신 원본 배경을 살린 둥근 프레임이 기본이다. */}
         <Link
-          href={lp('/studio/photo')}
+          href={lp(subjectKind === 'pet' ? '/studio/photo?subject=pet' : '/studio/photo')}
           className="flex items-center gap-3 rounded-2xl border-2 border-primary/30 bg-primary/5 p-3 text-left transition hover:border-primary hover:bg-primary/10"
         >
           <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-xl shadow-soft">📸</span>
           <span className="min-w-0">
             <span className="block text-sm font-black text-primary-dark">{t('내 사진 바로 누끼 스티커 (AI 생성 없이 즉시 완성)', 'Cut my photo into a sticker (no AI redraw)')}</span>
-            <span className="mt-0.5 block text-[11px] font-semibold leading-relaxed text-sub">{t('사진 그대로 배경만 떼고 캘리그라피 한 줄 · 무료 · 크레딧 0', 'Your own photo, background removed, plus one line of lettering · free')}</span>
+            <span className="mt-0.5 block text-[11px] font-semibold leading-relaxed text-sub">
+              {subjectKind === 'pet'
+                ? t('사진 배경 그대로 둥근 프레임 + 캘리그라피 한 줄 · 무료 · 크레딧 0', 'Your photo in a rounded frame, plus one line of lettering · free')
+                : t('사진 그대로 배경만 떼고 캘리그라피 한 줄 · 무료 · 크레딧 0', 'Your own photo, background removed, plus one line of lettering · free')}
+            </span>
           </span>
           <span aria-hidden="true" className="ml-auto shrink-0 text-sm font-black text-primary-dark">→</span>
         </Link>

@@ -2,8 +2,10 @@ import type { Emotion } from '@/lib/types';
 import type { TextLayerStyle } from '@/lib/studio/layers';
 
 /**
- * 실사 사진 기반 샘플 — 앱이 지향하는 결과물(사진 누끼 + 흰 외곽선 + 캘리그라피 한 줄)을 그대로 보여 준다.
- *  · 공통 스타일: 512×512 투명 WebP, 흰 외곽선.
+ * 실사 사진 기반 샘플 — 앱이 지향하는 결과물을 그대로 보여 준다.
+ *  · 사람·커플·팀: 사진 누끼 + 흰 외곽선 + 캘리그라피 한 줄 (512×512 투명 WebP).
+ *  · 반려동물: 털 끝이 뭉개지지 않도록 **누끼를 따지 않고** 원본 배경을 살린 채
+ *    둥근 사진 프레임(흰 얇은 보더 + 부드러운 그림자)으로 마감한다(2026-11-27 사용자 피드백).
  *  · `source` 는 누끼 전 원본 사진 — '원본 → 스티커' 흐름을 보여 줄 때 쓴다.
  *  · 대사(line)는 그림에 굽지 않고 앱의 캘리그라피 레이어로 얹는다(Sticker + textLayers).
  *
@@ -18,6 +20,8 @@ export interface PhotoSampleCut {
   emotion: Emotion;
   /** 대사 글자체 — 없으면 기본(동글 손글씨) */
   style?: TextLayerStyle;
+  /** 대사 잉크색 — 없으면 감정 기본색. 반려동물 샘플은 사진 위에서 또렷하게 보이도록 짙은 잉크를 쓴다 */
+  ink?: string;
 }
 
 export interface PhotoSampleGroup {
@@ -33,23 +37,26 @@ export const PHOTO_SAMPLES: Record<'pet' | 'couple' | 'team', PhotoSampleGroup> 
       {
         src: '/samples/photo/pet-dog-sit.webp',
         line: { ko: '오늘 늦게 와?', en: 'Home late?' },
-        alt: { ko: '오늘 늦게 와? 시츄 실사 스티커 예시', en: 'Home late pet sticker sample' },
+        alt: { ko: '오늘 늦게 와? 시츄 실사 사진 스티커 예시', en: 'Home late pet photo sticker sample' },
         emotion: 'sulk',
         style: 'round',
+        ink: '#241C14',
       },
       {
         src: '/samples/photo/pet-dog-beg.webp',
-        line: { ko: '나 좀 봐줘', en: 'Look at me' },
-        alt: { ko: '나 좀 봐줘 시츄 실사 스티커 예시', en: 'Look at me pet sticker sample' },
-        emotion: 'love',
-        style: 'brush',
+        line: { ko: '지금 뭐 먹어?', en: 'What are you eating?' },
+        alt: { ko: '지금 뭐 먹어? 시츄 실사 사진 스티커 예시', en: 'What are you eating pet photo sticker sample' },
+        emotion: 'surprised',
+        style: 'meme',
+        ink: '#241C14',
       },
       {
         src: '/samples/photo/pet-dog-look.webp',
-        line: { ko: '지금 뭐 먹어?', en: 'What are you eating?' },
-        alt: { ko: '지금 뭐 먹어? 시츄 실사 스티커 예시', en: 'What are you eating pet sticker sample' },
-        emotion: 'surprised',
-        style: 'meme',
+        line: { ko: '나 좀 봐줘', en: 'Look at me' },
+        alt: { ko: '나 좀 봐줘 시츄 실사 사진 스티커 예시', en: 'Look at me pet photo sticker sample' },
+        emotion: 'love',
+        style: 'brush',
+        ink: '#241C14',
       },
     ],
   },
@@ -114,7 +121,7 @@ export const HERO_PHOTO_CUTS = [
  *  · 실사 짤 타일만 사진 누끼 컷을 쓰고, 나머지는 그 화풍의 대표 컷(tone-*.webp)을 쓴다.
  */
 export const STYLE_TILES = [
-  { src: '/samples/photo/pet-dog-sit.webp', tone: 'photo-sticker' as const, label: { ko: '실사 짤', en: 'Photo cut' }, badge: { ko: '무료 · 사진 누끼', en: 'Free · no AI' } },
+  { src: '/samples/photo/pet-dog-sit.webp', tone: 'photo-sticker' as const, label: { ko: '실사 짤', en: 'Photo cut' }, badge: { ko: '무료 · 사진 그대로', en: 'Free · no AI' } },
   { src: '/samples/tone-caricature.webp', tone: 'caricature' as const, label: { ko: '실사 포토', en: 'Photo look' } },
   { src: '/samples/tone-2d-cute.webp', tone: '2d-cute' as const, label: { ko: '2D 캐릭터', en: '2D character' } },
   { src: '/samples/tone-doodle.webp', tone: 'doodle' as const, label: { ko: '힐링 낙서', en: 'Doodle' } },

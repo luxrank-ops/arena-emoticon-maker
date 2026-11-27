@@ -6,7 +6,7 @@ import { Sticker } from '@/components/Sticker';
 import { DEFAULT_PALETTE, DEFAULT_SIGNATURE } from '@/lib/art/sticker';
 import type { Emotion, StickerSpec } from '@/lib/types';
 
-/** 히어로 6컷 — 전부 실사 사진 누끼 컷(반려동물·커플·팀·셀카). */
+/** 히어로 6컷 — 전부 실사 사진 스티커(반려동물은 원본 배경 프레임, 커플·팀·셀카는 누끼). */
 const heroCuts: { src: string; emotion: Emotion }[] = [
   { src: HERO_PHOTO_CUTS[0].src, emotion: 'love' },
   { src: HERO_PHOTO_CUTS[1].src, emotion: 'laugh' },

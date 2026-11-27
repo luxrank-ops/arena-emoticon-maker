@@ -7,6 +7,7 @@
 import assert from 'node:assert/strict';
 import {
   CUTOUT_CAPTION_MAX,
+  CUTOUT_PHOTO_FRAME,
   CUTOUT_DEFAULT_OUTLINE,
   CUTOUT_MAX_OUTLINE,
   CUTOUT_MAX_PHOTOS,
@@ -25,6 +26,7 @@ import {
   cutoutSpec,
   hasCaption,
 } from '../src/lib/studio/photo-cutout';
+import type { CutoutBackdrop } from '../src/lib/studio/photo-cutout';
 import { MAX_LAYERS } from '../src/lib/studio/layers';
 import { EMOTIONS } from '../src/lib/art/sticker';
 
@@ -43,6 +45,13 @@ const PHOTO = 'data:image/jpeg;base64,AAAA';
   check('한 번에 12장까지', CUTOUT_MAX_PHOTOS === 12);
   check('외곽선 기본값은 범위 안', CUTOUT_DEFAULT_OUTLINE > 0 && CUTOUT_DEFAULT_OUTLINE <= CUTOUT_MAX_OUTLINE);
   check('문구 상한은 레이어와 같은 24자', CUTOUT_CAPTION_MAX === 24);
+  // 반려동물은 누끼 대신 원본 배경 + 둥근 사진 프레임으로 마감한다(2026-11-27 피드백).
+  const frameRatios: number[] = [CUTOUT_PHOTO_FRAME.border, CUTOUT_PHOTO_FRAME.radius, CUTOUT_PHOTO_FRAME.margin];
+  check('사진 프레임 비율은 0보다 크고 캔버스 절반 미만', frameRatios.every((value) => value > 0 && value < 0.5));
+  check('사진 프레임 흰 보더는 얇게(2~6% 이내)', CUTOUT_PHOTO_FRAME.border <= 0.05);
+  check('사진 프레임 둥글기는 모서리가 보이게(10% 이상)', CUTOUT_PHOTO_FRAME.radius >= 0.1);
+  const backdrops: CutoutBackdrop[] = ['cutout', 'frame'];
+  check('마감 방식은 누끼·배경 유지 2가지', backdrops.length === 2);
 }
 
 // ── 2. 사진만 있는 명세 (문구 없이) ────────────────────────

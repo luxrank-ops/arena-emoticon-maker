@@ -41,6 +41,7 @@ import {
 } from '@/lib/studio/motion';
 import { extractVideoFrames, isVideoFile } from '@/lib/studio/video-frames';
 import {
+  CUTOUT_PHOTO_FRAME,
   CUTOUT_CAPTION_MAX,
   CUTOUT_DEFAULT_OUTLINE,
   CUTOUT_MAX_OUTLINE,
@@ -56,6 +57,7 @@ import {
   cutoutSeed,
   cutoutSpec,
   hasCaption,
+  type CutoutBackdrop,
   type CutoutCrop,
   type CutoutStyle,
   type CutoutSuggestionLine,
@@ -65,6 +67,8 @@ import {
 // 내 사진 바로 누끼 스티커 (무료 · 서버 왕복 없음)
 //  · 사진 1~12장 또는 1~3초 숏폼 동영상을 올리면 기기 안에서 배경을 떼고
 //    흰 스티커 외곽선과 캘리그라피 한 줄을 얹어 360×360 투명 APNG/GIF/PNG 로 저장한다.
+//  · 반려동물은 털 끝이 뭉개지지 않도록 '배경 유지'(원본 배경 + 흰 보더 둥근 프레임)로 마감할 수 있고,
+//    /pets 에서 들어오면(?subject=pet) 그 모드가 기본으로 켜진다.
 //  · Gemini 를 호출하지 않으므로 원가 0원·대기 없음. 사진과 영상은 서버로 보내지 않는다.
 // ─────────────────────────────────────────────────────────────
 
@@ -138,8 +142,8 @@ function matteLabel(info: MatteInfo | undefined, locale: Locale): string | null 
   return tr(locale, '빠른 누끼 — 단색 배경이라 바로 뗐어요', 'Quick cutout — flat background removed');
 }
 
-function styleKeyOf(cut: Cutout, outline: number): string {
-  return JSON.stringify([cut.rev, cut.crop, cut.style, outline]);
+function styleKeyOf(cut: Cutout, outline: number, backdrop: CutoutBackdrop = 'cutout'): string {
+  return JSON.stringify([cut.rev, cut.crop, cut.style, outline, backdrop]);
 }
 
 /** 시즌 소품 묶음 — 서버가 오픈 여부를 판정해 넘긴다(props 는 소품 id 목록) */
@@ -160,11 +164,14 @@ export function PhotoCutoutStudio({
   locale = 'ko',
   seasonGroups = [],
   seasonFocus = null,
+  initialBackdrop = 'cutout',
 }: {
   locale?: Locale;
   seasonGroups?: SeasonPropGroup[];
   /** ?season=christmas 로 들어왔을 때 그 팩을 먼저 보여 준다 */
   seasonFocus?: string | null;
+  /** 시작 마감 방식 — /pets 처럼 반려동물 흐름에서 오면 'frame'(배경 유지) */
+  initialBackdrop?: CutoutBackdrop;
 }) {
   const t = (ko: string, en: string) => tr(locale, ko, en);
   const lp = (href: string) => localizedPath(locale, href);
@@ -172,6 +179,7 @@ export function PhotoCutoutStudio({
   const [cuts, setCuts] = useState<Cutout[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [outline, setOutline] = useState(CUTOUT_DEFAULT_OUTLINE);
+  const [backdrop, setBackdrop] = useState<CutoutBackdrop>(initialBackdrop);
   const [themeId, setThemeId] = useState<string>(CUTOUT_SUGGESTIONS[0]?.id ?? '');
   const [uploading, setUploading] = useState(false);
   const [rendering, setRendering] = useState<string[]>([]);
@@ -248,7 +256,7 @@ export function PhotoCutoutStudio({
   // 컷 하나를 그린다 — 누끼 + 외곽선 + 시즌 소품 + 레이어 합성
   const renderCut = useCallback(
     async (cut: Cutout) => {
-      const key = `${styleKeyOf(cut, outline)}|${seasonPropKey}`;
+      const key = `${styleKeyOf(cut, outline, backdrop)}|${seasonPropKey}`;
       if (renderedRef.current.get(cut.id) === key) return;
       setRendering((prev) => (prev.includes(cut.id) ? prev : [...prev, cut.id]));
       try {
@@ -256,16 +264,17 @@ export function PhotoCutoutStudio({
         const spec = cutoutSpec({ photo: cut.photo, style: cut.style, seed: cutoutSeed(cut.id) });
         const canvas = await renderFrameCanvas(spec, {
           size: CUTOUT_SIZE,
-          outline,
+          outline: backdrop === 'frame' ? 0 : outline,
           preciseMatte: true,
           matteEngine: 'auto',
           seasonProp: seasonPlacement,
+          ...(backdrop === 'frame' ? { photoFrame: CUTOUT_PHOTO_FRAME } : {}),
           onMatte: (next) => {
             info = next;
           },
         });
         const latest = cutsRef.current.find((item) => item.id === cut.id);
-        if (latest && `${styleKeyOf(latest, outline)}|${seasonPropKey}` !== key) return;
+        if (latest && `${styleKeyOf(latest, outline, backdrop)}|${seasonPropKey}` !== key) return;
         renderedRef.current.set(cut.id, key);
         baseCanvasesRef.current.set(cut.id, canvas);
         const preview = canvas.toDataURL('image/png');
@@ -274,10 +283,11 @@ export function PhotoCutoutStudio({
         if (cut.videoFrames && cut.videoFrames.length > 1) {
           const vCanvases = await renderMultiFrameCanvases(cut.videoFrames, spec, {
             size: CUTOUT_SIZE,
-            outline,
+            outline: backdrop === 'frame' ? 0 : outline,
             preciseMatte: true,
             matteEngine: 'auto',
             seasonProp: seasonPlacement,
+            ...(backdrop === 'frame' ? { photoFrame: CUTOUT_PHOTO_FRAME } : {}),
           });
           videoCanvasesRef.current.set(cut.id, vCanvases);
         }
@@ -289,7 +299,7 @@ export function PhotoCutoutStudio({
         setRendering((prev) => prev.filter((id) => id !== cut.id));
       }
     },
-    [outline, locale, t, seasonPlacement, seasonPropKey],
+    [outline, backdrop, locale, t, seasonPlacement, seasonPropKey],
   );
 
   // 소품을 바꾸면 모든 컷을 다시 그린다 — 미리보기가 곧 저장 결과와 같아야 한다.
@@ -305,7 +315,7 @@ export function PhotoCutoutStudio({
   );
 
   // 문구·구도·모션 변경 디바운스
-  const selectedKey = selected ? styleKeyOf(selected, outline) : '';
+  const selectedKey = selected ? styleKeyOf(selected, outline, backdrop) : '';
   useEffect(() => {
     if (!selected) return;
     const timer = window.setTimeout(() => enqueue(selected), 240);
@@ -313,7 +323,7 @@ export function PhotoCutoutStudio({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedKey]);
 
-  // 외곽선 변경 시 전체 재렌더링
+  // 외곽선·마감 방식 변경 시 전체 재렌더링
   useEffect(() => {
     if (cuts.length === 0) return;
     const timer = window.setTimeout(() => {
@@ -321,7 +331,7 @@ export function PhotoCutoutStudio({
     }, 300);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [outline]);
+  }, [outline, backdrop]);
 
   // 시즌 소품 변경 시 전체 재렌더링 (외곽선과 같은 방식 — 미리보기 = 저장 결과)
   useEffect(() => {
@@ -542,7 +552,14 @@ export function PhotoCutoutStudio({
       const index = cutsRef.current.findIndex((cut) => cut.id === selected.id);
       const safeIndex = index < 0 ? 0 : index;
       const spec = cutoutSpec({ photo: selected.photo, style: selected.style, seed: cutoutSeed(selected.id) });
-      const baseOpts = { size: CUTOUT_SIZE, outline, preciseMatte: true, matteEngine: 'auto' as const, seasonProp: seasonPlacement };
+      const baseOpts = {
+        size: CUTOUT_SIZE,
+        outline: backdrop === 'frame' ? 0 : outline,
+        preciseMatte: true,
+        matteEngine: 'auto' as const,
+        seasonProp: seasonPlacement,
+        ...(backdrop === 'frame' ? { photoFrame: CUTOUT_PHOTO_FRAME } : {}),
+      };
       const isVideo = (selected.videoFrames?.length ?? 0) > 1;
       const motion = selected.style.motion ?? 'none';
 
@@ -580,7 +597,9 @@ export function PhotoCutoutStudio({
           ? t(`🎬 움직이는 GIF 내려받기 완료 (${kb}KB)! 카카오톡 채팅방에 사진으로 보내면 바로 움직여요.`, `Downloaded moving GIF (${kb}KB)!`)
           : format === 'apng'
             ? t(`✨ 카톡 규격 APNG 내려받기 완료 (${kb}KB)! 카카오 이모티콘 스튜디오 제출용 무손실 투명 규격이에요.`, `Downloaded Kakao APNG (${kb}KB)!`)
-            : t(`🖼️ 투명 PNG 내려받기 완료 (${kb}KB)! 360×360 선명한 정지 스티커예요.`, `Downloaded transparent PNG (${kb}KB)!`),
+            : backdrop === 'frame'
+              ? t(`🖼️ 사진 프레임 PNG 내려받기 완료 (${kb}KB)! 원본 배경을 살린 둥근 프레임 360×360 스티커예요.`, `Downloaded framed PNG (${kb}KB)!`)
+              : t(`🖼️ 투명 PNG 내려받기 완료 (${kb}KB)! 360×360 선명한 정지 스티커예요.`, `Downloaded transparent PNG (${kb}KB)!`),
       );
     } catch {
       setError(t('스티커를 만들지 못했어요. 잠시 후 다시 시도해 주세요.', 'Could not build sticker. Please try again.'));
@@ -606,10 +625,11 @@ export function PhotoCutoutStudio({
 
       const isPackAnimated = packFormat !== 'png';
       const result = await exportKakaoPackZip(items, {
-        outline,
+        outline: backdrop === 'frame' ? 0 : outline,
         preciseMatte: true,
         matteEngine: 'auto',
         seasonProp: seasonPlacement,
+        ...(backdrop === 'frame' ? { photoFrame: CUTOUT_PHOTO_FRAME } : {}),
         motion: isPackAnimated ? 'bounce' : 'none',
         animationFormat: packFormat === 'gif' ? 'gif' : 'apng',
       });
@@ -656,11 +676,19 @@ export function PhotoCutoutStudio({
 
       <header>
         <p className="eyebrow">{t('PHOTO & VIDEO CUTOUT · FREE', 'PHOTO & VIDEO CUTOUT · FREE')}</p>
-        <h1 className="h2 mt-1 break-keep">📸 {t('내 사진·동영상 바로 누끼 스티커', 'Cut my photo & video into a sticker')}</h1>
+        <h1 className="h2 mt-1 break-keep">
+          📸 {backdrop === 'frame'
+            ? t('내 사진 그대로 사진 프레임 스티커', 'My photo in a rounded sticker frame')
+            : t('내 사진·동영상 바로 누끼 스티커', 'Cut my photo & video into a sticker')}
+        </h1>
         <p className="mt-2 max-w-2xl text-sm leading-relaxed text-sub">
           {t(
-            'AI가 새로 그리지 않아요. 올린 사진이나 1~3초 숏폼 영상 그대로 배경만 떼고, 캘리그라피 한 줄과 모션을 얹어 카톡 규격(360×360 투명 APNG/GIF)으로 바로 저장해요.',
-            'No AI redraw: remove background from your photo or short video, add lettering & motion, and export as KakaoTalk-ready 360×360 transparent APNG/GIF.',
+            backdrop === 'frame'
+              ? 'AI가 새로 그리지 않아요. 올린 사진 그대로, 원본 배경을 살린 둥근 사진 프레임에 캘리그라피 한 줄과 모션을 얹어 카톡 규격(360×360 APNG/GIF/PNG)으로 바로 저장해요.'
+              : 'AI가 새로 그리지 않아요. 올린 사진이나 1~3초 숏폼 영상 그대로 배경만 떼고, 캘리그라피 한 줄과 모션을 얹어 카톡 규격(360×360 투명 APNG/GIF)으로 바로 저장해요.',
+            backdrop === 'frame'
+              ? 'No AI redraw: keep your photo’s real background in a soft rounded frame, add lettering & motion, and export as KakaoTalk-ready 360×360 APNG/GIF/PNG.'
+              : 'No AI redraw: remove background from your photo or short video, add lettering & motion, and export as KakaoTalk-ready 360×360 transparent APNG/GIF.',
           )}
         </p>
         <div className="mt-3 flex flex-wrap gap-1.5 text-[11px] font-black">
@@ -716,7 +744,7 @@ export function PhotoCutoutStudio({
               {selected && rendering.includes(selected.id) ? (
                 <div className="absolute inset-0 grid place-items-center bg-paper/70 backdrop-blur-[1px]">
                   <span role="status" className="rounded-full border border-line bg-white px-3 py-1.5 text-[11px] font-black text-ink shadow-soft">
-                    ✂️ {t('누끼 따는 중…', 'Cutting out…')}
+                    {backdrop === 'frame' ? t('📷 사진 프레임 만드는 중…', 'Framing photo…') : t('✂️ 누끼 따는 중…', 'Cutting out…')}
                   </span>
                 </div>
               ) : null}
@@ -763,7 +791,9 @@ export function PhotoCutoutStudio({
                   >
                     {busyFormat === 'png'
                       ? t('PNG 만드는 중…', 'Making PNG…')
-                      : t(`투명 PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE} 내려받기`, `Download transparent PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE}`)}
+                      : backdrop === 'frame'
+                        ? t(`사진 프레임 PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE} 내려받기`, `Download framed PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE}`)
+                        : t(`투명 PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE} 내려받기`, `Download transparent PNG ${CUTOUT_SIZE}×${CUTOUT_SIZE}`)}
                   </button>
                   <button
                     type="button"
@@ -1485,24 +1515,66 @@ export function PhotoCutoutStudio({
               </div>
             ) : null}
 
-            {/* 흰 스티커 외곽선 */}
+            {/* 마감 방식 — 반려동물은 누끼 대신 원본 배경을 살린 둥근 사진 프레임 */}
             <div className="mt-4 rounded-xl border border-line bg-cream/50 p-3">
-              <div className="flex items-center justify-between gap-2">
-                <p className="text-[11px] font-black text-sub">{t('흰 스티커 외곽선', 'White sticker border')}</p>
-                <span className="text-[11px] font-black text-ink">{outline}px</span>
+              <p className="text-[11px] font-black text-sub">{t('마감 방식', 'Finish')}</p>
+              <div role="group" aria-label={t('마감 방식 선택', 'Choose finish')} className="mt-1.5 grid grid-cols-2 gap-1.5">
+                <button
+                  type="button"
+                  aria-pressed={backdrop === 'cutout'}
+                  onClick={() => setBackdrop('cutout')}
+                  className={clsx(
+                    'rounded-xl border px-2 py-2 text-[11px] font-black transition',
+                    backdrop === 'cutout' ? 'border-primary bg-primary text-white shadow-soft' : 'border-line bg-white text-sub hover:text-ink',
+                  )}
+                >
+                  ✂️ {t('누끼 (투명)', 'Cutout (transparent)')}
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={backdrop === 'frame'}
+                  onClick={() => setBackdrop('frame')}
+                  className={clsx(
+                    'rounded-xl border px-2 py-2 text-[11px] font-black transition',
+                    backdrop === 'frame' ? 'border-mint bg-mint text-white shadow-soft' : 'border-line bg-white text-sub hover:text-ink',
+                  )}
+                >
+                  🖼️ {t('배경 유지 (사진 프레임)', 'Keep background (frame)')}
+                </button>
               </div>
-              <input
-                type="range"
-                min={0}
-                max={CUTOUT_MAX_OUTLINE}
-                step={1}
-                value={outline}
-                onChange={(event) => setOutline(Number(event.target.value))}
-                className="mt-1 w-full accent-primary"
-                aria-label={t('흰 스티커 외곽선 두께', 'White sticker border width')}
-              />
-              <p className="mt-1 text-[10px] leading-relaxed text-sub">{t('모든 컷에 똑같이 적용돼요.', 'Applies to every cut.')}</p>
+              <p className="mt-1.5 text-[10px] leading-relaxed text-sub">
+                {backdrop === 'frame'
+                  ? t(
+                      '사진 원본 배경을 그대로 살리고 흰 보더의 둥근 프레임으로 마감해요. 털이 있는 반려동물은 배경을 지우면 털 끝이 거칠어져서 이 방식이 더 깔끔해요.',
+                      'Keeps the real photo background and finishes it in a rounded frame with a thin white border. For furry pets this is cleaner than removing the background.',
+                    )
+                  : t(
+                      '배경을 지우고 투명 스티커로 만들어요. 사람·사물 사진에 잘 맞아요. 털이 있는 반려동물은 배경 유지가 더 깔끔해요.',
+                      'Removes the background for a transparent sticker — best for people and objects. For furry pets, keeping the background looks cleaner.',
+                    )}
+              </p>
             </div>
+
+            {/* 흰 스티커 외곽선 — 누끼 모드에서만 */}
+            {backdrop === 'cutout' ? (
+              <div className="mt-4 rounded-xl border border-line bg-cream/50 p-3">
+                <div className="flex items-center justify-between gap-2">
+                  <p className="text-[11px] font-black text-sub">{t('흰 스티커 외곽선', 'White sticker border')}</p>
+                  <span className="text-[11px] font-black text-ink">{outline}px</span>
+                </div>
+                <input
+                  type="range"
+                  min={0}
+                  max={CUTOUT_MAX_OUTLINE}
+                  step={1}
+                  value={outline}
+                  onChange={(event) => setOutline(Number(event.target.value))}
+                  className="mt-1 w-full accent-primary"
+                  aria-label={t('흰 스티커 외곽선 두께', 'White sticker border width')}
+                />
+                <p className="mt-1 text-[10px] leading-relaxed text-sub">{t('모든 컷에 똑같이 적용돼요.', 'Applies to every cut.')}</p>
+              </div>
+            ) : null}
           </section>
 
           <section className="card-flat space-y-1.5 p-4 text-[11px] leading-relaxed text-sub">

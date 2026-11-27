@@ -60,6 +60,29 @@ for (const group of ['pet', 'couple', 'team'] as const) {
   assert.equal(new Set(sample.cuts.map((c) => c.src)).size, 3, `${group} 컷은 서로 다른 파일이어야 합니다`);
 }
 
+// 반려동물 컷은 누끼(투명 실루엣)가 아니라 '원본 배경 + 흰 보더 둥근 프레임'이다.
+//  · 모서리(프레임 밖)는 투명, 프레임 안쪽은 불투명하고, 보더 자리는 흰색이어야 한다.
+{
+  const { default: sharp } = await import('sharp');
+  for (const cut of PHOTO_SAMPLES.pet.cuts) {
+    const file = join(publicRoot, cut.src.replace(/^\//, ''));
+    const { data, info } = await sharp(file).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+    const px = (x: number, y: number) => {
+      const i = (Math.round(y) * info.width + Math.round(x)) * info.channels;
+      return [data[i], data[i + 1], data[i + 2], data[i + 3]];
+    };
+    const size = info.width;
+    assert.ok(px(1, 1)[3] < 24, `${cut.src} 모서리는 투명해야 합니다(프레임 밖)`);
+    const center = px(size / 2, size / 2);
+    assert.ok(center[3] > 240, `${cut.src} 프레임 안쪽은 불투명해야 합니다`);
+    const border = px(size * 0.028 + 1, size / 2);
+    assert.ok(
+      border[3] > 240 && border[0] > 240 && border[1] > 240 && border[2] > 240,
+      `${cut.src} 흰 보더가 있어야 합니다`,
+    );
+  }
+}
+
 // 홈 히어로·화풍 타일도 실사 컷이어야 하고, 실사(사진 그대로)가 맨 앞이어야 한다.
 assert.equal(HERO_PHOTO_CUTS.length, 3, '히어로 콜라주는 3장');
 for (const cut of HERO_PHOTO_CUTS) assertPhotoAsset(`히어로 ${cut.label.ko}`, cut.src);
