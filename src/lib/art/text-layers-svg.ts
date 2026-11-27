@@ -2,13 +2,15 @@
 // 글자 레이어 → SVG (AI 컷 이미지 위에 얹는 레터링)
 //  · 캔버스 내보내기(drawLayer)와 **같은 배치 계산**(planCaption)으로 그린다.
 //  · 팩 목록·미리보기처럼 캔버스를 만들지 않는 화면에서도 같은 캘리그라피가 보인다.
+//  · 글자 하나하나를 제 위치·기울기로 찍는다 — 캔버스가 글자마다 translate/rotate 하는 것과
+//    똑같은 결과가 나온다(예전의 런(run) 단위 <text> 는 글자별 자간·기울기가 미리보기에서만
+//    달라 보이는 원인이었다).
 //  · 두툼한 화이트 스티커 테두리 + 세로 그라데이션 채움 + 얕은 그림자.
-//  · 예전의 안쪽 톤 링·이중 테두리는 작은 크기에서 글자를 뭉개서 걷어냈다(정갈한 시인성 우선).
 //  · 좌표계는 1024×1024 (StickerSpec 과 같은 viewBox).
 // ─────────────────────────────────────────────────────────────
 
 import type { Emotion } from '@/lib/types';
-import { CAPTION_FONT_FAMILIES } from '@/lib/studio/caption';
+import { CAPTION_FACES, captionFaceSpec } from '@/lib/studio/caption';
 import { planCaption } from '@/lib/studio/caption-plan';
 import { planDecor, renderDecorSvg } from '@/lib/studio/decor';
 import type { TextLayer } from '@/lib/studio/layers';
@@ -49,10 +51,15 @@ export function renderTextLayersWithDefs(layers: TextLayer[], emotion?: Emotion,
         SIZE,
         emotion,
       );
-      const family = escapeXml(CAPTION_FONT_FAMILIES[plan.face]);
+      const spec = captionFaceSpec(plan.face);
+      const face = CAPTION_FACES[plan.face];
+      const family = escapeXml(spec.family);
       const left = -plan.width / 2;
       const top = -plan.height / 2;
       const sticker = (plan.outline * 1.15).toFixed(1);
+      // 흰 외곽선을 칠할 때 글자 살을 살짝 더해 둔다(캔버스 strokeText 와 같은 두께).
+      const outlineStroke = `${sticker}`;
+      const boldStroke = plan.bold > 0 ? plan.bold.toFixed(1) : '0';
 
       defs.push(
         `<linearGradient id="${id}-ink" x1="0" y1="${top.toFixed(1)}" x2="0" y2="${(top + plan.height).toFixed(1)}" gradientUnits="userSpaceOnUse">` +
@@ -70,40 +77,37 @@ export function renderTextLayersWithDefs(layers: TextLayer[], emotion?: Emotion,
         );
       }
 
-      const rows = plan.lines
-        .map((line) => {
-          const offset = (plan.width - line.width) / 2;
-          const y = (top + line.baseline).toFixed(1);
-          // 강조 단어처럼 글자 크기가 다른 구간은 런(run)으로 나눠 따로 그린다.
-          const runs: { size: number; start: number; glyphs: typeof line.glyphs }[] = [];
-          for (const glyph of line.glyphs) {
-            const gSize = glyph.size ?? line.size;
-            const last = runs[runs.length - 1];
-            if (last && Math.abs(last.size - gSize) < 0.01) {
-              last.glyphs.push(glyph);
-            } else {
-              runs.push({ size: gSize, start: left + offset + glyph.x - glyph.advance / 2, glyphs: [glyph] });
-            }
+      // 글자 하나 = <text> 하나. 캔버스(drawGlyphs)와 같은 중심 좌표·회전을 쓴다.
+      //  · 칠하는 순서도 캔버스와 같다: (1) 살 찌우기 → (2) 흰 스티커 외곽선 → (3) 그라데이션 채움.
+      //    글자별로 1·2·3을 몰아 그리면 이웃 글자의 외곽선이 앞 글자 채움을 파고들어 자국이 남는다.
+      const outlines: string[] = [];
+      const bolds: string[] = [];
+      const fills: string[] = [];
+      for (const line of plan.lines) {
+        const offset = (plan.width - line.width) / 2;
+        for (const glyph of line.glyphs) {
+          if (!glyph.ch.trim()) continue;
+          const size = glyph.size ?? line.size;
+          const cx = left + offset + glyph.x;
+          const cy = top + line.baseline + glyph.dy;
+          const text = escapeXml(glyph.ch);
+          const common =
+            `x="${cx.toFixed(1)}" y="${cy.toFixed(1)}" text-anchor="middle" ` +
+            `font-family="${family}" font-size="${size.toFixed(1)}" font-weight="${spec.weight}" ` +
+            `stroke-linejoin="round"` +
+            (glyph.angle ? ` transform="rotate(${glyph.angle.toFixed(2)} ${cx.toFixed(1)} ${cy.toFixed(1)})"` : '');
+          if (plan.bold > 0) {
+            bolds.push(`<text ${common} fill="${plan.ink}" stroke="${plan.ink}" stroke-width="${boldStroke}" paint-order="stroke fill">${text}</text>`);
           }
-          return runs
-            .map((run) => {
-              const text = escapeXml(run.glyphs.map((glyph) => glyph.ch).join(''));
-              if (!text.trim()) return '';
-              const rotate = run.glyphs.map((glyph) => glyph.angle).join(' ');
-              const common =
-                `x="${run.start.toFixed(1)}" y="${y}" text-anchor="start" font-family="${family}" ` +
-                `font-size="${run.size.toFixed(1)}" font-weight="400" rotate="${rotate}" stroke-linejoin="round"`;
-              return (
-                `<text ${common} fill="${plan.ink}" stroke="#FFFDFA" stroke-width="${sticker}" paint-order="stroke fill">${text}</text>` +
-                (plan.bold > 0.2
-                  ? `<text ${common} fill="${plan.ink}" stroke="${plan.ink}" stroke-width="${plan.bold.toFixed(1)}" paint-order="stroke fill">${text}</text>`
-                  : '') +
-                `<text ${common} fill="url(#${id}-ink)" stroke="none">${text}</text>`
-              );
-            })
-            .join('');
-        })
-        .join('');
+          outlines.push(
+            `<text ${common} fill="${plan.ink}" stroke="#FFFDFA" stroke-width="${outlineStroke}" paint-order="stroke fill">${text}</text>`,
+          );
+          fills.push(`<text ${common} fill="url(#${id}-ink)" stroke="none">${text}</text>`);
+        }
+      }
+      const glyphs = (bolds.length ? `<g data-caption-pass="weight">${bolds.join('')}</g>` : '') +
+        `<g data-caption-pass="outline">${outlines.join('')}</g>` +
+        `<g data-caption-pass="ink">${fills.join('')}</g>`;
 
       const underline = plan.underline
         ? (() => {
@@ -132,14 +136,12 @@ export function renderTextLayersWithDefs(layers: TextLayer[], emotion?: Emotion,
         enabled: layer.decor !== 'off',
         stage: layerIndex === 0,
       });
-      const decorGroup = decor.length
-        ? `<g data-decor-layer="${id}">${renderDecorSvg(decor)}</g>`
-        : '';
+      const decorGroup = decor.length ? `<g data-decor-layer="${id}">${renderDecorSvg(decor)}</g>` : '';
 
       return (
         decorGroup +
-        `<g data-caption-effect="calligraphy" transform="translate(${plan.x.toFixed(1)} ${plan.y.toFixed(1)}) rotate(${plan.rotate.toFixed(2)})" ` +
-        `filter="url(#captionShadow)">${rows}${underline}</g>`
+        `<g data-caption-effect="calligraphy" data-caption-face="${plan.face}" transform="translate(${plan.x.toFixed(1)} ${plan.y.toFixed(1)}) rotate(${plan.rotate.toFixed(2)})" ` +
+        `filter="url(#captionShadow)">${glyphs}${underline}</g>`
       );
     })
     .join('');
@@ -152,8 +154,8 @@ export function renderTextLayersSvg(layers: TextLayer[], emotion?: Emotion, idPr
 }
 
 /** 오버레이용 완성 SVG (이미지 위에 겹치는 레이어) */
-export function renderTextLayersOverlay(layers: TextLayer[], emotion?: Emotion): string {
-  const { defs, body } = renderTextLayersWithDefs(layers, emotion, 'cap');
+export function renderTextLayersOverlay(layers: TextLayer[], emotion?: Emotion, idPrefix = 'cap'): string {
+  const { defs, body } = renderTextLayersWithDefs(layers, emotion, idPrefix);
   if (!body) return '';
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SIZE} ${SIZE}" width="${SIZE}" height="${SIZE}" aria-hidden="true">` +

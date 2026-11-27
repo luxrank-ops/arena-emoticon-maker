@@ -87,8 +87,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {/* GA4 — 마케팅 채널·전환 측정 (측정 ID: G-47XFW9HYF9) */}
         <GoogleAnalytics />
         {/* 이모티콘 대사 레터링 폰트 — 첫 미리보기부터 같은 서체(주아)로 그린다 */}
+        {/* 기본 서체(동글 손글씨)만 미리 받는다 — 나머지 3종은 고를 때 받는다. */}
         <link rel="preload" href="/fonts/EmotiHakRound.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
-        <link rel="preload" href="/fonts/EmotiHakBrush.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
       </head>
       {/* 본문 하단 여백 = 하단 고정 바 높이(3.375rem) + 안전 영역. 바가 콘텐츠를 가리지 않게 한다. */}
       <body className="flex min-h-screen flex-col pb-[calc(4.25rem_+_env(safe-area-inset-bottom))] lg:pb-0">

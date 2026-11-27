@@ -4,13 +4,14 @@ import { presetById } from '@/data/emoticon-presets-150';
 import { handleError, ok } from '@/lib/api';
 import { getCurrentUser } from '@/lib/session';
 import { composeFrame } from '@/lib/packs';
+import { normalizeLayers } from '@/lib/studio/layers';
 
 const layerSchema = z.object({
   id: z.string().min(1).max(40),
   text: z.string().min(1).max(24),
-  style: z.enum(['calli', 'hand', 'gothic', 'bold', 'stamp']),
+  style: z.enum(['round', 'brush', 'meme', 'myeongjo', 'calli', 'hand', 'gothic', 'bold', 'stamp']),
   bubble: z.enum(['none', 'round', 'shout', 'caption', 'tape']),
-  effect: z.enum(['none', 'sweat', 'heart', 'sparkle', 'anger', 'money', 'flame']),
+  effect: z.enum(['none', 'sweat', 'heart', 'sparkle', 'anger', 'money', 'flame', 'star', 'crown', 'flower', 'party', 'zzz', 'question']),
   x: z.number().min(0).max(1),
   y: z.number().min(0).max(1),
   size: z.number().min(0.05).max(0.34),
@@ -37,7 +38,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params;
   try {
     const user = await getCurrentUser();
-    const patch = schema.parse(await req.json());
+    const parsed = schema.parse(await req.json());
+    // 예전 서체 id(calli·hand·gothic·bold·stamp)도 지금 4종 서체로 옮겨 저장한다.
+    const patch = {
+      ...parsed,
+      textLayers: parsed.textLayers === undefined ? undefined : normalizeLayers(parsed.textLayers),
+    };
     const frame = await composeFrame(user.id, id, patch);
     return ok({ frame });
   } catch (e) {

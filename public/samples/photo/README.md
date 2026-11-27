@@ -5,8 +5,8 @@
 
 | 파일 | 내용 |
 |---|---|
-| `src-dog.webp`, `src-cat.webp`, `src-couple.webp`, `src-team.webp` | 누끼 전 원본 사진('원본 → 스티커' 예시용) |
-| `pet-dog-sit.webp`, `pet-dog-beg.webp`, `pet-cat-sit.webp` | 반려동물 실사 컷 3종 |
+| `src-dog.webp`, `src-couple.webp`, `src-team.webp` | 누끼 전 원본 사진('원본 → 스티커' 예시용) |
+| `pet-dog-sit.webp`, `pet-dog-beg.webp`, `pet-dog-look.webp` | 반려동물 실사 컷 3종 (앱 소유자의 시츄 사진) |
 | `couple-hug.webp`, `couple-sulk.webp`, `couple-heart.webp` | 커플 실사 컷 3종 |
 | `team-laugh.webp`, `team-tired.webp`, `team-cheer.webp` | 팀·직장 실사 컷 3종 |
 
@@ -25,6 +25,8 @@ python3 emotihak-assets/cutout_u2net.py emotihak-assets/photo-samples/team-base.
 
 ## 표기 원칙
 
-- 이 사진들은 **앱 화면용으로 생성한 예시 사진**이며 실제 고객·모델의 사진이 아닙니다.
-  화면에서도 항상 '예시 이미지입니다'로 표기합니다.
+- 커플·팀 사진은 **앱 화면용으로 생성한 예시 사진**이며 실제 고객·모델의 사진이 아닙니다.
+  반려동물 컷 3종(`pet-dog-*.webp`, `src-dog.webp`)은 앱 소유자가 직접 제공한 반려견 사진을
+  같은 방식으로 누끼 떠서 만든 것입니다(사용 허락 받은 사진).
+  화면에서는 어느 쪽이든 항상 '예시 이미지입니다'로 표기합니다.
 - 실제 사용자가 올린 사진은 서버에 저장하지 않습니다(앱 정책 동일).

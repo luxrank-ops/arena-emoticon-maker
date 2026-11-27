@@ -254,8 +254,8 @@ function bubbleFor(_emotion: Emotion): BubbleStyle {
 }
 
 function styleFor(_emotion: Emotion): TextLayerStyle {
-  // 기본값 자체를 캘리그라피로 둔다(감정별 포인트 컬러는 레이어 렌더러가 입힌다).
-  return 'calli';
+  // 기본값 자체를 동글 손글씨로 둔다(감정별 포인트 컬러는 레이어 렌더러가 입힌다).
+  return 'round';
 }
 
 /** 150종 프리셋 (파생 필드 포함) */

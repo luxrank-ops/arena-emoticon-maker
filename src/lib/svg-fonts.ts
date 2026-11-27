@@ -1,22 +1,25 @@
 // ─────────────────────────────────────────────────────────────
-// 번들 캘리그라피 폰트 로더 (브라우저)
+// 번들 레터링 폰트 로더 (브라우저)
 //  · 페이지 CSS(@font-face)로 폰트를 받아 캔버스에서 쓰고,
 //  · 같은 파일을 base64 로 감아 SVG 안에 심어 <img> 래스터화에서도 동일하게 그려지게 한다.
+//  · 서체별 굵기는 caption.ts 의 CAPTION_FACES.weight 한 곳에서 온다 —
+//    화면(SVG font-weight)과 캔버스(ctx.font)가 같은 값을 써야 미리보기와 저장이 같다.
 // ─────────────────────────────────────────────────────────────
 
 import {
+  CAPTION_FACES,
+  CAPTION_FACE_KEYS,
   CAPTION_FONT_FILES,
-  CAPTION_FONT_FAMILIES,
   type CaptionFace,
 } from '@/lib/studio/caption';
 
 /** 임베드 대상 = 실제 폰트 파일이 있는 face */
 function embaddableFaces(): CaptionFace[] {
-  return (Object.keys(CAPTION_FONT_FILES) as CaptionFace[]).filter((face) => CAPTION_FONT_FILES[face]);
+  return CAPTION_FACE_KEYS.filter((face) => CAPTION_FONT_FILES[face]);
 }
 
 function familyName(face: CaptionFace): string {
-  const first = CAPTION_FONT_FAMILIES[face].split(',')[0].trim();
+  const first = CAPTION_FACES[face].family.split(',')[0].trim();
   return first.replace(/^"|"$/g, '');
 }
 
@@ -31,15 +34,32 @@ export async function ensureCaptionFonts(): Promise<void> {
     embaddableFaces().map(async (face) => {
       if (ready.has(face)) return;
       const family = familyName(face);
+      const weight = CAPTION_FACES[face].weight;
       try {
-        await (document as Document & { fonts: FontFaceSet }).fonts.load(`400 64px "${family}"`, probe);
-        await (document as Document & { fonts: FontFaceSet }).fonts.load(`700 64px "${family}"`, probe);
+        await (document as Document & { fonts: FontFaceSet }).fonts.load(`${weight} 64px "${family}"`, probe);
       } catch {
         /* 폰트를 못 받아도 시스템 서체로 계속한다 */
       }
       ready.add(face);
     }),
   );
+}
+
+/** 한 서체만 미리 받아 둔다(편집기에서 서체를 고를 때). */
+export async function ensureCaptionFont(face: CaptionFace): Promise<void> {
+  if (typeof document === 'undefined' || !('fonts' in document)) return;
+  if (ready.has(face)) return;
+  const family = familyName(face);
+  const weight = CAPTION_FACES[face].weight;
+  try {
+    await (document as Document & { fonts: FontFaceSet }).fonts.load(
+      `${weight} 64px "${family}"`,
+      '자리 비웠습니다 커피 수혈 중',
+    );
+  } catch {
+    /* 시스템 서체로 계속 */
+  }
+  ready.add(face);
 }
 
 function bytesToBase64(bytes: Uint8Array): string {
@@ -56,7 +76,7 @@ function bytesToBase64(bytes: Uint8Array): string {
  * SVG 에 심을 @font-face CSS. 파일을 한 번만 받아 캐시한다.
  * 실패하면 '' 을 돌려주고 SVG 는 시스템 서체로 그린다(깨진 글자보다 낫다).
  */
-export async function captionFontCss(face: CaptionFace = 'calli'): Promise<string> {
+export async function captionFontCss(face: CaptionFace = 'round'): Promise<string> {
   const url = CAPTION_FONT_FILES[face];
   if (!url) return '';
   const cached = cssCache.get(face);
@@ -66,10 +86,7 @@ export async function captionFontCss(face: CaptionFace = 'calli'): Promise<strin
     const res = await fetch(url, { cache: 'force-cache' });
     if (res.ok) {
       const bytes = new Uint8Array(await res.arrayBuffer());
-      const weight = face === 'hand' ? 700 : 400;
-      css =
-        `@font-face{font-family:"${familyName(face)}";font-style:normal;font-weight:${weight};` +
-        `src:url(data:font/woff2;base64,${bytesToBase64(bytes)}) format("woff2");}`;
+      css = fontCssFromBytes(face, bytes);
     }
   } catch {
     /* 네트워크 실패 → 시스템 서체 */
@@ -80,7 +97,7 @@ export async function captionFontCss(face: CaptionFace = 'calli'): Promise<strin
 
 /** 서버·테스트용: 이미 읽어 둔 폰트 바이트로 CSS 를 만든다. */
 export function fontCssFromBytes(face: CaptionFace, bytes: Uint8Array): string {
-  const weight = face === 'hand' ? 700 : 400;
+  const weight = CAPTION_FACES[face]?.weight ?? 400;
   return (
     `@font-face{font-family:"${familyName(face)}";font-style:normal;font-weight:${weight};` +
     `src:url(data:font/woff2;base64,${bytesToBase64(bytes)}) format("woff2");}`

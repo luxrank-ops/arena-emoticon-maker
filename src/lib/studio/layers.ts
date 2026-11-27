@@ -6,11 +6,48 @@
 // ─────────────────────────────────────────────────────────────
 
 import type { Emotion } from '@/lib/types';
-import { CAPTION_FONT_FAMILIES, CAPTION_OUTLINE, type CaptionLine } from '@/lib/studio/caption';
+import {
+  CAPTION_FACES,
+  captionFaceSpec,
+  type CaptionFace,
+  type CaptionLine,
+} from '@/lib/studio/caption';
 import { planCaption } from '@/lib/studio/caption-plan';
 import { drawDecor, planDecor } from '@/lib/studio/decor';
 
-export type TextLayerStyle = 'calli' | 'brush' | 'hand' | 'gothic' | 'bold' | 'stamp';
+/** 대사 서체 4종 — 저장값은 이 네 값만 쓴다(예전 값은 normalizeTextStyle 이 옮긴다). */
+export type TextLayerStyle = 'round' | 'brush' | 'meme' | 'myeongjo';
+
+/**
+ * 예전에 저장된 서체 값 → 지금 서체.
+ *  · calli(주아 라운드)·hand(개구)는 동글 손글씨로, brush(연성 붓글씨)는 세련된 캘리그라피로,
+ *    gothic·bold(시스템 고딕)는 예능·밈 굵은체로, stamp(명조 도장)는 단정 감성 명조로 이어진다.
+ *  · 이미 저장된 팩도 다시 열면 새 서체로 자연스럽게 그려진다.
+ */
+export const LEGACY_TEXT_STYLES: Record<string, TextLayerStyle> = {
+  round: 'round',
+  brush: 'brush',
+  meme: 'meme',
+  myeongjo: 'myeongjo',
+  calli: 'round',
+  hand: 'round',
+  gothic: 'meme',
+  bold: 'meme',
+  stamp: 'myeongjo',
+  serif: 'myeongjo',
+  elegant: 'brush',
+  heavy: 'meme',
+};
+
+/** 어떤 입력이든 안전한 서체 id 로 (모르는 값은 기본 = 동글 손글씨) */
+export function normalizeTextStyle(id: unknown): TextLayerStyle {
+  return LEGACY_TEXT_STYLES[String(id ?? '')] ?? 'round';
+}
+
+/** 서체 id → 번들 폰트 face (1:1) */
+export function captionFaceOf(style: TextLayerStyle | string | undefined): CaptionFace {
+  return normalizeTextStyle(style);
+}
 export type BubbleStyle = 'none' | 'round' | 'shout' | 'caption' | 'tape';
 export type EffectKind =
   | 'none'
@@ -56,6 +93,11 @@ export const TEXT_STYLES: {
   id: TextLayerStyle;
   label: string;
   labelEn: string;
+  /** 선택 카드에 그 서체로 크게 보여 줄 짧은 예시 */
+  sample: string;
+  /** 한 줄 설명 — 고를 때 판단 기준 */
+  hint: string;
+  hintEn: string;
   font: string;
   weight: number;
   /** 글자 크기 대비 외곽선 두께 */
@@ -63,58 +105,52 @@ export const TEXT_STYLES: {
   letterSpacing: number;
 }[] = [
   {
-    id: 'calli',
-    label: '라운드',
-    labelEn: 'Round',
-    font: CAPTION_FONT_FAMILIES.calli,
-    weight: 400,
-    outline: CAPTION_OUTLINE.calli,
-    letterSpacing: 0.004,
+    id: 'round',
+    label: '동글 손글씨',
+    labelEn: 'Round hand',
+    sample: '실화야?',
+    hint: '도톰하고 둥근 손글씨 · 기본값',
+    hintEn: 'Thick round handwriting · default',
+    font: CAPTION_FACES.round.family,
+    weight: CAPTION_FACES.round.weight,
+    outline: CAPTION_FACES.round.outline,
+    letterSpacing: CAPTION_FACES.round.tracking,
   },
   {
     id: 'brush',
-    label: '붓글씨',
-    labelEn: 'Brush',
-    font: CAPTION_FONT_FAMILIES.brush,
-    weight: 400,
-    outline: CAPTION_OUTLINE.brush,
-    letterSpacing: 0,
+    label: '세련된 캘리그라피',
+    labelEn: 'Calligraphy',
+    sample: '고마워요',
+    hint: '획의 강약이 살아 있는 붓 손멋글씨',
+    hintEn: 'Refined brush lettering',
+    font: CAPTION_FACES.brush.family,
+    weight: CAPTION_FACES.brush.weight,
+    outline: CAPTION_FACES.brush.outline,
+    letterSpacing: CAPTION_FACES.brush.tracking,
   },
   {
-    id: 'hand',
-    label: '손글씨',
-    labelEn: 'Handwriting',
-    font: CAPTION_FONT_FAMILIES.hand,
-    weight: 700,
-    outline: CAPTION_OUTLINE.hand,
-    letterSpacing: 0,
+    id: 'meme',
+    label: '예능·밈 굵은체',
+    labelEn: 'Meme heavy',
+    sample: '도망가!',
+    hint: '자막체 · 굵은 흰 외곽선으로 또렷하게',
+    hintEn: 'Heavy caption type with a bold outline',
+    font: CAPTION_FACES.meme.family,
+    weight: CAPTION_FACES.meme.weight,
+    outline: CAPTION_FACES.meme.outline,
+    letterSpacing: CAPTION_FACES.meme.tracking,
   },
   {
-    id: 'gothic',
-    label: '고딕',
-    labelEn: 'Gothic',
-    font: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
-    weight: 800,
-    outline: 0.12,
-    letterSpacing: -0.006,
-  },
-  {
-    id: 'bold',
-    label: '굵은체',
-    labelEn: 'Heavy',
-    font: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
-    weight: 900,
-    outline: 0.18,
-    letterSpacing: -0.01,
-  },
-  {
-    id: 'stamp',
-    label: '도장',
-    labelEn: 'Stamp',
-    font: CAPTION_FONT_FAMILIES.serif,
-    weight: 800,
-    outline: 0.04,
-    letterSpacing: 0.04,
+    id: 'myeongjo',
+    label: '단정 감성 명조',
+    labelEn: 'Calm serif',
+    sample: '잘 자요',
+    hint: '차분한 인사·감정 컷용 명조',
+    hintEn: 'Quiet serif for greetings',
+    font: CAPTION_FACES.myeongjo.family,
+    weight: CAPTION_FACES.myeongjo.weight,
+    outline: CAPTION_FACES.myeongjo.outline,
+    letterSpacing: CAPTION_FACES.myeongjo.tracking,
   },
 ];
 
@@ -139,7 +175,8 @@ const DEFAULT_COLOR = '#191512';
 const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
 export function textStyleById(id: string | undefined) {
-  return TEXT_STYLES.find((item) => item.id === id) ?? TEXT_STYLES[0];
+  const style = normalizeTextStyle(id);
+  return TEXT_STYLES.find((item) => item.id === style) ?? TEXT_STYLES[0];
 }
 
 export function effectById(id: string | undefined) {
@@ -148,7 +185,7 @@ export function effectById(id: string | undefined) {
 
 /** 알 수 없는 입력도 안전한 레이어로 정규화한다 (서버 저장값·구버전 데이터 대비) */
 export function normalizeLayer(input: Partial<TextLayer> | null | undefined, index = 0): TextLayer {
-  const style = textStyleById(input?.style).id;
+  const style = normalizeTextStyle(input?.style);
   // 말풍선 박스는 더 이상 그리지 않는다 — 화면(SVG)과 내보내기(Canvas) 모두 캘리그라피 글자만.
   //  · 예전에 저장된 레이어(bubble: 'round' 등)도 다운로드에 박스가 찍히지 않도록 'none' 으로 통일한다.
   const bubble: BubbleStyle = 'none';
@@ -186,7 +223,7 @@ export function layerFromLine(line: string, overrides: Partial<TextLayer> = {}):
   return normalizeLayer({
     id: `line-${Math.abs(hash(text)) % 100000}`,
     text,
-    style: 'calli',
+    style: 'round',
     bubble: 'none',
     effect: 'none',
     x: 0.5,
@@ -232,7 +269,10 @@ export function drawLayer(
     size,
     opts.emotion,
   );
-  const fontSize = Math.max(8, layer.size * size);
+  const spec = captionFaceSpec(plan.face);
+  const fontStyle = { weight: spec.weight, font: spec.family };
+  // 서체 보정(fit)이 끝난 실제 글자 크기 — SVG 렌더러와 같은 값이다.
+  const fontSize = Math.max(8, plan.size);
 
   // 상황별 복합 데코 — 머리 위·볼 옆·글자 모서리에 캔버스 절대 좌표로 그린다.
   //  (글자보다 먼저 그려 글자의 흰 외곽선이 데코 위를 깔끔하게 정리한다)
@@ -255,7 +295,7 @@ export function drawLayer(
   ctx.save();
   ctx.translate(plan.x, plan.y);
   ctx.rotate((plan.rotate * Math.PI) / 180);
-  ctx.font = `${style.weight} ${fontSize}px ${style.font}`;
+  ctx.font = `${fontStyle.weight} ${fontSize}px ${fontStyle.font}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'alphabetic';
   ctx.lineJoin = 'round';
@@ -275,7 +315,7 @@ export function drawLayer(
     ctx.shadowOffsetY = plan.shadow.offsetY;
     ctx.strokeStyle = '#FFFDFA';
     ctx.lineWidth = plan.outline * 1.15;
-    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, fontStyle);
     ctx.restore();
   }
 
@@ -283,21 +323,21 @@ export function drawLayer(
   if (plan.outline > 0) {
     ctx.strokeStyle = '#FFFDFA';
     ctx.lineWidth = plan.outline * 1.15;
-    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, fontStyle);
   }
 
   // 3) 잉크 외곽선(얇은 서체만 살 찌우기) → 세로 그라데이션 채우기
   if (plan.bold > 0) {
     ctx.strokeStyle = plan.ink;
     ctx.lineWidth = plan.bold;
-    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, style);
+    for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'stroke', plan.width, fontStyle);
   }
   const fillGradient = ctx.createLinearGradient(0, top, 0, top + plan.height);
   fillGradient.addColorStop(0, plan.inkLight);
   fillGradient.addColorStop(0.55, plan.ink);
   fillGradient.addColorStop(1, plan.ink);
   ctx.fillStyle = fillGradient;
-  for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'fill', plan.width, style);
+  for (const line of plan.lines) drawGlyphs(ctx, line, left, top, 'fill', plan.width, fontStyle);
 
   // 5) 붓 밑줄 포인트 — 좌우로 옅어지는 한 획
   if (plan.underline) {
@@ -488,5 +528,5 @@ export function drawLayers(
 
 /** 편집 UI용 기본 레이어 (새 레이어 추가) */
 export function newLayer(index: number, text = '안녕!'): TextLayer {
-  return normalizeLayer({ id: `layer-${Date.now()}-${index}`, text, style: 'calli', bubble: 'none', x: 0.5, y: 0.84, size: 0.18, rotate: 0 }, index);
+  return normalizeLayer({ id: `layer-${Date.now()}-${index}`, text, style: 'round', bubble: 'none', x: 0.5, y: 0.84, size: 0.18, rotate: 0 }, index);
 }

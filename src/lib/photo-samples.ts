@@ -1,4 +1,5 @@
 import type { Emotion } from '@/lib/types';
+import type { TextLayerStyle } from '@/lib/studio/layers';
 
 /**
  * 실사 사진 기반 샘플 — 앱이 지향하는 결과물(사진 누끼 + 흰 외곽선 + 캘리그라피 한 줄)을 그대로 보여 준다.
@@ -15,6 +16,8 @@ export interface PhotoSampleCut {
   line: { ko: string; en: string };
   alt: { ko: string; en: string };
   emotion: Emotion;
+  /** 대사 글자체 — 없으면 기본(동글 손글씨) */
+  style?: TextLayerStyle;
 }
 
 export interface PhotoSampleGroup {
@@ -29,21 +32,24 @@ export const PHOTO_SAMPLES: Record<'pet' | 'couple' | 'team', PhotoSampleGroup> 
     cuts: [
       {
         src: '/samples/photo/pet-dog-sit.webp',
-        line: { ko: '산책 가자', en: 'Walk time' },
-        alt: { ko: '산책 가자 반려견 실사 스티커 예시', en: 'Walk time pet sticker sample' },
-        emotion: 'joy',
+        line: { ko: '오늘 늦게 와?', en: 'Home late?' },
+        alt: { ko: '오늘 늦게 와? 시츄 실사 스티커 예시', en: 'Home late pet sticker sample' },
+        emotion: 'sulk',
+        style: 'round',
       },
       {
         src: '/samples/photo/pet-dog-beg.webp',
-        line: { ko: '간식 내놔', en: 'Treats, now' },
-        alt: { ko: '간식 내놔 반려견 실사 스티커 예시', en: 'Treats now pet sticker sample' },
+        line: { ko: '나 좀 봐줘', en: 'Look at me' },
+        alt: { ko: '나 좀 봐줘 시츄 실사 스티커 예시', en: 'Look at me pet sticker sample' },
         emotion: 'love',
+        style: 'brush',
       },
       {
-        src: '/samples/photo/pet-cat-sit.webp',
-        line: { ko: '집사야 일해라', en: 'Work, butler' },
-        alt: { ko: '집사야 일해라 고양이 실사 스티커 예시', en: 'Work butler cat sticker sample' },
-        emotion: 'smug',
+        src: '/samples/photo/pet-dog-look.webp',
+        line: { ko: '지금 뭐 먹어?', en: 'What are you eating?' },
+        alt: { ko: '지금 뭐 먹어? 시츄 실사 스티커 예시', en: 'What are you eating pet sticker sample' },
+        emotion: 'surprised',
+        style: 'meme',
       },
     ],
   },
@@ -97,7 +103,7 @@ export const PHOTO_SAMPLES: Record<'pet' | 'couple' | 'team', PhotoSampleGroup> 
 
 /** 홈·영문 랜딩 히어로 콜라주 — 실사 컷 3장(반려동물·커플·팀)을 겹쳐 보여 준다. */
 export const HERO_PHOTO_CUTS = [
-  { src: '/samples/photo/pet-dog-beg.webp', label: { ko: '반려동물', en: 'Pets' } },
+  { src: '/samples/photo/pet-dog-sit.webp', label: { ko: '반려동물', en: 'Pets' } },
   { src: '/samples/photo/couple-heart.webp', label: { ko: '커플', en: 'Couple' } },
   { src: '/samples/photo/team-cheer.webp', label: { ko: '팀', en: 'Team' } },
 ] as const;

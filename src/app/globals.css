@@ -4,7 +4,10 @@
 
 /* ── 이모티콘 대사(레터링) 번들 폰트 ─────────────────
    public/fonts 의 실제 폰트 파일. 캔버스 내보내기와 SVG 미리보기가 같은 서체를 쓴다.
-   기본 'EmotiHak Round'(주아) 는 작은 카톡 크기에서도 또렷하게 읽히는 라운드 고딕.
+   ① EmotiHak Round(주아)    — 동글 손글씨(기본): 작은 카톡 크기에서도 또렷한 라운드 손글씨
+   ② EmotiHak Calli(독도)    — 세련된 캘리그라피: 획의 강약이 살아 있는 붓 손멋글씨
+   ③ EmotiHak Meme(검은고딕) — 예능·밈 굵은체: 자막체
+   ④ EmotiHak Myeongjo(고운바탕) — 단정 감성 명조
    라이선스: SIL Open Font License 1.1 (public/fonts/OFL-*.txt) */
 @font-face {
   font-family: 'EmotiHak Round';
@@ -15,16 +18,24 @@
 }
 
 @font-face {
-  font-family: 'EmotiHak Brush';
-  src: url('/fonts/EmotiHakBrush.woff2') format('woff2');
+  font-family: 'EmotiHak Calli';
+  src: url('/fonts/EmotiHakCalli.woff2') format('woff2');
   font-weight: 400;
   font-style: normal;
   font-display: swap;
 }
 
 @font-face {
-  font-family: 'EmotiHak Hand';
-  src: url('/fonts/EmotiHakHand.woff2') format('woff2');
+  font-family: 'EmotiHak Meme';
+  src: url('/fonts/EmotiHakMeme.woff2') format('woff2');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'EmotiHak Myeongjo';
+  src: url('/fonts/EmotiHakMyeongjo.woff2') format('woff2');
   font-weight: 700;
   font-style: normal;
   font-display: swap;

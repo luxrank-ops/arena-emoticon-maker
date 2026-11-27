@@ -99,30 +99,30 @@ const SITUATION: FormatCut[] = [
 
 // ── 2. 짤·뉴스·자막 패러디 ──────────────────────────────────
 const PARODY: FormatCut[] = [
-  C('pa-01', '속보 야근 확정', '[속보] 오늘 야근 확정', 'surprised', 'extreme close-up deadpan face filling the frame, dramatic lighting', '[BREAKING] Overtime confirmed', 'Breaking: overtime', { textLayer: { style: 'bold', bubble: 'caption', y: 0.16, size: 0.1, rotate: 0 } }),
-  C('pa-02', '단독 점심 혼밥', '[단독] 점심 혼밥', 'blank', 'extreme close-up neutral face, slight zoom distortion', '[EXCLUSIVE] Lunch alone', 'Exclusive: eating alone', { textLayer: { style: 'bold', bubble: 'caption', y: 0.16, size: 0.1, rotate: 0 } }),
-  C('pa-03', '극단 줌인 정색', '…진심?', 'blank', 'extreme zoomed-in deadpan face, one eyebrow slightly raised', '...seriously?', 'Extreme zoom', { textLayer: { style: 'bold', bubble: 'none', y: 0.86, size: 0.14 } }),
-  C('pa-04', '자막 3초 만에', '3초 만에 왔습니다', 'surprised', 'bursting into frame from the side with motion lines', 'Here in 3 seconds', 'Arrived in 3s', { textLayer: { style: 'bold', bubble: 'caption', y: 0.18, size: 0.11 } }),
-  C('pa-05', '예능 리액션', '이게 맞아?', 'surprised', 'theatrical shocked reaction with hands on cheeks', 'Is this real?', 'Variety reaction', { textLayer: { style: 'bold', bubble: 'shout', y: 0.83, size: 0.13 } }),
-  C('pa-06', '드라마 자막', '그때 그 사람', 'sad', 'cinematic close-up with a tearful gaze, soft rim light', 'That person back then', 'Drama caption', { textLayer: { style: 'gothic', bubble: 'none', y: 0.87, size: 0.1 } }),
-  C('pa-07', '뉴스 앵커', '현장 연결합니다', 'smug', 'news-anchor posture, serious, holding a pen', 'Live from the scene', 'News anchor', { textLayer: { style: 'bold', bubble: 'caption', y: 0.16, size: 0.1 } }),
-  C('pa-08', '속보 월급', '[속보] 월급은 사라졌다', 'cry', 'shocked empty-wallet reaction, dramatic shadow', '[BREAKING] Salary gone', 'Breaking: salary', { textLayer: { style: 'bold', bubble: 'caption', y: 0.16, size: 0.095 } }),
-  C('pa-09', '자막 먹방', '한 입만', 'love', 'holding a spoon close to the mouth, playful eyes', 'Just one bite', 'Mukbang caption', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.13 } }),
-  C('pa-10', '충격 단독', '[충격] 이럴 수가', 'surprised', 'hands over mouth in shock, wide eyes', '[SHOCK] No way', 'Shock exclusive', { textLayer: { style: 'bold', bubble: 'caption', y: 0.16, size: 0.105 } }),
-  C('pa-11', '무한도전', '무한 반복 중', 'tired', 'sighing with a spinning-arrow mood above the head', 'Looping forever', 'Infinite loop', { textLayer: { style: 'bold', bubble: 'none', y: 0.84, size: 0.12 } }),
-  C('pa-12', '극장판 엔딩', '다음 화에 계속', 'smug', 'cinematic three-quarter turn, dramatic highlight', 'To be continued', 'Movie ending', { textLayer: { style: 'gothic', bubble: 'none', y: 0.87, size: 0.1 } }),
-  C('pa-13', '자막 분노', '진짜 이건 아니지', 'angry', 'frowning hard with a vein-pop mood', 'This is not okay', 'Caption anger', { textLayer: { style: 'bold', bubble: 'shout', y: 0.82, size: 0.115 } }),
-  C('pa-14', '속보 칼퇴', '[속보] 칼퇴 성공', 'laugh', 'running out with arms up in triumph', '[BREAKING] Escaped on time', 'Breaking: clock-out', { textLayer: { style: 'bold', bubble: 'caption', y: 0.16, size: 0.1 } }),
-  C('pa-15', '인터뷰', '한마디만 하겠습니다', 'smug', 'holding a microphone-like gesture toward the viewer', 'One word, please', 'Interview', { textLayer: { style: 'gothic', bubble: 'caption', y: 0.86, size: 0.095 } }),
-  C('pa-16', '자막 심쿵', '심장이 두근', 'love', 'hands over the chest with a shy smile', 'Heart fluttering', 'Caption heart', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.13 }, effect: 'heart' }),
-  C('pa-17', '동공 지진', '동공 지진', 'surprised', 'extreme close-up of wide shocked eyes', 'Pupil quake', 'Pupil quake', { textLayer: { style: 'bold', bubble: 'shout', y: 0.14, size: 0.12 } }),
-  C('pa-18', '정색 3단', '정색', 'blank', 'flat deadpan stare straight into the camera', 'Deadpan', 'Deadpan', { textLayer: { style: 'bold', bubble: 'none', y: 0.87, size: 0.16 } }),
-  C('pa-19', '자막 감동', '이게 진짜야', 'cry', 'teary moved expression, hand on chest', 'Is this real', 'Caption tears', { textLayer: { style: 'gothic', bubble: 'caption', y: 0.16, size: 0.1 } }),
-  C('pa-20', '속보 회식', '[속보] 오늘 회식', 'sad', 'slumping with a forced smile', '[BREAKING] Team dinner', 'Breaking: dinner', { textLayer: { style: 'bold', bubble: 'caption', y: 0.16, size: 0.1 } }),
-  C('pa-21', '자막 폭소', 'ㅋㅋㅋㅋㅋ', 'laugh', 'laughing hard with head tilted back', 'Hahahaha', 'Caption laugh', { textLayer: { style: 'bold', bubble: 'none', y: 0.84, size: 0.16 } }),
-  C('pa-22', '뉴스 클로즈업', '현장 상황입니다', 'blank', 'reporter stance with a handheld mic', 'Here at the scene', 'News close-up', { textLayer: { style: 'bold', bubble: 'caption', y: 0.16, size: 0.095 } }),
-  C('pa-23', '자막 반전', '알고 보니 내 얘기', 'sulk', 'looking away with a pout', 'Turns out it was me', 'Caption twist', { textLayer: { style: 'calli', bubble: 'tape', y: 0.83, size: 0.1 } }),
-  C('pa-24', '예고편', '곧 만나요', 'joy', 'waving with a bright smile, soft spotlight', 'See you soon', 'Trailer', { textLayer: { style: 'gothic', bubble: 'none', y: 0.87, size: 0.11 } }),
+  C('pa-01', '속보 야근 확정', '[속보] 오늘 야근 확정', 'surprised', 'extreme close-up deadpan face filling the frame, dramatic lighting', '[BREAKING] Overtime confirmed', 'Breaking: overtime', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.1, rotate: 0 } }),
+  C('pa-02', '단독 점심 혼밥', '[단독] 점심 혼밥', 'blank', 'extreme close-up neutral face, slight zoom distortion', '[EXCLUSIVE] Lunch alone', 'Exclusive: eating alone', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.1, rotate: 0 } }),
+  C('pa-03', '극단 줌인 정색', '…진심?', 'blank', 'extreme zoomed-in deadpan face, one eyebrow slightly raised', '...seriously?', 'Extreme zoom', { textLayer: { style: 'meme', bubble: 'none', y: 0.86, size: 0.14 } }),
+  C('pa-04', '자막 3초 만에', '3초 만에 왔습니다', 'surprised', 'bursting into frame from the side with motion lines', 'Here in 3 seconds', 'Arrived in 3s', { textLayer: { style: 'meme', bubble: 'caption', y: 0.18, size: 0.11 } }),
+  C('pa-05', '예능 리액션', '이게 맞아?', 'surprised', 'theatrical shocked reaction with hands on cheeks', 'Is this real?', 'Variety reaction', { textLayer: { style: 'meme', bubble: 'shout', y: 0.83, size: 0.13 } }),
+  C('pa-06', '드라마 자막', '그때 그 사람', 'sad', 'cinematic close-up with a tearful gaze, soft rim light', 'That person back then', 'Drama caption', { textLayer: { style: 'meme', bubble: 'none', y: 0.87, size: 0.1 } }),
+  C('pa-07', '뉴스 앵커', '현장 연결합니다', 'smug', 'news-anchor posture, serious, holding a pen', 'Live from the scene', 'News anchor', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.1 } }),
+  C('pa-08', '속보 월급', '[속보] 월급은 사라졌다', 'cry', 'shocked empty-wallet reaction, dramatic shadow', '[BREAKING] Salary gone', 'Breaking: salary', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.095 } }),
+  C('pa-09', '자막 먹방', '한 입만', 'love', 'holding a spoon close to the mouth, playful eyes', 'Just one bite', 'Mukbang caption', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.13 } }),
+  C('pa-10', '충격 단독', '[충격] 이럴 수가', 'surprised', 'hands over mouth in shock, wide eyes', '[SHOCK] No way', 'Shock exclusive', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.105 } }),
+  C('pa-11', '무한도전', '무한 반복 중', 'tired', 'sighing with a spinning-arrow mood above the head', 'Looping forever', 'Infinite loop', { textLayer: { style: 'meme', bubble: 'none', y: 0.84, size: 0.12 } }),
+  C('pa-12', '극장판 엔딩', '다음 화에 계속', 'smug', 'cinematic three-quarter turn, dramatic highlight', 'To be continued', 'Movie ending', { textLayer: { style: 'meme', bubble: 'none', y: 0.87, size: 0.1 } }),
+  C('pa-13', '자막 분노', '진짜 이건 아니지', 'angry', 'frowning hard with a vein-pop mood', 'This is not okay', 'Caption anger', { textLayer: { style: 'meme', bubble: 'shout', y: 0.82, size: 0.115 } }),
+  C('pa-14', '속보 칼퇴', '[속보] 칼퇴 성공', 'laugh', 'running out with arms up in triumph', '[BREAKING] Escaped on time', 'Breaking: clock-out', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.1 } }),
+  C('pa-15', '인터뷰', '한마디만 하겠습니다', 'smug', 'holding a microphone-like gesture toward the viewer', 'One word, please', 'Interview', { textLayer: { style: 'meme', bubble: 'caption', y: 0.86, size: 0.095 } }),
+  C('pa-16', '자막 심쿵', '심장이 두근', 'love', 'hands over the chest with a shy smile', 'Heart fluttering', 'Caption heart', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.13 }, effect: 'heart' }),
+  C('pa-17', '동공 지진', '동공 지진', 'surprised', 'extreme close-up of wide shocked eyes', 'Pupil quake', 'Pupil quake', { textLayer: { style: 'meme', bubble: 'shout', y: 0.14, size: 0.12 } }),
+  C('pa-18', '정색 3단', '정색', 'blank', 'flat deadpan stare straight into the camera', 'Deadpan', 'Deadpan', { textLayer: { style: 'meme', bubble: 'none', y: 0.87, size: 0.16 } }),
+  C('pa-19', '자막 감동', '이게 진짜야', 'cry', 'teary moved expression, hand on chest', 'Is this real', 'Caption tears', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.1 } }),
+  C('pa-20', '속보 회식', '[속보] 오늘 회식', 'sad', 'slumping with a forced smile', '[BREAKING] Team dinner', 'Breaking: dinner', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.1 } }),
+  C('pa-21', '자막 폭소', 'ㅋㅋㅋㅋㅋ', 'laugh', 'laughing hard with head tilted back', 'Hahahaha', 'Caption laugh', { textLayer: { style: 'meme', bubble: 'none', y: 0.84, size: 0.16 } }),
+  C('pa-22', '뉴스 클로즈업', '현장 상황입니다', 'blank', 'reporter stance with a handheld mic', 'Here at the scene', 'News close-up', { textLayer: { style: 'meme', bubble: 'caption', y: 0.16, size: 0.095 } }),
+  C('pa-23', '자막 반전', '알고 보니 내 얘기', 'sulk', 'looking away with a pout', 'Turns out it was me', 'Caption twist', { textLayer: { style: 'round', bubble: 'tape', y: 0.83, size: 0.1 } }),
+  C('pa-24', '예고편', '곧 만나요', 'joy', 'waving with a bright smile, soft spotlight', 'See you soon', 'Trailer', { textLayer: { style: 'meme', bubble: 'none', y: 0.87, size: 0.11 } }),
 ];
 
 // ── 3. 2인·반려 케미 ────────────────────────────────────────
@@ -155,30 +155,30 @@ const DUO: FormatCut[] = [
 
 // ── 4. 글자 주인공(타이포) ──────────────────────────────────
 const TYPO: FormatCut[] = [
-  C('ty-01', '읽씹 금지', '읽씹 금지', 'angry', 'small character peeking from the bottom-right corner, most of the canvas left empty', 'No read-and-ignore', '읽씹 금지', { textLayer: { style: 'stamp', bubble: 'none', x: 0.5, y: 0.46, size: 0.2, rotate: -8 } }),
-  C('ty-02', '완전 인정', '완전 인정', 'smug', 'character peeking from the top-left corner, big empty middle', 'Totally agree', '완전 인정', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.5, size: 0.2, rotate: -4 } }),
-  C('ty-03', '소맥 각', '소맥 각?', 'love', 'character peeking from the right edge, winking', 'Soju-beer time?', '소맥 각?', { textLayer: { style: 'calli', bubble: 'none', x: 0.46, y: 0.46, size: 0.22, rotate: -6 } }),
-  C('ty-04', '오늘만 살자', '오늘만 살자', 'laugh', 'small character hanging on the bottom edge, arms up', 'Live for today', '오늘만 살자', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.44, size: 0.16, rotate: 3 } }),
-  C('ty-05', '눈치 없음', '눈치 좀', 'blank', 'character barely peeking from a corner with a flat stare', 'Read the room', '눈치 좀', { textLayer: { style: 'gothic', bubble: 'none', x: 0.5, y: 0.5, size: 0.2, rotate: 0 } }),
-  C('ty-06', '연락 두절', '연락 두절', 'tired', 'character lying flat at the bottom edge, phone nearby', 'Out of reach', '연락 두절', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.42, size: 0.19, rotate: -3 } }),
-  C('ty-07', '잠수 탈게', '잠수 탈게', 'surprised', 'character diving out of the bottom edge, only the head visible', 'Going dark', '잠수 탈게', { textLayer: { style: 'calli', bubble: 'none', x: 0.5, y: 0.44, size: 0.18, rotate: -5 } }),
-  C('ty-08', '월급 루팡', '월급 루팡', 'smug', 'character peeking with a sly grin from the corner', 'Salary thief', '월급 루팡', { textLayer: { style: 'stamp', bubble: 'none', x: 0.5, y: 0.48, size: 0.19, rotate: 6 }, effect: 'money' }),
-  C('ty-09', '칼퇴 요정', '칼퇴 요정', 'joy', 'character peeking from the top-right with sparkles', 'Clock-out fairy', '칼퇴 요정', { textLayer: { style: 'calli', bubble: 'none', x: 0.48, y: 0.46, size: 0.19, rotate: -7 }, effect: 'sparkle' }),
-  C('ty-10', '회식 불참', '회식 불참', 'blank', 'character half hidden behind the bottom edge, waving a small hand', 'Skipping dinner', '회식 불참', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.46, size: 0.19, rotate: 0 } }),
-  C('ty-11', '내일의 나', '내일의 나에게', 'tired', 'character peeking from the left edge, sleepy', 'To tomorrow me', '내일의 나에게', { textLayer: { style: 'calli', bubble: 'none', x: 0.5, y: 0.48, size: 0.15, rotate: -3 } }),
-  C('ty-12', '점심값 내가', '점심값 내가', 'smug', 'character leaning in from the right edge with a confident grin', 'Lunch is on me', '점심값 내가', { textLayer: { style: 'stamp', bubble: 'none', x: 0.5, y: 0.46, size: 0.18, rotate: -5 } }),
-  C('ty-13', '답장해', '답장 좀', 'sulk', 'character peeking from the bottom-left, pouting', 'Answer me', '답장 좀', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.44, size: 0.21, rotate: 2 } }),
-  C('ty-14', '야근 손절', '야근 손절', 'angry', 'character peeking with an angry brow from the corner', 'No more overtime', '야근 손절', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.46, size: 0.19, rotate: -2 }, effect: 'anger' }),
-  C('ty-15', '집 가고 싶다', '집 가고 싶다', 'sad', 'character drooping at the bottom edge', 'Wanna go home', '집 가고 싶다', { textLayer: { style: 'calli', bubble: 'none', x: 0.5, y: 0.46, size: 0.16, rotate: -4 } }),
-  C('ty-16', '졸립다', '졸립다…', 'tired', 'character yawning while peeking from a corner', 'Sleepy...', '졸립다…', { textLayer: { style: 'calli', bubble: 'none', x: 0.5, y: 0.44, size: 0.21, rotate: -6 } }),
-  C('ty-17', '커피 필수', '커피 필수', 'tired', 'character peeking with a coffee cup, half hidden', 'Coffee required', '커피 필수', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.46, size: 0.19, rotate: 0 } }),
-  C('ty-18', '급함', '급함', 'surprised', 'character rushing past the bottom edge, motion lines', 'In a hurry', '급함', { textLayer: { style: 'stamp', bubble: 'none', x: 0.5, y: 0.5, size: 0.26, rotate: 8 } }),
-  C('ty-19', '합의 봄', '합의 봄', 'smug', 'character peeking with a calm smile from the right edge', "Let's agree", '합의 봄', { textLayer: { style: 'calli', bubble: 'none', x: 0.5, y: 0.48, size: 0.22, rotate: -7 } }),
-  C('ty-20', '당첨', '당첨!', 'laugh', 'character peeking with both hands up from the bottom', 'Jackpot!', '당첨!', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.44, size: 0.24, rotate: -4 }, effect: 'sparkle' }),
-  C('ty-21', '밥값', '밥값 하자', 'joy', 'character leaning from a corner with a cheerful grin', "Let's eat", '밥값 하자', { textLayer: { style: 'gothic', bubble: 'none', x: 0.5, y: 0.48, size: 0.18, rotate: 0 } }),
-  C('ty-22', '연봉 협상', '연봉 협상', 'angry', 'character peeking with a serious frown from the bottom-right', 'Salary talk', '연봉 협상', { textLayer: { style: 'stamp', bubble: 'none', x: 0.5, y: 0.46, size: 0.18, rotate: -6 } }),
-  C('ty-23', '오케이', '오케이', 'joy', 'character giving an OK sign while peeking from a corner', 'Okay', '오케이', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.48, size: 0.22, rotate: 0 } }),
-  C('ty-24', '퇴근', '퇴근!', 'laugh', 'character sprinting out of the bottom edge, arms raised', 'Clock out!', '퇴근!', { textLayer: { style: 'bold', bubble: 'none', x: 0.5, y: 0.42, size: 0.26, rotate: -5 }, effect: 'sparkle' }),
+  C('ty-01', '읽씹 금지', '읽씹 금지', 'angry', 'small character peeking from the bottom-right corner, most of the canvas left empty', 'No read-and-ignore', '읽씹 금지', { textLayer: { style: 'myeongjo', bubble: 'none', x: 0.5, y: 0.46, size: 0.2, rotate: -8 } }),
+  C('ty-02', '완전 인정', '완전 인정', 'smug', 'character peeking from the top-left corner, big empty middle', 'Totally agree', '완전 인정', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.5, size: 0.2, rotate: -4 } }),
+  C('ty-03', '소맥 각', '소맥 각?', 'love', 'character peeking from the right edge, winking', 'Soju-beer time?', '소맥 각?', { textLayer: { style: 'round', bubble: 'none', x: 0.46, y: 0.46, size: 0.22, rotate: -6 } }),
+  C('ty-04', '오늘만 살자', '오늘만 살자', 'laugh', 'small character hanging on the bottom edge, arms up', 'Live for today', '오늘만 살자', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.44, size: 0.16, rotate: 3 } }),
+  C('ty-05', '눈치 없음', '눈치 좀', 'blank', 'character barely peeking from a corner with a flat stare', 'Read the room', '눈치 좀', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.5, size: 0.2, rotate: 0 } }),
+  C('ty-06', '연락 두절', '연락 두절', 'tired', 'character lying flat at the bottom edge, phone nearby', 'Out of reach', '연락 두절', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.42, size: 0.19, rotate: -3 } }),
+  C('ty-07', '잠수 탈게', '잠수 탈게', 'surprised', 'character diving out of the bottom edge, only the head visible', 'Going dark', '잠수 탈게', { textLayer: { style: 'round', bubble: 'none', x: 0.5, y: 0.44, size: 0.18, rotate: -5 } }),
+  C('ty-08', '월급 루팡', '월급 루팡', 'smug', 'character peeking with a sly grin from the corner', 'Salary thief', '월급 루팡', { textLayer: { style: 'myeongjo', bubble: 'none', x: 0.5, y: 0.48, size: 0.19, rotate: 6 }, effect: 'money' }),
+  C('ty-09', '칼퇴 요정', '칼퇴 요정', 'joy', 'character peeking from the top-right with sparkles', 'Clock-out fairy', '칼퇴 요정', { textLayer: { style: 'round', bubble: 'none', x: 0.48, y: 0.46, size: 0.19, rotate: -7 }, effect: 'sparkle' }),
+  C('ty-10', '회식 불참', '회식 불참', 'blank', 'character half hidden behind the bottom edge, waving a small hand', 'Skipping dinner', '회식 불참', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.46, size: 0.19, rotate: 0 } }),
+  C('ty-11', '내일의 나', '내일의 나에게', 'tired', 'character peeking from the left edge, sleepy', 'To tomorrow me', '내일의 나에게', { textLayer: { style: 'round', bubble: 'none', x: 0.5, y: 0.48, size: 0.15, rotate: -3 } }),
+  C('ty-12', '점심값 내가', '점심값 내가', 'smug', 'character leaning in from the right edge with a confident grin', 'Lunch is on me', '점심값 내가', { textLayer: { style: 'myeongjo', bubble: 'none', x: 0.5, y: 0.46, size: 0.18, rotate: -5 } }),
+  C('ty-13', '답장해', '답장 좀', 'sulk', 'character peeking from the bottom-left, pouting', 'Answer me', '답장 좀', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.44, size: 0.21, rotate: 2 } }),
+  C('ty-14', '야근 손절', '야근 손절', 'angry', 'character peeking with an angry brow from the corner', 'No more overtime', '야근 손절', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.46, size: 0.19, rotate: -2 }, effect: 'anger' }),
+  C('ty-15', '집 가고 싶다', '집 가고 싶다', 'sad', 'character drooping at the bottom edge', 'Wanna go home', '집 가고 싶다', { textLayer: { style: 'round', bubble: 'none', x: 0.5, y: 0.46, size: 0.16, rotate: -4 } }),
+  C('ty-16', '졸립다', '졸립다…', 'tired', 'character yawning while peeking from a corner', 'Sleepy...', '졸립다…', { textLayer: { style: 'round', bubble: 'none', x: 0.5, y: 0.44, size: 0.21, rotate: -6 } }),
+  C('ty-17', '커피 필수', '커피 필수', 'tired', 'character peeking with a coffee cup, half hidden', 'Coffee required', '커피 필수', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.46, size: 0.19, rotate: 0 } }),
+  C('ty-18', '급함', '급함', 'surprised', 'character rushing past the bottom edge, motion lines', 'In a hurry', '급함', { textLayer: { style: 'myeongjo', bubble: 'none', x: 0.5, y: 0.5, size: 0.26, rotate: 8 } }),
+  C('ty-19', '합의 봄', '합의 봄', 'smug', 'character peeking with a calm smile from the right edge', "Let's agree", '합의 봄', { textLayer: { style: 'round', bubble: 'none', x: 0.5, y: 0.48, size: 0.22, rotate: -7 } }),
+  C('ty-20', '당첨', '당첨!', 'laugh', 'character peeking with both hands up from the bottom', 'Jackpot!', '당첨!', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.44, size: 0.24, rotate: -4 }, effect: 'sparkle' }),
+  C('ty-21', '밥값', '밥값 하자', 'joy', 'character leaning from a corner with a cheerful grin', "Let's eat", '밥값 하자', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.48, size: 0.18, rotate: 0 } }),
+  C('ty-22', '연봉 협상', '연봉 협상', 'angry', 'character peeking with a serious frown from the bottom-right', 'Salary talk', '연봉 협상', { textLayer: { style: 'myeongjo', bubble: 'none', x: 0.5, y: 0.46, size: 0.18, rotate: -6 } }),
+  C('ty-23', '오케이', '오케이', 'joy', 'character giving an OK sign while peeking from a corner', 'Okay', '오케이', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.48, size: 0.22, rotate: 0 } }),
+  C('ty-24', '퇴근', '퇴근!', 'laugh', 'character sprinting out of the bottom edge, arms raised', 'Clock out!', '퇴근!', { textLayer: { style: 'meme', bubble: 'none', x: 0.5, y: 0.42, size: 0.26, rotate: -5 }, effect: 'sparkle' }),
 ];
 
 // ── 5. 이펙트·연속 합체(콤보) ────────────────────────────────
@@ -206,7 +206,7 @@ const COMBO: FormatCut[] = COMBO_PAIRS.flatMap(([id, label, labelEn, line, emoti
   const bottom = C(`${id}-bottom`, `${label} 2`, `${line}!`, emotion, `lower half of the same vertical two-panel combo: ${action}, framed from the top edge so it connects to the panel above`, `${line}!`, `${labelEn} 2`, {
     comboRole: 'bottom' as const,
     comboPair: `${id}-top`,
-    textLayer: { style: 'bold', bubble: 'none', y: 0.2, size: 0.12 },
+    textLayer: { style: 'meme', bubble: 'none', y: 0.2, size: 0.12 },
   });
   return [top, bottom];
 });
@@ -215,35 +215,37 @@ const COMBO: FormatCut[] = COMBO_PAIRS.flatMap(([id, label, labelEn, line, emoti
 // ── KILLER 1. 커플·단톡방 '2인 케미 팩' (12컷) ─────────────────
 //  · 커플·친구 사진 2장으로 만드는 2인 상호작용 전용 컷. 단톡방에서 바로 쓰는 대사로 맞췄다.
 const DUO_CHEMI: FormatCut[] = [
-  C('dc-01', '퇴근 치맥 콜', '퇴근 후 치맥 콜?', 'laugh', 'two friends grinning and raising imaginary beer glasses toward each other, one holding a phone', 'Chi-maek after work?', 'Chi-maek call', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
-  C('dc-02', '야근 살려줘', '야근 중 살려줘', 'cry', 'one slumped at a desk with a laptop while the other reaches out a hand to rescue them', 'Save me, overtime', 'Save me', { textLayer: { style: 'bold', bubble: 'shout', y: 0.83, size: 0.12 } }),
-  C('dc-03', '삐짐 vs 달래기', '삐짐 vs 달래기', 'sulk', 'one turned away pouting with crossed arms while the other offers a small gift with an apologetic smile', 'Sulk vs soothe', 'Sulk vs soothe', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.105 } }),
-  C('dc-04', '밥 먹었어', '밥은 먹었어?', 'love', 'one holding a warm bowl toward the other, caring expression', 'Did you eat?', 'Did you eat', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
-  C('dc-05', '한잔하자', '오늘 한잔하자', 'joy', 'two clinking small glasses together, happy eyes', "Let's grab a drink", 'Drink together', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
-  C('dc-06', '눈치 게임', '눈치 보는 중', 'surprised', 'both glancing sideways at each other nervously, shoulders raised', 'Reading the room', 'Awkward glance', { textLayer: { style: 'bold', bubble: 'none', y: 0.84, size: 0.11 } }),
-  C('dc-07', '같이 가자', '퇴근 같이 가자', 'smug', 'both walking side by side with bags, matching strides', "Let's leave together", 'Leave together', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.115 } }),
-  C('dc-08', '칼퇴 성공', '칼퇴 성공!', 'laugh', 'both sprinting out with arms up in triumph', 'Clocked out!', 'Clocked out', { textLayer: { style: 'bold', bubble: 'none', y: 0.84, size: 0.135 }, effect: 'sparkle' }),
-  C('dc-09', '좀 도와줘', '이거 좀 도와줘', 'tired', 'one buried under papers while the other rolls up sleeves to help', 'Help me out', 'Help me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.11 } }),
-  C('dc-10', '미안해', '나 잘못했어', 'sad', 'one bowing with hands together while the other softens with a small smile', "I'm sorry", 'Sorry', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
-  C('dc-11', '고마워', '진짜 고마워', 'love', 'both hugging briefly with warm smiles', 'Thank you', 'Thank you', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.115 } }),
-  C('dc-12', '우리 사이', '우리 사이 이 정도', 'smug', 'two bumping fists with confident grins', 'We go way back', 'Best buds', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.105 } }),
+  C('dc-01', '퇴근 치맥 콜', '퇴근 후 치맥 콜?', 'laugh', 'two friends grinning and raising imaginary beer glasses toward each other, one holding a phone', 'Chi-maek after work?', 'Chi-maek call', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-02', '야근 살려줘', '야근 중 살려줘', 'cry', 'one slumped at a desk with a laptop while the other reaches out a hand to rescue them', 'Save me, overtime', 'Save me', { textLayer: { style: 'meme', bubble: 'shout', y: 0.83, size: 0.12 } }),
+  C('dc-03', '삐짐 vs 달래기', '삐짐 vs 달래기', 'sulk', 'one turned away pouting with crossed arms while the other offers a small gift with an apologetic smile', 'Sulk vs soothe', 'Sulk vs soothe', { textLayer: { style: 'meme', bubble: 'none', y: 0.85, size: 0.105 } }),
+  C('dc-04', '밥 먹었어', '밥은 먹었어?', 'love', 'one holding a warm bowl toward the other, caring expression', 'Did you eat?', 'Did you eat', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-05', '한잔하자', '오늘 한잔하자', 'joy', 'two clinking small glasses together, happy eyes', "Let's grab a drink", 'Drink together', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-06', '눈치 게임', '눈치 보는 중', 'surprised', 'both glancing sideways at each other nervously, shoulders raised', 'Reading the room', 'Awkward glance', { textLayer: { style: 'meme', bubble: 'none', y: 0.84, size: 0.11 } }),
+  C('dc-07', '같이 가자', '퇴근 같이 가자', 'smug', 'both walking side by side with bags, matching strides', "Let's leave together", 'Leave together', { textLayer: { style: 'meme', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-08', '칼퇴 성공', '칼퇴 성공!', 'laugh', 'both sprinting out with arms up in triumph', 'Clocked out!', 'Clocked out', { textLayer: { style: 'meme', bubble: 'none', y: 0.84, size: 0.135 }, effect: 'sparkle' }),
+  C('dc-09', '좀 도와줘', '이거 좀 도와줘', 'tired', 'one buried under papers while the other rolls up sleeves to help', 'Help me out', 'Help me', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.11 } }),
+  C('dc-10', '미안해', '나 잘못했어', 'sad', 'one bowing with hands together while the other softens with a small smile', "I'm sorry", 'Sorry', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-11', '고마워', '진짜 고마워', 'love', 'both hugging briefly with warm smiles', 'Thank you', 'Thank you', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('dc-12', '우리 사이', '우리 사이 이 정도', 'smug', 'two bumping fists with confident grins', 'We go way back', 'Best buds', { textLayer: { style: 'meme', bubble: 'none', y: 0.85, size: 0.105 } }),
 ];
 
 // ── KILLER 2. 반려동물(AI 펫) 집사 밈 팩 (12컷) ────────────────
 //  · 강아지·고양이 사진 1장으로 만드는 한국형 집사 밈 전용 컷.
 const PET_MEME: FormatCut[] = [
-  C('pm-01', '간식 내놔', '간식 내놔', 'angry', 'staring straight at the camera with an impatient expectant look, small paw raised toward the viewer', 'Give me a treat', 'Treat, now', { textLayer: { style: 'bold', bubble: 'shout', y: 0.84, size: 0.13 } }),
-  C('pm-02', '산책 가자', '산책 가자', 'laugh', 'perking up with ears forward, body leaning excitedly toward the door', "Let's walk!", 'Walk time', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.13 }, effect: 'sparkle' }),
-  C('pm-03', '집사야 일해라', '집사야 일해라', 'smug', 'sitting regally with a commanding look, chin slightly raised', 'Slave, go to work', 'Work, human', { textLayer: { style: 'gothic', bubble: 'none', y: 0.85, size: 0.105 } }),
-  C('pm-04', '밥 줘', '밥 줘', 'sad', 'looking up with big pleading eyes at an empty bowl', 'Feed me', 'Feed me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.14 } }),
-  C('pm-05', '누가 방귀 꼈어', '누가 방귀 꼈어', 'surprised', 'sniffing the air with a suspicious side-eye, nose wrinkled', 'Who farted?', 'Who farted', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.1 } }),
-  C('pm-06', '안아줘', '안아줘', 'love', 'reaching both front paws toward the viewer for a hug', 'Hold me', 'Hug me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.13 } }),
-  C('pm-07', '같이 자자', '같이 자자', 'tired', 'curled up in a cozy blanket, eyes half closed', "Let's sleep", 'Sleep with me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.12 } }),
-  C('pm-08', '뭐 해', '뭐 해', 'blank', 'staring blankly at the camera, deadpan', 'What are you doing', 'What now', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.14 } }),
-  C('pm-09', '칭찬해 줘', '칭찬해 줘', 'joy', 'sitting proudly with chest out, waiting for praise', 'Praise me', 'Praise me', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.12 }, effect: 'heart' }),
-  C('pm-10', '화났어', '나 화났어', 'angry', 'turned away with a dramatic huff, tail flicking', "I'm mad", 'Angry', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.12 }, effect: 'anger' }),
-  C('pm-11', '한 번만 더', '한 번만 더', 'love', 'pawing at the treat jar with a hopeful look', 'Just one more', 'One more', { textLayer: { style: 'calli', bubble: 'none', y: 0.85, size: 0.12 } }),
-  C('pm-12', '출근하기 싫어', '출근하기 싫어', 'tired', 'flopped on the floor dramatically, refusing to move', "Don't wanna go", 'No work', { textLayer: { style: 'bold', bubble: 'none', y: 0.85, size: 0.11 } }),
+  // 사람이 단톡방에 던지는 말투로 맞췄다 — "간식 내놔" 같은 명령조 대신 감정·눈치·위트가 살아 있게.
+  // 컷마다 표정·포즈·카메라 각도가 확실히 달라야 같은 사진 12장처럼 보이지 않는다(action 지시).
+  C('pm-01', '지금 뭐 먹어?', '지금 뭐 먹어?', 'surprised', 'head tilted up with wide round eyes staring intently off-camera at the human\'s hand, one front paw lifted mid-air; low camera angle from below the chin', 'Eating without me?', 'What are you eating', { textLayer: { style: 'meme', bubble: 'none', y: 0.84, size: 0.13 }, effect: 'question' }),
+  C('pm-02', '나 좀 봐줘', '나 좀 봐줘', 'love', 'chin resting on the human\'s knee, huge round eyes looking straight up into the lens, ears drooping softly; intimate close-up at eye level', 'Look at me', 'Look at me', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.13 } }),
+  C('pm-03', '삐졌어 건들지마', '삐졌어 건들지마', 'sulk', 'body turned fully away from the camera with the head twisted back over the shoulder for a side-eye, tail low; three-quarter rear angle', 'Sulking. Don\'t.', 'Sulking', { textLayer: { style: 'meme', bubble: 'none', y: 0.85, size: 0.105 } }),
+  C('pm-04', '오늘 늦게 와?', '오늘 늦게 와?', 'blank', 'waiting by the door, sitting in a slim silhouette against the doorway light, one ear up listening, deadpan stare; wide shot from across the room', 'Home late?', 'Home late', { textLayer: { style: 'myeongjo', bubble: 'none', y: 0.85, size: 0.115 } }),
+  C('pm-05', '아 몰라 배째', '아 몰라 배째', 'laugh', 'flopped on its back with all four paws curled in the air, tongue out and belly fully exposed; playful overhead top-down angle', 'Whatever. Belly up', 'Belly up', { textLayer: { style: 'meme', bubble: 'none', y: 0.85, size: 0.12 }, effect: 'party' }),
+  C('pm-06', '진짜 실화야?', '진짜 실화야?', 'surprised', 'frozen mid-step with both eyes bulging and ears snapped upright, mouth slightly open; extreme close-up of the face, dead-centre', 'Wait, really?', 'Really?', { textLayer: { style: 'meme', bubble: 'none', y: 0.85, size: 0.13 }, effect: 'question' }),
+  C('pm-07', '사랑해 집사', '사랑해 집사', 'love', 'head tilted sideways with a soft gaze, one paw gently laid on the human\'s hand; warm eye-level close-up', 'Love you, human', 'Love you', { textLayer: { style: 'brush', bubble: 'none', y: 0.85, size: 0.125 }, effect: 'heart' }),
+  C('pm-08', '눈치 챙겨', '눈치 챙겨', 'smug', 'side-eye glance over the shoulder with a slow blink, muzzle slightly raised; slightly high three-quarter angle', 'Read the room', 'Read the room', { textLayer: { style: 'meme', bubble: 'none', y: 0.85, size: 0.13 } }),
+  C('pm-09', '내 말 듣고 있어?', '내 말 듣고 있어?', 'angry', 'barking once straight at the lens with the mouth open and ears pinned back, chest pushed forward; straight-on close-up from a low angle', 'Are you listening?', 'Listening?', { textLayer: { style: 'meme', bubble: 'none', y: 0.85, size: 0.105 }, effect: 'anger' }),
+  C('pm-10', '억울해 죽겠네', '억울해 죽겠네', 'sad', 'ears flattened with glossy teary eyes looking up, body lowered into a guilty crouch and tail tucked; low angle from the floor', 'So unfair', 'Unfair', { textLayer: { style: 'brush', bubble: 'none', y: 0.85, size: 0.115 }, effect: 'sweat' }),
+  C('pm-11', '기분 최고야', '기분 최고야', 'joy', 'jumping in mid-air with all four paws off the floor, ears flying and tongue out; full-body wide shot with playful motion energy', 'Best day ever', 'Best day', { textLayer: { style: 'round', bubble: 'none', y: 0.85, size: 0.12 }, effect: 'star' }),
+  C('pm-12', '잘 자요', '잘 자요', 'tired', 'curled into a tight ball with eyes closed and nose tucked into the tail on a cosy blanket; soft overhead angle', 'Good night', 'Good night', { textLayer: { style: 'myeongjo', bubble: 'none', y: 0.85, size: 0.14 }, effect: 'zzz' }),
 ];
 
 // ── 드립·반전 티키타카 24컷 (drip-themes 66줄 중 사진 팩용 24컷) ───
@@ -284,16 +286,16 @@ const DRIP_ACTIONS: Record<string, string> = {
 };
 
 const DRIP_STYLE: Partial<Record<Emotion, TextLayerStyle>> = {
-  love: 'calli',
-  joy: 'calli',
-  laugh: 'bold',
-  surprised: 'bold',
-  angry: 'bold',
-  smug: 'stamp',
-  blank: 'stamp',
-  tired: 'gothic',
-  sad: 'gothic',
-  sulk: 'calli',
+  love: 'round',
+  joy: 'round',
+  laugh: 'meme',
+  surprised: 'meme',
+  angry: 'meme',
+  smug: 'myeongjo',
+  blank: 'myeongjo',
+  tired: 'meme',
+  sad: 'meme',
+  sulk: 'round',
 };
 
 const DRIP_EFFECT: Record<string, EffectKind> = {
@@ -312,7 +314,7 @@ const DRIP: FormatCut[] = DRIP_CUT_IDS.map((id) => {
   const size = length <= 5 ? 0.14 : length <= 8 ? 0.125 : length <= 11 ? 0.11 : 0.1;
   const effect = DRIP_EFFECT[id];
   return C(id, item.label, item.line, item.emotion, DRIP_ACTIONS[id], item.lineEn, item.labelEn, {
-    textLayer: { style: DRIP_STYLE[item.emotion] ?? 'bold', bubble: 'none', x: 0.5, y: 0.85, size, rotate: 0 },
+    textLayer: { style: DRIP_STYLE[item.emotion] ?? 'meme', bubble: 'none', x: 0.5, y: 0.85, size, rotate: 0 },
     ...(effect ? { effect } : {}),
   });
 });
@@ -359,18 +361,18 @@ export const PACK_FORMATS: PackFormat[] = [
     label: '반려동물 집사 밈 팩',
     labelEn: 'Pet butler meme pack',
     emoji: '🐾',
-    tagline: '강아지·고양이 12컷 — 간식 내놔부터 방귀까지',
-    taglineEn: '12 pet-butler meme cuts',
-    description: '강아지·고양이 사진 1장으로 만드는 12컷. “간식 내놔”, “산책 가자”, “집사야 일해라”, “밥 줘”, “누가 방귀 꼈어” 같은 한국형 집사 밈 전용 대사로 맞췄습니다.',
-    descriptionEn: 'Twelve pet-butler memes from one dog or cat photo: treats, walks, feed me, who farted.',
+    tagline: '우리 강아지가 사람처럼 말하는 12컷',
+    taglineEn: '12 cuts where your pet talks like you',
+    description: '강아지·고양이 사진 1장으로 만드는 12컷. “지금 뭐 먹어?”, “나 좀 봐줘”, “삐졌어 건들지마”, “오늘 늦게 와?”, “아 몰라 배째”, “진짜 실화야?”처럼 단톡방에서 사람이 쓰는 말투 그대로라 반려동물이 말하는 것처럼 웃깁니다. 표정·포즈·각도도 컷마다 다르게 그립니다.',
+    descriptionEn: 'Twelve cuts from one pet photo, with lines people actually type in a group chat — so the pet sounds like a person. Expressions, poses and camera angles differ on every cut.',
     needsSecondPhoto: false,
     textMode: 'layer',
     killer: true,
     unlockPrice: 6900,
     cuts: PET_MEME,
     prompt: {
-      scene: 'the pet acting out a funny everyday butler-meme moment that fits the caption (demanding a treat, begging for a walk, commanding its human, sniffing suspiciously)',
-      layout: 'the pet centered and fully visible from ears to paws, expressive face toward the viewer, simple clean background',
+      scene: 'the pet acting out a specific, funny everyday moment that fits this caption, with ONE clear emotion written on its face (sulking, side-eye, beaming, teary, wide-eyed, sleepy, smug, startled). Each cut must use a clearly different expression, pose and camera angle from the others — never the same straight-on sitting portrait twice',
+      layout: 'the pet fills the frame in the pose that suits the action (head close-up, three-quarter turn, lying down, mid-air jump or overhead view); keep the face large and readable at 360 pixels, with a simple clean background',
     },
   },
   {

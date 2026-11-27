@@ -2,88 +2,227 @@
 // 레터링 레이아웃 (SVG · 캔버스 공용)
 //  · 서버 SVG(renderSticker)와 브라우저 캔버스(drawLayer)가 **같은 계산**을 쓴다.
 //  · 글자 폭은 번들 폰트의 실제 advance 값을 표로 옮겨 두어 두 엔진의 줄바꿈·중앙정렬이 같다.
-//  · 기본 서체는 둥글고 또렷한 'EmotiHak Round'(주아) — 카톡 채팅방 크기에서도 1초에 읽힌다.
+//  · 서체는 4종 — 동글 손글씨(주아) · 세련된 캘리그라피(독도) · 예능/밈 굵은체(검은고딕) ·
+//    단정 감성 명조(고운바탕). 네 폰트 모두 앱에 직접 넣은(SIL OFL) 웹폰트다.
 //  · 정갈함 우선: 글자 크기는 한 크기로 통일하고(강조 확대 없음), 글자별 기울기·흔들림은
-//    1도 안팎의 미세한 리듬만 남긴다. 네모 말풍선 박스 없이 흰 스티커 외곽선 + 얕은 그림자
+//    서체에 맞춰 아주 작게만 준다. 네모 말풍선 박스 없이 흰 스티커 외곽선 + 얕은 그림자
 //    + 감정별 딥톤 채움으로 마감한다.
 // ─────────────────────────────────────────────────────────────
 
 import type { Emotion } from '@/lib/types';
-import type { TextLayerStyle } from '@/lib/studio/layers';
 
-/** 번들 폰트 키 — 각 키는 public/fonts 의 실제 폰트 파일과 1:1로 대응한다. */
-export type CaptionFace = 'calli' | 'brush' | 'hand' | 'gothic' | 'bold' | 'serif';
+/** 번들 서체 키 — 각 키는 public/fonts 의 실제 폰트 파일과 1:1로 대응한다. */
+export type CaptionFace = 'round' | 'brush' | 'meme' | 'myeongjo';
 
-export const CAPTION_FONT_FILES: Record<CaptionFace, string> = {
-  calli: '/fonts/EmotiHakRound.woff2',
-  brush: '/fonts/EmotiHakBrush.woff2',
-  hand: '/fonts/EmotiHakHand.woff2',
-  gothic: '',
-  bold: '',
-  serif: '',
-};
-
-/** CSS font-family 이름 (페이지 @font-face 와 SVG 임베드가 같은 이름을 쓴다) */
-export const CAPTION_FONT_FAMILIES: Record<CaptionFace, string> = {
-  calli: '"EmotiHak Round", "Jua", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
-  brush: '"EmotiHak Brush", "Yeon Sung", "EmotiHak Hand", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
-  hand: '"EmotiHak Hand", "Gaegu", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
-  gothic: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
-  bold: '"Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
-  serif: '"Nanum Myeongjo", Batang, "Apple SD Gothic Neo", serif',
-};
-
-/** 글자 폭 표 (em 단위 × 100). 실제 폰트의 hmtx advance 값. */
-interface FaceMetrics {
+export interface CaptionFaceSpec {
+  /** 앱에서 부르는 서체 이름 (기본값) */
+  key: CaptionFace;
+  /** 번들 폰트 파일 경로 (없으면 시스템 대체 서체로만 그린다) */
+  file: string;
+  /** CSS font-family 스택 — 페이지 @font-face 와 SVG 임베드가 같은 이름을 쓴다 */
+  family: string;
+  /** 번들 폰트의 실제 굵기 — SVG 와 캔버스가 **같은 값**을 써야 미리보기와 저장이 같다 */
+  weight: number;
+  /** 글자 폭 표 (em 단위 × 100). 실제 폰트의 hmtx advance 값. */
   hangul: number;
-  /** ASCII 0x20~0x7E (95자) */
   ascii: number[];
   fallback: number;
+  /**
+   * 눈에 보이는 크기 보정 — 폰트마다 em 박스 안에서 글자가 차지하는 높이가 달라
+   * (붓글씨는 작게, 명조는 크게 그려진다) 같은 size 에서도 실제 크기가 달라진다.
+   * 이 값을 곱해 네 서체의 시각 크기를 맞춘다.
+   */
+  fit: number;
+  /** 상승부·하강부(보정된 글자 크기 대비 em) — 기준선과 블록 높이를 실제 글자에 맞춘다. */
+  ascent: number;
+  descent: number;
+  /** 글자별 기울기 상한(도) — 반듯한 서체는 1도 안쪽만. */
+  tilt: number;
+  /** 글자별 세로 흔들림(em) — 고딕 계열은 0(반듯하게). */
+  wave: number;
+  /** 자간(em) — 양수면 넓히고 음수면 좁힌다 */
+  tracking: number;
+  /** 줄 사이 여백(em) */
+  lineGap: number;
+  /** 흰 스티커 외곽선 두께(글자 크기 대비) */
+  outline: number;
+  /** 잉크 살찌우기 두께(글자 크기 대비) — 가는 붓글씨를 이모티콘 크기에서도 또렷하게 */
+  bold: number;
+  /** 붓 밑줄 포인트 — 손멋글씨에만 */
+  underline: boolean;
+  /** 세로 그라데이션 위쪽 밝기 (0이면 단색에 가깝다) */
+  inkLightMix: number;
 }
 
 const JUA_ASCII = [
-  30, 30, 44, 84, 63, 77, 77, 35, 34, 35, 57, 55, 28, 47, 20, 48, 61, 41, 58, 55, 63, 58, 62, 60,
+  30, 30, 44, 84, 63, 77, 77, 35, 34, 35, 57, 54, 28, 47, 20, 48, 61, 41, 58, 55, 63, 58, 62, 60,
   58, 59, 23, 25, 55, 52, 54, 56, 88, 70, 56, 62, 61, 55, 54, 61, 61, 28, 62, 57, 54, 69, 62, 63,
-  58, 65, 60, 61, 64, 63, 67, 80, 63, 62, 61, 47, 48, 47, 47, 53, 50, 57, 48, 46, 47, 51, 40, 50,
+  58, 65, 60, 61, 64, 63, 67, 80, 63, 62, 61, 47, 48, 47, 47, 53, 50, 58, 48, 46, 47, 51, 40, 50,
   47, 21, 42, 42, 22, 62, 49, 56, 49, 49, 49, 45, 51, 49, 53, 67, 52, 55, 49, 47, 36, 49, 63,
 ];
 
-const SINGLE_DAY_ASCII = [
-  27, 40, 40, 64, 46, 67, 59, 40, 40, 40, 40, 44, 28, 44, 28, 52, 46, 32, 43, 44, 49, 45, 44, 48,
-  44, 45, 25, 26, 44, 44, 44, 45, 77, 51, 46, 52, 43, 47, 46, 55, 52, 43, 48, 45, 51, 62, 53, 46,
-  42, 53, 44, 47, 51, 55, 52, 66, 53, 51, 51, 39, 52, 39, 40, 44, 33, 42, 46, 44, 41, 38, 42, 37,
-  48, 34, 38, 45, 31, 61, 44, 39, 38, 37, 41, 36, 43, 46, 43, 59, 43, 41, 46, 40, 32, 40, 58,
+const DOKDO_ASCII = [
+  28, 37, 42, 67, 59, 68, 68, 32, 43, 43, 40, 56, 22, 52, 22, 55, 59, 39, 52, 52, 58, 52, 52, 50,
+  55, 54, 31, 31, 43, 56, 43, 46, 68, 58, 54, 56, 54, 54, 53, 60, 60, 34, 46, 54, 48, 76, 63, 60,
+  52, 62, 58, 52, 48, 60, 56, 76, 51, 50, 56, 45, 55, 45, 40, 68, 50, 49, 49, 48, 52, 44, 40, 46,
+  50, 35, 38, 51, 30, 64, 48, 46, 46, 45, 40, 42, 43, 45, 43, 63, 50, 46, 44, 47, 40, 47, 63,
 ];
 
-const BAGEL_ASCII = [
-  18, 43, 45, 81, 64, 79, 72, 27, 44, 44, 50, 66, 30, 52, 30, 42, 62, 47, 62, 60, 69, 61, 59, 60,
-  64, 59, 36, 36, 63, 54, 63, 52, 85, 71, 64, 66, 66, 61, 59, 71, 67, 28, 58, 64, 60, 83, 69, 71,
-  63, 71, 64, 64, 68, 66, 70, 93, 68, 70, 62, 40, 42, 40, 45, 54, 40, 55, 57, 52, 58, 53, 44, 55,
-  55, 24, 26, 60, 24, 80, 55, 56, 59, 57, 48, 54, 52, 55, 54, 82, 56, 55, 53, 51, 29, 51, 62,
+const BLACK_HAN_ASCII = [
+  30, 31, 37, 75, 55, 86, 80, 26, 42, 42, 52, 48, 27, 48, 27, 51, 60, 60, 60, 60, 60, 60, 60, 60,
+  60, 60, 31, 31, 44, 48, 44, 42, 82, 73, 71, 60, 77, 64, 56, 72, 78, 36, 44, 71, 55, 97, 79, 76,
+  71, 76, 74, 69, 60, 73, 72, 98, 71, 67, 71, 43, 51, 43, 49, 48, 50, 68, 71, 55, 71, 68, 43, 64,
+  71, 36, 36, 67, 37, 102, 71, 71, 71, 71, 45, 63, 44, 71, 62, 96, 65, 62, 64, 46, 39, 46, 60,
 ];
 
-const YEONSUNG_ASCII = [
-  30, 31, 39, 66, 56, 74, 62, 23, 29, 24, 46, 60, 24, 42, 25, 33, 56, 37, 49, 48, 50, 45, 49, 44,
-  45, 46, 28, 28, 49, 60, 50, 50, 80, 51, 54, 54, 59, 47, 46, 64, 54, 36, 44, 51, 49, 66, 61, 66,
-  50, 71, 56, 49, 48, 60, 52, 76, 57, 50, 48, 32, 33, 33, 49, 50, 24, 51, 53, 44, 50, 44, 39, 47,
-  51, 22, 26, 47, 25, 68, 46, 48, 53, 50, 35, 41, 35, 51, 42, 63, 45, 46, 42, 39, 22, 39, 56,
+const GOWUN_ASCII = [
+  31, 31, 38, 66, 60, 87, 87, 23, 42, 42, 51, 65, 30, 45, 30, 50, 60, 50, 56, 56, 56, 56, 56, 56,
+  56, 56, 32, 32, 65, 65, 65, 54, 90, 71, 60, 71, 72, 57, 54, 76, 75, 32, 34, 66, 57, 86, 72, 81,
+  59, 81, 64, 54, 64, 72, 70, 96, 66, 65, 60, 42, 50, 42, 50, 65, 60, 50, 58, 48, 56, 50, 36, 51,
+  57, 28, 28, 54, 28, 86, 58, 55, 57, 56, 40, 43, 37, 56, 54, 78, 50, 54, 42, 42, 40, 42, 65,
 ];
 
-const GAEGU_ASCII = [
-  42, 44, 44, 73, 67, 76, 75, 32, 44, 44, 55, 62, 35, 62, 34, 46, 57, 43, 52, 53, 55, 49, 48, 48,
-  54, 51, 35, 35, 45, 62, 45, 54, 76, 54, 57, 55, 57, 49, 50, 62, 63, 38, 39, 54, 45, 71, 61, 57,
-  48, 59, 51, 51, 49, 58, 54, 75, 55, 49, 51, 52, 46, 52, 58, 32, 42, 47, 46, 43, 48, 48, 35, 50,
-  49, 31, 31, 43, 30, 73, 47, 42, 46, 47, 38, 39, 35, 49, 45, 65, 47, 47, 40, 42, 39, 42, 79,
-];
-
-const FACE_METRICS: Record<CaptionFace, FaceMetrics> = {
-  calli: { hangul: 83, ascii: JUA_ASCII, fallback: 90 },
-  brush: { hangul: 67.2, ascii: YEONSUNG_ASCII, fallback: 84 },
-  hand: { hangul: 82, ascii: GAEGU_ASCII, fallback: 90 },
-  gothic: { hangul: 100, ascii: Array.from({ length: 95 }, () => 56), fallback: 100 },
-  bold: { hangul: 100, ascii: Array.from({ length: 95 }, () => 60), fallback: 100 },
-  serif: { hangul: 100, ascii: Array.from({ length: 95 }, () => 50), fallback: 100 },
+/**
+ * 네 가지 서체.
+ *  ① round    동글 손글씨 (기본값) — 도톰하고 둥근 손글씨. 실사 사진 옆에서도 한눈에 읽힌다.
+ *  ② brush    세련된 캘리그라피 — 획의 강약이 살아 있는 붓 손멋글씨.
+ *  ③ meme     예능·밈 굵은체 — 자막체. 흰 외곽선이 두꺼워 어떤 사진 위에서도 또렷하다.
+ *  ④ myeongjo 단정 감성 명조 — 차분한 인사·감정 컷용.
+ */
+export const CAPTION_FACES: Record<CaptionFace, CaptionFaceSpec> = {
+  round: {
+    key: 'round',
+    file: '/fonts/EmotiHakRound.woff2',
+    family: '"EmotiHak Round", "Jua", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+    weight: 400,
+    hangul: 81,
+    ascii: JUA_ASCII,
+    fallback: 90,
+    fit: 1,
+    ascent: 0.81,
+    descent: 0.07,
+    tilt: 0.7,
+    wave: 0.003,
+    tracking: 0.002,
+    lineGap: 0.12,
+    outline: 0.11,
+    bold: 0,
+    underline: false,
+    inkLightMix: 0.34,
+  },
+  brush: {
+    key: 'brush',
+    file: '/fonts/EmotiHakCalli.woff2',
+    family: '"EmotiHak Calli", "Dokdo", "EmotiHak Round", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif',
+    weight: 400,
+    hangul: 69,
+    ascii: DOKDO_ASCII,
+    fallback: 90,
+    // 독도체는 em 박스 안에서 글자가 작게 그려진다 — 붓글씨 특유의 여백을 살리되 크기는 맞춘다.
+    fit: 1.26,
+    ascent: 0.66,
+    descent: 0.32,
+    tilt: 1.2,
+    wave: 0.004,
+    // 붓글씨는 글자 잉크가 advance 보다 좁아 자간을 더하면 벌어져 보인다 — 자간 0.
+    tracking: 0,
+    lineGap: 0.18,
+    // 붓글씨는 획이 가늘어 360px 에서 흰 외곽선에 먹히기 쉽다 — 외곽선은 얇게, 잉크 살은 두껍게.
+    outline: 0.105,
+    bold: 0.075,
+    // 밑줄은 두지 않는다 — 360px 에서 마지막 획과 겹쳐 지저분해 보였다(여백으로 강약을 살린다).
+    underline: false,
+    // 얇은 붓획은 위쪽 하이라이트가 밝으면 360px 에서 바래 보인다 — 단색에 가깝게.
+    inkLightMix: 0.2,
+  },
+  meme: {
+    key: 'meme',
+    file: '/fonts/EmotiHakMeme.woff2',
+    family: '"EmotiHak Meme", "Black Han Sans", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif',
+    weight: 400,
+    hangul: 84,
+    ascii: BLACK_HAN_ASCII,
+    fallback: 100,
+    fit: 1,
+    ascent: 0.79,
+    descent: 0.04,
+    tilt: 0,
+    wave: 0,
+    tracking: -0.004,
+    lineGap: 0.1,
+    outline: 0.13,
+    bold: 0,
+    underline: false,
+    inkLightMix: 0.14,
+  },
+  myeongjo: {
+    key: 'myeongjo',
+    file: '/fonts/EmotiHakMyeongjo.woff2',
+    family: '"EmotiHak Myeongjo", "Gowun Batang", "Nanum Myeongjo", Batang, "Apple SD Gothic Neo", serif',
+    weight: 700,
+    hangul: 91,
+    ascii: GOWUN_ASCII,
+    fallback: 100,
+    // 고운바탕은 em 박스에 꽉 차게 그려져 그대로 쓰면 다른 서체보다 커 보인다.
+    fit: 0.94,
+    ascent: 0.87,
+    descent: 0.13,
+    tilt: 0.3,
+    wave: 0.001,
+    tracking: 0.012,
+    lineGap: 0.14,
+    outline: 0.11,
+    bold: 0.022,
+    underline: false,
+    inkLightMix: 0.22,
+  },
 };
+
+export const CAPTION_FACE_KEYS = Object.keys(CAPTION_FACES) as CaptionFace[];
+
+/** 번들 폰트 파일 (없으면 시스템 대체 서체로만 그린다) */
+export const CAPTION_FONT_FILES: Record<CaptionFace, string> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].file]),
+) as Record<CaptionFace, string>;
+
+/** CSS font-family 스택 — 페이지 @font-face 와 SVG 임베드가 같은 이름을 쓴다 */
+export const CAPTION_FONT_FAMILIES: Record<CaptionFace, string> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].family]),
+) as Record<CaptionFace, string>;
+
+/** 서체별 상승부·하강부(em) — 기준선과 블록 높이를 실제 글자에 맞춘다. */
+export const CAPTION_ASCENT: Record<CaptionFace, number> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].ascent]),
+) as Record<CaptionFace, number>;
+
+export const CAPTION_DESCENT: Record<CaptionFace, number> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].descent]),
+) as Record<CaptionFace, number>;
+
+/** 글자별 기울기 상한(도) — 정갈한 서체는 1도 안쪽, 붓글씨만 조금 더 준다. */
+export const CAPTION_TILT: Record<CaptionFace, number> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].tilt]),
+) as Record<CaptionFace, number>;
+
+/** 글자별 세로 흔들림(em) — 고딕 계열은 0(반듯하게). */
+export const CAPTION_WAVE: Record<CaptionFace, number> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].wave]),
+) as Record<CaptionFace, number>;
+
+/** 자간(em) */
+export const CAPTION_TRACKING: Record<CaptionFace, number> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].tracking]),
+) as Record<CaptionFace, number>;
+
+/** 흰 외곽선 두께 (글자 크기 대비) */
+export const CAPTION_OUTLINE: Record<CaptionFace, number> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].outline]),
+) as Record<CaptionFace, number>;
+
+/** 글자 살을 찌우는 잉크 외곽선 두께 (글자 크기 대비) */
+export const CAPTION_BOLD: Record<CaptionFace, number> = Object.fromEntries(
+  CAPTION_FACE_KEYS.map((face) => [face, CAPTION_FACES[face].bold]),
+) as Record<CaptionFace, number>;
 
 const HANGUL_LIKE =
   /[\u1100-\u11FF\u2E80-\uA4CF\uA960-\uA97F\uAC00-\uD7FF\uF900-\uFAFF\uFF00-\uFF60\u3000-\u303F\u3130-\u318F]/;
@@ -91,7 +230,7 @@ const EMOJI_LIKE = /[\u{1F000}-\u{1FAFF}\u{2600}-\u{27BF}]/u;
 
 /** 글자 폭(px). 두 엔진이 같은 표를 쓰므로 줄바꿈과 중앙정렬이 일치한다. */
 export function charAdvance(ch: string, size: number, face: CaptionFace): number {
-  const m = FACE_METRICS[face] ?? FACE_METRICS.calli;
+  const m = CAPTION_FACES[face] ?? CAPTION_FACES.round;
   const code = ch.codePointAt(0) ?? 32;
   let em: number;
   if (code >= 0x20 && code <= 0x7e) em = (m.ascii[code - 0x20] ?? 50) / 100;
@@ -99,25 +238,6 @@ export function charAdvance(ch: string, size: number, face: CaptionFace): number
   else if (EMOJI_LIKE.test(ch)) em = 1;
   else em = m.fallback / 100;
   return em * size;
-}
-
-export function captionFaceOf(style: TextLayerStyle | undefined): CaptionFace {
-  switch (style) {
-    case 'calli':
-      return 'calli';
-    case 'brush':
-      return 'brush';
-    case 'hand':
-      return 'hand';
-    case 'gothic':
-      return 'gothic';
-    case 'bold':
-      return 'bold';
-    case 'stamp':
-      return 'serif';
-    default:
-      return 'calli';
-  }
 }
 
 /**
@@ -186,11 +306,12 @@ export function inkFor(emotion: Emotion | undefined, color?: string): string {
  * 레터링 색 세트 — 캔버스와 SVG 가 같은 값을 쓴다.
  *  · ink: 아래쪽(진한) 채움   · inkLight: 위쪽 하이라이트 채움   · underline: 붓 밑줄 색
  */
-export function inkTonesFor(emotion: Emotion | undefined, color?: string) {
+export function inkTonesFor(emotion: Emotion | undefined, color?: string, face: CaptionFace = 'round') {
   const custom = customInk(color);
   const key = (emotion ?? 'blank') as Emotion;
   const ink = custom ?? EMOTION_INK[key] ?? EMOTION_INK.blank;
-  const inkLight = custom ? mixHex(custom, '#FFFFFF', 0.34) : EMOTION_INK_LIGHT[key] ?? EMOTION_INK_LIGHT.blank;
+  const mix = CAPTION_FACES[face]?.inkLightMix ?? 0.34;
+  const inkLight = mixHex(ink, '#FFFFFF', mix);
   return {
     ink,
     inkLight,
@@ -223,7 +344,7 @@ export interface CaptionLayout {
   lines: CaptionLine[];
   width: number;
   height: number;
-  /** 첫 줄 글자 크기(px) */
+  /** 첫 줄 글자 크기(px, 서체 보정이 적용된 값) */
   size: number;
   lineHeight: number;
 }
@@ -293,59 +414,11 @@ function wrapAt(text: string, size: number, face: CaptionFace, maxWidth: number,
   return lines.length ? lines : [''];
 }
 
-/** 서체별 상승부·하강부(em) — 기준선과 블록 높이를 실제 글자에 맞춘다. */
-export const CAPTION_ASCENT: Record<CaptionFace, number> = {
-  calli: 0.8,
-  brush: 0.63,
-  hand: 0.85,
-  gothic: 0.86,
-  bold: 0.86,
-  serif: 0.85,
-};
-
-export const CAPTION_DESCENT: Record<CaptionFace, number> = {
-  calli: 0.1,
-  brush: 0.25,
-  hand: 0.12,
-  gothic: 0.16,
-  bold: 0.16,
-  serif: 0.2,
-};
-
-/** 글자별 기울기 상한(도) — 정갈한 기본 서체는 1도 안쪽, 붓글씨만 조금 더 준다. */
-export const CAPTION_TILT: Record<CaptionFace, number> = {
-  calli: 0.9,
-  brush: 2,
-  hand: 1.4,
-  gothic: 0,
-  bold: 0,
-  serif: 0.8,
-};
-
-/** 글자별 세로 흔들림(em) — 고딕 계열은 0(반듯하게). */
-export const CAPTION_WAVE: Record<CaptionFace, number> = {
-  calli: 0.004,
-  brush: 0.01,
-  hand: 0.006,
-  gothic: 0,
-  bold: 0,
-  serif: 0.002,
-};
-
-/** 자간(em) — 둥근 서체는 살짝 숨을 주고, 고딕 계열은 조금 조인다. */
-export const CAPTION_TRACKING: Record<CaptionFace, number> = {
-  calli: 0.004,
-  brush: 0.006,
-  hand: 0.004,
-  gothic: -0.006,
-  bold: -0.01,
-  serif: 0.02,
-};
-
 /**
  * 레터링 레이아웃.
  *  · 2줄까지 접고, 모든 줄은 같은 크기로 그린다(정갈함 우선).
  *  · 글자마다 ±tilt 도의 기울기와 미세한 세로 흔들림을 준다(손글씨 리듬).
+ *  · 서체마다 em 박스 안의 실제 크기가 달라 fit 을 곱해 눈에 보이는 크기를 맞춘다.
  */
 export function layoutCaption(
   text: string,
@@ -358,17 +431,20 @@ export function layoutCaption(
     /** 글자 사이 자간(em) — 양수면 넓히고 음수면 좁힌다 */
     tracking?: number;
     maxLines?: number;
+    /** 블록 높이 상한(px) — 2줄이 캔버스를 넘지 않게 글자 크기를 한 번 더 줄인다 */
+    maxHeight?: number;
   },
 ): CaptionLayout {
-  const face = opts.face ?? 'calli';
+  const face = opts.face ?? 'round';
+  const spec = CAPTION_FACES[face] ?? CAPTION_FACES.round;
   const maxLines = Math.max(1, Math.min(2, opts.maxLines ?? 2));
-  const tilt = Math.max(0, Math.min(8, opts.tilt ?? CAPTION_TILT[face]));
-  const waveEm = CAPTION_WAVE[face];
-  const trackingEm = opts.tracking ?? CAPTION_TRACKING[face];
+  const tilt = Math.max(0, Math.min(8, opts.tilt ?? spec.tilt));
+  const waveEm = spec.wave;
+  const trackingEm = opts.tracking ?? spec.tracking;
   const clean = text.replace(/\s+/g, ' ').trim().slice(0, 34);
   const seed = hashText(clean, opts.seed ?? 7);
 
-  let size = Math.max(8, opts.size);
+  let size = Math.max(8, opts.size * spec.fit);
   let raw: string[] = [clean];
   for (let guard = 0; guard < 12; guard += 1) {
     const wrapped = wrapAt(clean || ' ', size, face, opts.maxWidth, maxLines);
@@ -424,7 +500,7 @@ export function layoutCaption(
   });
 
   // 행간 — 서체의 실제 상승부·하강부에 맞춰 두 줄이 붙지도 벌어지지도 않게.
-  const lineGap = size * (face === 'brush' ? 0.2 : 0.14);
+  const lineGap = size * spec.lineGap;
   const lines: CaptionLine[] = [];
   let top = 0;
   raw.forEach((lineText, lineIndex) => {
@@ -450,38 +526,24 @@ export function layoutCaption(
       cursor += advance + tracking;
       glyphIndex += 1;
     }
-    // 기준선: 블록 상단 + 서체의 상승부(주아 0.80em) — 글자 시각 중심이 블록 중심에 온다.
-    const baseline = top + lineSize * CAPTION_ASCENT[face];
+    // 기준선: 블록 상단 + 서체의 상승부 — 글자 시각 중심이 블록 중심에 온다.
+    const baseline = top + lineSize * spec.ascent;
     lines.push({ glyphs, width: cursor, size: lineSize, baseline });
     top += lineSize + lineGap;
   });
 
   const width = Math.max(0, ...lines.map((line) => line.width));
   // 아래로 내려오는 획(디센더)까지만 포함 — 빈 여백이 붙어 블록이 아래로 치우치지 않게.
-  const height = Math.max(...lines.map((line) => line.baseline + line.size * CAPTION_DESCENT[face]));
+  const height = Math.max(...lines.map((line) => line.baseline + line.size * spec.descent));
+  // 세로 상한: 두 줄이 캔버스를 넘어 잘리지 않게 글자 크기를 한 단계 더 줄여 다시 앉힌다.
+  const maxHeight = opts.maxHeight ?? Number.POSITIVE_INFINITY;
+  if (height > maxHeight && size > 12) {
+    return layoutCaption(text, { ...opts, size: Math.max(8, (size / spec.fit) * 0.92) });
+  }
   return { lines, width, height, size, lineHeight: size * 1.04 };
 }
 
-/** 흰 외곽선 두께 (글자 크기 대비) */
-export const CAPTION_OUTLINE: Record<CaptionFace, number> = {
-  calli: 0.13,
-  brush: 0.2,
-  hand: 0.17,
-  gothic: 0.15,
-  bold: 0.18,
-  serif: 0.06,
-};
-
-/**
- * 글자 살을 찌우는 잉크 외곽선 두께 (글자 크기 대비).
- * 붓글씨 서체는 획이 가늘어 360px 이모티콘에서 힘이 빠진다 → 같은 색으로 한 번 더 발라
- * 카톡 이모티콘 특유의 두툼한 레터링을 만든다.
- */
-export const CAPTION_BOLD: Record<CaptionFace, number> = {
-  calli: 0,
-  brush: 0.06,
-  hand: 0.04,
-  gothic: 0,
-  bold: 0,
-  serif: 0,
-};
+/** 글자 레터링 공통 상수 — 서체 스펙에서 바로 꺼내 쓴다. */
+export function captionFaceSpec(face: CaptionFace | undefined): CaptionFaceSpec {
+  return CAPTION_FACES[face ?? 'round'] ?? CAPTION_FACES.round;
+}

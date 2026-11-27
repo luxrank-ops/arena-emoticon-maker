@@ -24,6 +24,8 @@ const schema = z.object({
   curationPackageId: z.string().refine(isCurationPackageId, '알 수 없는 큐레이션 패키지입니다.').optional(),
   /** 무료 미리보기 팩 (무료로 4컷 생성 → 잠금 해제 시 12컷 완성, 체험 사용자 전용) */
   preview: z.boolean().optional(),
+  /** 대사 글자체 (동글 손글씨·세련된 캘리그라피·예능 밈 굵은체·단정 감성 명조) */
+  textStyle: z.enum(['round', 'brush', 'meme', 'myeongjo']).optional(),
 });
 
 export async function POST(req: Request) {
@@ -47,7 +49,7 @@ export async function POST(req: Request) {
     if (body.presetIds && (body.presetIds.length !== body.size || new Set(body.presetIds).size !== body.size)) return fail('INVALID_PRESET_SELECTION', '프리셋을 컷 수만큼 중복 없이 선택해 주세요.', 422);
     if (body.presetIds && body.comicExpressionIds) return fail('INVALID_PRESET_SELECTION', '코믹 표정과 프리셋은 함께 고를 수 없습니다.', 422);
     if (body.curationPackageId && (body.presetIds || body.comicExpressionIds || body.format)) return fail('INVALID_PRESET_SELECTION', '큐레이션 패키지는 다른 팩 구성과 함께 사용할 수 없습니다.', 422);
-    const pack = await createPack(user.id, body.sheetId, body.size, body.title, isUnlimited(user), body.comicExpressionIds, body.locale, body.format, body.presetIds, { preview, curationPackageId: body.curationPackageId });
+    const pack = await createPack(user.id, body.sheetId, body.size, body.title, isUnlimited(user), body.comicExpressionIds, body.locale, body.format, body.presetIds, { preview, curationPackageId: body.curationPackageId, textStyle: body.textStyle });
     void captureServer('pack_created', user.id, { size: pack.size, cost: pack.creditsSpent });
     // 초대받은 사람이 실제로 첫 미리보기 팩을 만들었을 때 초대한 사람에게 3컷을 지급한다.
     if (preview) void rewardReferralForInvitee(user.id).catch(() => undefined);

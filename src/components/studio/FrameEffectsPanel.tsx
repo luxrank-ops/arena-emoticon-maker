@@ -13,11 +13,11 @@ import {
 import {
   LAYER_EFFECTS,
   MAX_LAYERS,
-  TEXT_STYLES,
   newLayer,
   normalizeLayers,
   type TextLayer,
 } from '@/lib/studio/layers';
+import { CaptionFontPicker } from '@/components/studio/CaptionFontPicker';
 import { MOTION_TEMPLATES, motionById, motionDurationMs, motionParticlesAt, motionTransformAt, type MotionId } from '@/lib/studio/motion';
 import { tr, type Locale } from '@/lib/i18n/locale';
 import type { StickerSpec } from '@/lib/types';
@@ -328,20 +328,12 @@ export function FrameEffectsPanel({
                   />
                 </label>
 
-                <div className="grid grid-cols-1 gap-2">
-                  <label className="block text-[10px] font-bold text-sub">
-                    {t('글꼴', 'Font')}
-                    <select
-                      value={active.style}
-                      onChange={(event) => patchLayer({ style: event.target.value as TextLayer['style'] })}
-                      className="mt-1 min-h-10 w-full rounded-lg border border-line bg-white px-2 text-xs font-semibold"
-                    >
-                      {TEXT_STYLES.map((style) => (
-                        <option key={style.id} value={style.id}>{locale === 'en' ? style.labelEn : style.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                </div>
+                <CaptionFontPicker
+                  value={active.style}
+                  onChange={(style) => patchLayer({ style })}
+                  locale={locale}
+                  columns={2}
+                />
 
                 <div>
                   <p className="text-[10px] font-bold text-sub">{t('이펙트', 'Effect')}</p>
