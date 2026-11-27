@@ -124,7 +124,8 @@ export const CAPTION_FACES: Record<CaptionFace, CaptionFaceSpec> = {
     descent: 0.32,
     tilt: 1.2,
     wave: 0.004,
-    tracking: 0.012,
+    // 붓글씨는 글자 잉크가 advance 보다 좁아 자간을 더하면 벌어져 보인다 — 자간 0.
+    tracking: 0,
     lineGap: 0.18,
     // 붓글씨는 획이 가늘어 360px 에서 흰 외곽선에 먹히기 쉽다 — 외곽선은 얇게, 잉크 살은 두껍게.
     outline: 0.105,

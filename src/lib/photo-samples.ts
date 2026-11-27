@@ -103,7 +103,7 @@ export const PHOTO_SAMPLES: Record<'pet' | 'couple' | 'team', PhotoSampleGroup> 
 
 /** 홈·영문 랜딩 히어로 콜라주 — 실사 컷 3장(반려동물·커플·팀)을 겹쳐 보여 준다. */
 export const HERO_PHOTO_CUTS = [
-  { src: '/samples/photo/pet-dog-beg.webp', label: { ko: '반려동물', en: 'Pets' } },
+  { src: '/samples/photo/pet-dog-sit.webp', label: { ko: '반려동물', en: 'Pets' } },
   { src: '/samples/photo/couple-heart.webp', label: { ko: '커플', en: 'Couple' } },
   { src: '/samples/photo/team-cheer.webp', label: { ko: '팀', en: 'Team' } },
 ] as const;
