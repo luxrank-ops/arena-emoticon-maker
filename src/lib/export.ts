@@ -8,6 +8,7 @@ import { aiSubjectAlpha, type AiMatteModel } from '@/lib/studio/ai-matte';
 import { applyAlphaToPixels, planMatteEngine, type MatteReason } from '@/lib/studio/ai-matte-core';
 import { assembleApng } from '@/lib/studio/apng';
 import { drawSeasonProp, computeSubjectMetrics, planFigureScale, scaleSubjectMetrics, seasonPropById, type SeasonPropPlacement } from '@/lib/studio/season-props';
+import { CUTOUT_PHOTO_FRAME } from '@/lib/studio/photo-cutout';
 import { drawLayers, normalizeLayers, type TextLayer } from '@/lib/studio/layers';
 import { captionFontCss, ensureCaptionFonts } from '@/lib/svg-fonts';
 import {
@@ -38,6 +39,23 @@ export interface MatteInfo {
   coverage?: number;
 }
 
+/**
+ * 사진 프레임 — 누끼 대신 사진 배경을 살리고 흰 보더가 있는 둥근 판으로 마감한다.
+ *  · 반려동물처럼 털 끝이 가늘어 누끼 경계가 지저분해지는 사진에 쓴다(2026-11-27 사용자 피드백).
+ *  · 값은 모두 캔버스 크기 대비 비율이라 360(내보내기)·512(미리보기) 어디서든 같은 비율로 보인다.
+ */
+export interface PhotoFrameOptions {
+  /** 흰 보더 두께 (기본 0.030 — 360 기준 약 11px) */
+  border?: number;
+  /** 둥근 모서리 비율 — 프레임 폭 대비 (기본 0.16) */
+  radius?: number;
+  /** 그림자가 앉을 바깥 여백 (기본 0.023) */
+  margin?: number;
+}
+
+/** 반려동물 실사 컷 기본 프레임 — 화면 샘플(public/samples/photo)과 같은 비율 */
+export const PET_PHOTO_FRAME: PhotoFrameOptions = CUTOUT_PHOTO_FRAME;
+
 export interface ExportOptions {
   size?: number;
   watermark?: boolean;
@@ -64,6 +82,11 @@ export interface ExportOptions {
    *  · 잠금 판정은 화면(/studio/photo)에서 하고, 여기는 배치만 받는다.
    */
   seasonProp?: SeasonPropPlacement | null;
+  /**
+   * 사진 프레임 모드 — 지정하면 누끼·흰 실루엣 외곽선을 쓰지 않고
+   * 사진 배경을 살린 채 흰 보더의 둥근 판으로 그린다(반려동물 기본).
+   */
+  photoFrame?: PhotoFrameOptions;
 }
 
 function svgUrl(svg: string) {
@@ -156,6 +179,83 @@ function layersOf(spec: StickerSpec, opts: ExportOptions): TextLayer[] {
   return normalizeLayers(spec.textLayers);
 }
 
+/** roundRect 경로 — 구형 Safari/WebView 에는 ctx.roundRect 가 없다 */
+function roundRectPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  const radius = Math.max(0, Math.min(r, w / 2, h / 2));
+  ctx.moveTo(x + radius, y);
+  ctx.arcTo(x + w, y, x + w, y + h, radius);
+  ctx.arcTo(x + w, y + h, x, y + h, radius);
+  ctx.arcTo(x, y + h, x, y, radius);
+  ctx.arcTo(x, y, x + w, y, radius);
+  ctx.closePath();
+}
+
+/** 사진을 프레임 안에 꽉 차게(cover) 그린다 — 비율이 달라도 잘리기만 하고 늘어나지 않는다 */
+function drawCoverImage(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number, h: number) {
+  const iw = img.naturalWidth || img.width;
+  const ih = img.naturalHeight || img.height;
+  if (!iw || !ih) return;
+  const scale = Math.max(w / iw, h / ih);
+  const sw = w / scale;
+  const sh = h / scale;
+  ctx.drawImage(img, (iw - sw) / 2, (ih - sh) / 2, sw, sh, x, y, w, h);
+}
+
+/** 사진 배경을 살린 둥근 사진 프레임 — 흰 보더 + 부드러운 그림자 (누끼 없음) */
+function drawFramedPhoto(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  size: number,
+  frame: PhotoFrameOptions,
+  captionScrim = false,
+) {
+  const margin = Math.max(2, size * (frame.margin ?? 0.023));
+  const x = margin;
+  const y = margin;
+  const w = size - margin * 2;
+  const h = size - margin * 2;
+  const radius = Math.max(4, w * (frame.radius ?? 0.16));
+  const border = Math.max(2, size * (frame.border ?? 0.03));
+  // 1) 그림자 + 흰 판
+  ctx.save();
+  ctx.shadowColor = 'rgba(24,16,8,0.22)';
+  ctx.shadowBlur = size * 0.035;
+  ctx.shadowOffsetY = size * 0.014;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.beginPath();
+  roundRectPath(ctx, x, y, w, h, radius);
+  ctx.fill();
+  ctx.restore();
+  // 2) 사진 — 보더 안쪽만 둥글게 잘라 그린다
+  const px = x + border;
+  const py = y + border;
+  const pw = w - border * 2;
+  const ph = h - border * 2;
+  const inner = Math.max(2, radius - border);
+  ctx.save();
+  ctx.beginPath();
+  roundRectPath(ctx, px, py, pw, ph, inner);
+  ctx.clip();
+  drawCoverImage(ctx, img, px, py, pw, ph);
+  // 대사가 얹히면 사진 아래쪽에 옅은 그늘을 깔아 글자가 털·바닥에 묻히지 않게 한다(샘플과 같은 처리).
+  if (captionScrim) {
+    const gradient = ctx.createLinearGradient(0, py + ph * 0.6, 0, py + ph);
+    gradient.addColorStop(0, 'rgba(20,13,6,0)');
+    gradient.addColorStop(1, 'rgba(20,13,6,0.42)');
+    ctx.fillStyle = gradient;
+    ctx.fillRect(px, py + ph * 0.6, pw, ph * 0.4);
+  }
+  ctx.restore();
+  // 3) 밝은 배경에서도 프레임이 보이도록 사진 경계에 얇은 헤어라인
+  ctx.save();
+  ctx.strokeStyle = 'rgba(60,45,30,0.14)';
+  ctx.lineWidth = Math.max(1, size / 400);
+  ctx.beginPath();
+  roundRectPath(ctx, px, py, pw, ph, inner);
+  ctx.stroke();
+  ctx.restore();
+}
+
 /**
  * 컷 한 장을 캔버스에 그린다.
  *  · AI 컷 + 투명 배경이면 정밀 누끼(가장자리 페더링 + 흰색 번짐 제거)
@@ -170,7 +270,8 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
   // 캘리그라피 폰트가 준비된 뒤에 그린다(대체 폰트로 먼저 그리는 것 방지)
   await ensureCaptionFonts();
   ctx.clearRect(0, 0, size, size);
-  if (spec.background !== 'transparent') {
+  // 사진 프레임 모드는 프레임 바깥이 투명해야 하므로 배경색을 깔지 않는다.
+  if (spec.background !== 'transparent' && !opts.photoFrame) {
     ctx.fillStyle = backgroundFill(spec.background);
     ctx.fillRect(0, 0, size, size);
   }
@@ -180,36 +281,41 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
   const fctx = figure.getContext('2d', { willReadFrequently: true })!;
   if (spec.imageUrl) {
     const photo = await loadUrlImage(spec.imageUrl);
-    fctx.drawImage(photo, 0, 0, size, size);
-    if (spec.background === 'transparent' && opts.preciseMatte !== false) {
-      const feather = Math.max(1, Math.round(size / 180));
-      const image = fctx.getImageData(0, 0, size, size);
-      // 이미 투명하게 잘려 있는 컷(샘플·기존 누끼 결과)은 건드리지 않는다 — AI 오판으로 피사체를 잃지 않게.
-      const corners = [0, size - 1, size * (size - 1), size * size - 1];
-      const alreadyCut = corners.every((index) => image.data[index * 4 + 3] < 8);
-      if (!alreadyCut) {
-        // 1) 색상 기반 누끼는 항상 먼저 계산한다 — 단색 배경이면 이걸로 끝나고(AI 로딩 없음)
-        //    AI 가 실패했을 때의 폴백이기도 하다.
-        const colorMask = computeAlphaMask(image.data, size, size, { feather });
-        const decision =
-          opts.matteEngine === 'color'
-            ? { engine: 'color' as const, reason: 'forced' as const }
-            : opts.matteEngine === 'ai'
-              ? { engine: 'ai' as const, reason: 'forced' as const }
-              : planMatteEngine({
-                  backgroundColor: colorMask.backgroundColor,
-                  removedRatio: size > 0 ? colorMask.removed / (size * size) : 0,
-                });
-        // 2) 복잡한 배경이면 기기 안에서 AI 피사체 누끼를 먼저 시도한다
-        const ai = decision.engine === 'ai' ? await aiSubjectAlpha(figure, `${spec.imageUrl}|${size}`) : null;
-        if (ai) {
-          applyAlphaToPixels(image.data, ai.alpha, size);
-          opts.onMatte?.({ engine: 'ai', reason: decision.reason, model: ai.model, coverage: ai.coverage });
-        } else {
-          applyMask(image.data, colorMask, { feather });
-          opts.onMatte?.({ engine: 'color', reason: decision.engine === 'ai' ? 'color-fallback' : decision.reason });
+    if (opts.photoFrame) {
+      // 반려동물 등 — 누끼 없이 사진 그대로, 흰 보더의 둥근 프레임으로 마감한다.
+      drawFramedPhoto(fctx, photo, size, opts.photoFrame, layers.length > 0);
+    } else {
+      fctx.drawImage(photo, 0, 0, size, size);
+      if (spec.background === 'transparent' && opts.preciseMatte !== false) {
+        const feather = Math.max(1, Math.round(size / 180));
+        const image = fctx.getImageData(0, 0, size, size);
+        // 이미 투명하게 잘려 있는 컷(샘플·기존 누끼 결과)은 건드리지 않는다 — AI 오판으로 피사체를 잃지 않게.
+        const corners = [0, size - 1, size * (size - 1), size * size - 1];
+        const alreadyCut = corners.every((index) => image.data[index * 4 + 3] < 8);
+        if (!alreadyCut) {
+          // 1) 색상 기반 누끼는 항상 먼저 계산한다 — 단색 배경이면 이걸로 끝나고(AI 로딩 없음)
+          //    AI 가 실패했을 때의 폴백이기도 하다.
+          const colorMask = computeAlphaMask(image.data, size, size, { feather });
+          const decision =
+            opts.matteEngine === 'color'
+              ? { engine: 'color' as const, reason: 'forced' as const }
+              : opts.matteEngine === 'ai'
+                ? { engine: 'ai' as const, reason: 'forced' as const }
+                : planMatteEngine({
+                    backgroundColor: colorMask.backgroundColor,
+                    removedRatio: size > 0 ? colorMask.removed / (size * size) : 0,
+                  });
+          // 2) 복잡한 배경이면 기기 안에서 AI 피사체 누끼를 먼저 시도한다
+          const ai = decision.engine === 'ai' ? await aiSubjectAlpha(figure, `${spec.imageUrl}|${size}`) : null;
+          if (ai) {
+            applyAlphaToPixels(image.data, ai.alpha, size);
+            opts.onMatte?.({ engine: 'ai', reason: decision.reason, model: ai.model, coverage: ai.coverage });
+          } else {
+            applyMask(image.data, colorMask, { feather });
+            opts.onMatte?.({ engine: 'color', reason: decision.engine === 'ai' ? 'color-fallback' : decision.reason });
+          }
+          fctx.putImageData(image, 0, 0);
         }
-        fctx.putImageData(image, 0, 0);
       }
     }
   } else {
@@ -220,8 +326,8 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
     fctx.drawImage(img, 0, 0, size, size);
   }
 
-  // 2) 흰색 외곽선 → 그림 뒤에 깔기
-  const outline = Math.max(0, Math.round(opts.outline ?? 0));
+  // 2) 흰색 외곽선 → 그림 뒤에 깔기 (사진 프레임 모드는 프레임 자체가 보더라 외곽선을 끈다)
+  const outline = opts.photoFrame ? 0 : Math.max(0, Math.round(opts.outline ?? 0));
   // 2-1) 시즌 소품 자동 맞춤: 누끼 결과의 알파에서 피사체 비율(정수리·머리 너비)을 잰다.
   //      머리 소품이 위쪽에서 잘릴 상황이면 사진을 살짝 줄여(아래변 고정) 자리를 만든다.
   const seasonProp = opts.seasonProp ?? null;

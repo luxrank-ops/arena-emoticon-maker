@@ -8,7 +8,7 @@ import { Sticker } from '@/components/Sticker';
 import { ConsistencyNotice } from '@/components/studio/ConsistencyNotice';
 import { FrameBottomSheet } from '@/components/studio/FrameBottomSheet';
 import { compressPhotoFile, loadPhoto, renderImage, runLimited, savePhoto } from '@/lib/studio/photo';
-import { downloadBlob, exportKakaoPackZip, exportPackZip, renderComboPreview, renderPngBlob } from '@/lib/export';
+import { downloadBlob, exportKakaoPackZip, exportPackZip, PET_PHOTO_FRAME, renderComboPreview, renderPngBlob } from '@/lib/export';
 import { formatKstDateTime } from '@/lib/time';
 import { formatBytes, KAKAO_RULES, type PackValidation } from '@/lib/packager';
 import { packFormatById } from '@/lib/pack-formats';
@@ -72,6 +72,13 @@ export function PackViewer({
   const [sheetNotice, setSheetNotice] = useState<string | null>(null);
   const [shareLink, setShareLink] = useState<string | null>(null);
   const [outline, setOutline] = useState(4);
+  /**
+   * 반려동물 실사(photo-sticker) 팩 — 털 끝이 뭉개지지 않도록 누끼를 따지 않고
+   * 사진 배경을 살린 둥근 프레임으로 내보낸다(2026-11-27 사용자 피드백).
+   */
+  const petPhotoFrame = (initialPack.subjectKind ?? 'person') === 'pet' && initialPack.tone === 'photo-sticker';
+  /** 내보내기 공통 옵션 — 반려동물 프레임 모드에서는 외곽선(누끼 실루엣)을 쓰지 않는다. */
+  const frameOpts = petPhotoFrame ? { outline: 0, photoFrame: PET_PHOTO_FRAME } : { outline };
   const [kakaoMotion, setKakaoMotion] = useState<MotionId | 'none'>('none');
   const [kakaoAnim, setKakaoAnim] = useState<'apng' | 'gif'>('apng');
   const [secondPreview, setSecondPreview] = useState<string | null>(null);
@@ -226,7 +233,7 @@ export function PackViewer({
     setActionBusy('download');
     setSheetNotice(null);
     try {
-      const blob = await renderPngBlob(f.spec, { watermark, outline });
+      const blob = await renderPngBlob(f.spec, { watermark, ...frameOpts });
       downloadBlob(blob, `${initialPack.id}-${f.index + 1}-${f.label}.png`);
       setSheetNotice(t('PNG를 기기에 저장했어요.', 'Saved the PNG to your device.'));
     } catch {
@@ -241,7 +248,7 @@ export function PackViewer({
     setSheetNotice(null);
     setShareLink(null);
     try {
-      const blob = await renderPngBlob(f.spec, { watermark, watermarkText: lockWatermark });
+      const blob = await renderPngBlob(f.spec, { watermark, watermarkText: lockWatermark, ...frameOpts });
       const filename = `${initialPack.id}-${f.index + 1}-${f.label}.png`;
       const file = new File([blob], filename, { type: 'image/png' });
       const title = t(`이모티학 ${f.label} 이모티콘`, `EmotiHak ${f.label} sticker`);
@@ -354,7 +361,7 @@ export function PackViewer({
       const items = visible
         .filter((f) => f.ready)
         .map((f) => ({ spec: f.spec, filename: `${String(f.index + 1).padStart(2, '0')}-${f.label}` }));
-      const blob = await exportPackZip(items, { watermark, watermarkText: lockWatermark, outline });
+      const blob = await exportPackZip(items, { watermark, watermarkText: lockWatermark, ...frameOpts });
       downloadBlob(blob, `emotihak-${initialPack.id}.zip`);
       setNotice(t(`${items.length}컷을 ZIP으로 내려받았어요.`, `Downloaded ${items.length} cuts as a ZIP file.`));
     } finally {
@@ -410,7 +417,7 @@ export function PackViewer({
       const result = await exportKakaoPackZip(items, {
         watermark,
         watermarkText: lockWatermark,
-        outline,
+        ...frameOpts,
         motion: kakaoMotion,
         animationFormat: kakaoAnim,
         ...(reviewSheet ? { reviewSheet: { concept: reviewSheet.concept, titles: reviewSheet.titles, hashtags: reviewSheet.hashtags, checklist: reviewSheet.checklist, cutCount: reviewSheet.cutCount } } : {}),
@@ -441,6 +448,14 @@ export function PackViewer({
               {t(`${initialPack.size}컷 · ${initialPack.creditsSpent}크레딧 사용`, `${initialPack.size} cuts · ${initialPack.creditsSpent} credits used`)}{' '}·{' '}
               {formatKstDateTime(initialPack.createdAt)}
             </p>
+            {petPhotoFrame ? (
+              <p className="mt-1 text-[10.5px] font-bold leading-relaxed text-sub">
+                {t(
+                  '반려동물 컷은 털 끝을 살리려고 배경을 지우지 않고, 흰 보더의 둥근 사진 프레임으로 저장돼요.',
+                  'Pet cuts keep the real background so fine fur stays crisp, and save inside a rounded frame with a thin white border.',
+                )}
+              </p>
+            ) : null}
           </div>
           <div className="flex items-center gap-2">
             <span

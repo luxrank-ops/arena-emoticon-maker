@@ -45,6 +45,10 @@ const renderer = load('./src/lib/ai/gemini-render.ts');
   for (const pattern of [/first image is the original pet photo/, /species/, /fur colors and markings/, /second image is the chosen design reference/, /one animal/i, /No grid/, /안녕/]) assert.match(prompt, pattern);
   assert.doesNotMatch(prompt, /only source of the person/);
   assert.match(renderer.buildRenderPrompt({ ...base, mode: 'full' }), /whole animal/);
-  assert.match(renderer.buildRenderPrompt({ ...base, tone: 'photo-sticker' }), /photorealistic pet/);
+  const petPhoto = renderer.buildRenderPrompt({ ...base, tone: 'photo-sticker' });
+  assert.match(petPhoto, /photorealistic pet/);
+  // 반려동물 실사는 누끼 대신 자연스러운 배경을 살린다(2026-11-27 사용자 피드백).
+  assert.match(petPhoto, /soft, natural, uncluttered setting/);
+  assert.doesNotMatch(petPhoto, /flat, uniform, single-color wash/);
   console.log('Pet preflight, subject cache isolation and prompt tests passed');
 })().catch((error) => { console.error(error); process.exitCode = 1; });

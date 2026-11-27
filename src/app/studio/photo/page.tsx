@@ -11,14 +11,14 @@ export async function generateMetadata() {
     path: '/studio/photo',
     title: '내 사진 바로 누끼 스티커 — 이모티학',
     description:
-      '올린 사진 그대로 배경만 떼고 캘리그라피 한 줄을 얹어 360×360 투명 PNG·카카오 규격 ZIP으로 바로 저장하세요. AI 생성 없이 무료, 사진은 기기 안에서만 처리합니다.',
+      '올린 사진 그대로 캘리그라피 한 줄을 얹어 360×360 PNG·카카오 규격 ZIP으로 바로 저장하세요. 사람 사진은 배경을 뗀 투명 스티커로, 반려동물은 원본 배경을 살린 둥근 프레임으로 마감합니다. AI 생성 없이 무료, 사진은 기기 안에서만 처리합니다.',
   });
 }
 
 export default async function PhotoCutoutPage({
   searchParams,
 }: {
-  searchParams: Promise<{ season?: string; preview?: string; at?: string }>;
+  searchParams: Promise<{ season?: string; preview?: string; at?: string; subject?: string }>;
 }) {
   const [params, locale] = await Promise.all([searchParams, getLocale()]);
 
@@ -39,10 +39,12 @@ export default async function PhotoCutoutPage({
       propIds: view.pack.propIds,
     }));
   const seasonFocus = seasonPackById(params.season)?.id ?? null;
+  // /pets 처럼 반려동물 흐름에서 오면 누끼 대신 '배경 유지(사진 프레임)'로 시작한다.
+  const initialBackdrop = params.subject === 'pet' ? 'frame' : 'cutout';
 
   return (
     <div className="wrap py-6 sm:py-10">
-      <PhotoCutoutStudio locale={locale} seasonGroups={seasonGroups} seasonFocus={seasonFocus} />
+      <PhotoCutoutStudio locale={locale} seasonGroups={seasonGroups} seasonFocus={seasonFocus} initialBackdrop={initialBackdrop} />
     </div>
   );
 }

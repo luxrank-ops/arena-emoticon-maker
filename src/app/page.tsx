@@ -66,7 +66,7 @@ export default async function LandingPage({
       tile: 'from-[#8B5CF6] to-[#6E29F5]',
       glow: 'shadow-[0_10px_22px_-12px_rgba(110,41,245,0.85)]',
       title: '내 사진 바로 스티커',
-      desc: 'AI 없이 배경만 떼서 바로 저장',
+      desc: 'AI 없이 사진 그대로 바로 저장',
       cta: '무료로 시작',
       href: '/studio/photo',
       badge: '무료',
@@ -152,7 +152,7 @@ export default async function LandingPage({
                 ))}
               </div>
 
-              {/* 모바일 첫 화면 — 실사 사진 누끼 컷 3장을 바로 보여 준다(실사가 앱의 지향점). */}
+              {/* 모바일 첫 화면 — 실사 사진 스티커 3장을 바로 보여 준다(실사가 앱의 지향점). */}
               <div className="mt-5 flex max-w-md items-stretch gap-2 lg:hidden">
                 {HERO_PHOTO_CUTS.map((cut, i) => (
                   <div
@@ -174,7 +174,7 @@ export default async function LandingPage({
               <p className="mt-1.5 text-[9.5px] font-bold text-sub/80 lg:hidden">예시 이미지 · 내 사진으로 똑같이 만듭니다</p>
             </div>
 
-            {/* 데스크톱 전용 스티커 콜라주 — 실사 사진 누끼 컷을 스티커처럼 겹쳐 보여 준다. */}
+            {/* 데스크톱 전용 스티커 콜라주 — 실사 사진 스티커를 겹쳐 보여 준다. */}
             <div aria-hidden="true" className="relative hidden h-[320px] w-[370px] lg:block">
               <div className="sticker-frame absolute left-[86px] top-6 w-[186px] -rotate-[5deg] p-2.5">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -190,7 +190,7 @@ export default async function LandingPage({
               </div>
               <span className="absolute bottom-12 right-0 inline-flex items-center gap-1.5 rounded-full border border-white/70 bg-white/85 px-3 py-1.5 text-[11px] font-black text-primary-dark shadow-card backdrop-blur">
                 <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-mint" />
-                사진 누끼 → 12컷
+                사진 그대로 → 12컷
               </span>
             </div>
           </div>
@@ -252,7 +252,7 @@ export default async function LandingPage({
           <div>
             <p className="eyebrow">STYLE LIBRARY</p>
             <h2 id="tone-title" className="mt-2 text-lg font-extrabold tracking-[-0.025em] sm:text-xl">사진 그대로, 아니면 화풍을 골라서</h2>
-            <p className="mt-1 text-xs leading-relaxed text-sub sm:text-sm">기본은 사진 그대로 누끼 따는 <b>실사 짤</b>이에요. AI로 그릴 땐 무료 6가지 화풍, 결제하면 11종 전체가 열려요.</p>
+            <p className="mt-1 text-xs leading-relaxed text-sub sm:text-sm">기본은 사진 그대로 쓰는 <b>실사 짤</b>이에요. 사람은 배경을 지운 투명 스티커로, 반려동물은 털 끝을 살린 원본 배경 + 둥근 프레임으로 마감해요. AI로 그릴 땐 무료 6가지 화풍, 결제하면 11종 전체가 열려요.</p>
           </div>
           <Link href="/studio/upload" className="group inline-flex items-center gap-1 text-xs font-black text-primary-dark">
             사진으로 만들기

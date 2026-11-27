@@ -5,11 +5,11 @@ import { tr, type Locale } from '@/lib/i18n/locale';
 import type { PhotoSampleGroup } from '@/lib/photo-samples';
 import type { Emotion, StickerSpec } from '@/lib/types';
 
-function specFor(src: string, emotion: Emotion, line: string, style?: TextLayerStyle): StickerSpec {
+function specFor(src: string, emotion: Emotion, line: string, style?: TextLayerStyle, ink?: string): StickerSpec {
   // 작은 타일에서도 대사가 스티커 밖으로 넘치지 않게 글자 수에 맞춰 크기를 줄인다(512 캔버스 기준).
   // 작은 타일에서도 대사가 또렷하게 읽히도록 조금 크게 — 길면 자동으로 줄어든다.
   const size = Math.min(0.19, 0.92 / Math.max(line.length, 1));
-  const layer = layerFromLine(line, { size, y: 0.86, ...(style ? { style } : {}) });
+  const layer = layerFromLine(line, { size, y: 0.88, ...(style ? { style } : {}), ...(ink ? { color: ink } : {}) });
   const textLayers: TextLayer[] = layer ? [layer] : [];
   return {
     seed: 1061,
@@ -68,7 +68,7 @@ export function PhotoSampleStrip({
         {group.cuts.map((cut) => (
           <figure key={cut.src} className="min-w-0 flex-1 text-center">
             <Sticker
-              spec={specFor(cut.src, cut.emotion, tr(locale, cut.line.ko, cut.line.en), cut.style)}
+              spec={specFor(cut.src, cut.emotion, tr(locale, cut.line.ko, cut.line.en), cut.style, cut.ink)}
               ariaLabel={tr(locale, cut.alt.ko, cut.alt.en)}
             />
           </figure>

@@ -31,6 +31,19 @@ export const CUTOUT_CAPTION_MAX = 24;
 /** 사진을 정사각으로 다듬을 때의 한 변(px) — 360 출력에 충분한 여유 */
 export const CUTOUT_PHOTO_SIDE = 800;
 
+/**
+ * 마감 방식 — cutout: 배경을 떼고 투명 스티커 / frame: 사진 배경을 살린 둥근 사진 프레임.
+ *  · 털이 있는 반려동물은 누끼 경계가 지저분해져서 frame 을 기본으로 쓴다(2026-11-27 사용자 피드백).
+ */
+export type CutoutBackdrop = 'cutout' | 'frame';
+
+/**
+ * 사진 프레임 비율 — 모두 캔버스 크기 대비 비율이라 360·512 어디서든 같은 모양이다.
+ *  · border 0.030(360 기준 약 11px 흰 보더) · radius 0.16(프레임 폭 대비) · margin 0.023(그림자 자리)
+ *  · public/samples/photo 의 반려동물 샘플도 같은 비율로 만들어 두었다.
+ */
+export const CUTOUT_PHOTO_FRAME = { border: 0.03, radius: 0.16, margin: 0.023 } as const;
+
 export type CutoutPosition = 'bottom' | 'top';
 /** 세로로 긴 사진을 정사각으로 자를 때 어디를 남길지 */
 export type CutoutCrop = 'face' | 'center';
