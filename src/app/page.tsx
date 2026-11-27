@@ -309,14 +309,14 @@ export default async function LandingPage({
             <Link href="/studio/upload?format=pet-meme&subject=pet" className="group relative overflow-hidden rounded-[1.5rem] border border-line/80 bg-white shadow-card transition duration-300 hover:-translate-y-1 hover:shadow-pop">
               <div className="relative flex items-center justify-between gap-2 bg-[radial-gradient(120%_120%_at_8%_0%,#D8F7E8_0%,#F2FDF7_48%,#FFFFFF_100%)] px-5 py-4">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/samples/photo/pet-dog-beg.webp" alt="" width={96} height={96} className="h-12 w-12 rounded-2xl border border-white/70 bg-white object-contain shadow-[0_10px_24px_-18px_rgba(14,159,110,0.9)]" />
+                <img src="/samples/photo/pet-dog-sit.webp" alt="" width={96} height={96} className="h-12 w-12 rounded-2xl border border-white/70 bg-white object-contain shadow-[0_10px_24px_-18px_rgba(14,159,110,0.9)]" />
                 <span className="rounded-full border border-white/80 bg-white/80 px-2.5 py-1 text-[10px] font-black text-mint shadow-sm backdrop-blur">
                   {trial ? '4컷 무료 미리보기' : '12컷 · 6,900원'}
                 </span>
               </div>
               <div className="flex flex-1 flex-col p-5">
                 <h3 className="text-lg font-extrabold tracking-[-0.02em]">반려동물 집사 밈 팩</h3>
-                <p className="mt-1 break-keep text-sm leading-relaxed text-sub">“간식 내놔”, “산책 가자”, “집사야 일해라”, “밥 줘”, “누가 방귀 꼈어” — 강아지·고양이 12컷.</p>
+                <p className="mt-1 break-keep text-sm leading-relaxed text-sub">“지금 뭐 먹어?”, “나 좀 봐줘”, “삐졌어 건들지마”, “오늘 늦게 와?” — 우리 애가 사람 말로 말하는 12컷.</p>
                 <p className="mt-3 text-[11px] font-bold text-sub">사진 1장 · 12컷 · 완성권 6,900원</p>
                 <span className="mt-4 inline-flex items-center gap-1 text-sm font-black text-primary-dark">
                   4컷 먼저 보기
