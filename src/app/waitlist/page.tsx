@@ -61,8 +61,8 @@ export default async function WaitlistPage() {
         <p className="mt-3 break-keep text-sm leading-relaxed text-sub">
           {tr(
             locale,
-            '셀카 1장 올리면 12컷 이모티콘을 3분 만에. 12컷 전체를 무료로 먼저 보고, 마음에 드는 팩만 잠금 해제하세요.',
-            'Upload one selfie and get a 12-cut pack in 3 minutes. Preview all 12 cuts free, then unlock only the pack you love.',
+            '셀카 1장 올리면 12컷 이모티콘을 3분 만에. 무료 4컷을 먼저 보고, 마음에 드는 팩만 잠금 해제하세요.',
+            'Upload one selfie and get a 12-cut pack in 3 minutes. See 4 cuts free first, then unlock only the pack you love.',
           )}
         </p>
         <PhotoStickerRow
@@ -86,9 +86,9 @@ export default async function WaitlistPage() {
           ))}
         </div>
         <p className="mt-6 text-xs text-sub">
-          {tr(locale, '출시 전에도 12컷 미리보기가 열려 있어요 →', 'The free 12-cut preview is already open →')}{' '}
+          {tr(locale, '출시 전에도 무료 4컷 미리보기가 열려 있어요 →', 'The free 4-cut preview is already open →')}{' '}
           <Link href={localizedPath(locale, '/studio/upload')} className="font-bold text-coralink underline">
-            {tr(locale, '지금 무료로 12컷 보기', 'Preview 12 cuts free')}
+            {tr(locale, '지금 무료로 4컷 보기', 'Preview 4 cuts free')}
           </Link>
         </p>
       </div>

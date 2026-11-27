@@ -53,8 +53,8 @@ export function InvitePanel({ locale, summary }: Props) {
 
   async function share() {
     const text = locale === 'en'
-      ? 'Make stickers from your face in 3 minutes — 12 cuts free to preview!'
-      : '내 얼굴로 3분 만에 12컷 이모티콘 — 미리보기 무료!';
+      ? 'Make stickers from your face in 3 minutes — 4 cuts free to preview!'
+      : '내 얼굴로 3분 만에 12컷 이모티콘 — 4컷 미리보기 무료!';
     try {
       if (navigator.share) {
         await navigator.share({ title: document.title, text, url: summary.link });

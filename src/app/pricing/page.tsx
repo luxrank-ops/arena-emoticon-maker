@@ -21,13 +21,13 @@ export async function generateMetadata() {
     path: '/pricing',
     title: tr(
       locale,
-      '요금제 — 12컷 미리보기 · 단건 완성권 · 크레딧 · Creator Pro | 이모티학',
-      'Pricing — 12-cut preview, single pack, credits, Creator Pro | EmotiHak',
+      '요금제 — 무료 4컷 미리보기 · 단건 완성권(12컷) · 크레딧 · Creator Pro | 이모티학',
+      'Pricing — free 4-cut preview, single 12-cut pack, credits, Creator Pro | EmotiHak',
     ),
     description: tr(
       locale,
-      '12컷 전체를 무료로 미리 보고 필요한 만큼만 결제하세요. 단건 팩 완성권 5,900원, 무기한 크레딧 팩 9,900원부터, Creator Pro 19,900원. 구독 없이 1회 결제.',
-      'Preview all 12 cuts free, then pay only for what you need. Single pack ₩5,900, credit packs from ₩9,900, Creator Pro ₩19,900. One-time payment, no subscription.',
+      '무료 4컷 미리보기로 먼저 보고 필요한 만큼만 결제하세요. 단건 팩 완성권 5,900원(잠금 해제 시 나머지 8컷까지 12컷 완성), 무기한 크레딧 팩 9,900원부터, Creator Pro 19,900원. 구독 없이 1회 결제.',
+      'See 4 cuts free, then pay only for what you need. Single pack completion ₩5,900 (the unlock draws the remaining 8 cuts for all 12), credit packs from ₩9,900, Creator Pro ₩19,900. One-time payment, no subscription.',
     ),
   });
 }
@@ -35,7 +35,7 @@ export async function generateMetadata() {
 const FAQ = [
   {
     q: '무료 미리보기와 잠금 해제는 어떻게 다른가요?',
-    a: '미리보기는 12컷 전체를 저해상도·반투명 워터마크로 보여 줍니다. 단건 팩 완성권(5,900원)을 결제하면 그 팩의 고화질·투명 PNG, 워터마크 제거, 카카오·라인 규격 ZIP 내보내기가 열립니다.',
+    a: '미리보기는 4컷을 저해상도·반투명 워터마크로 보여 줍니다. 단건 팩 완성권(5,900원 · 반려동물 6,900원 · 2인 케미 7,900원)을 결제하면 나머지 8컷까지 그려 12컷 전체를 완성하고, 고화질·투명 PNG, 워터마크 제거, 카카오·라인 규격 ZIP 내보내기가 열립니다.',
   },
   {
     q: '크레딧은 어떻게 쓰이나요?',
@@ -65,7 +65,7 @@ export default async function PricingPage() {
     <div className="wrap py-12">
       <div className="mx-auto max-w-2xl text-center">
         <span className="chip !border-ink !bg-lemon !text-ink">요금제 · 3단 가격</span>
-        <h1 className="h1 mt-4 !text-[clamp(1.8rem,4vw,2.8rem)]">12컷 전체를 보고, 필요한 만큼만</h1>
+        <h1 className="h1 mt-4 !text-[clamp(1.8rem,4vw,2.8rem)]">4컷 먼저 보고, 12컷을 필요한 만큼만</h1>
         <p className="mt-3 text-sm leading-relaxed text-sub">
           지금 플랜: <strong className="text-ink">{planLabel(user)}</strong> · 보유 크레딧{' '}
           <strong className="text-ink">{creditsLabel(user)}</strong>
@@ -105,10 +105,10 @@ export default async function PricingPage() {
                       className="btn-primary w-full"
                     />
                   ) : (
-                    /* 세 카드의 CTA 위계를 맞춘다 — 같은 동작(12컷 미리보기 시작)이
+                    /* 세 카드의 CTA 위계를 맞춘다 — 같은 동작(무료 4컷 미리보기 시작)이
                        카드마다 버튼/밑줄 없는 텍스트로 달라 보이지 않게 모두 기본 버튼으로 둔다. */
                     <Link href="/studio/upload" className="btn-primary block w-full text-center">
-                      12컷 미리보기 시작
+                      무료 4컷 미리보기 시작
                     </Link>
                   )}
                 </div>

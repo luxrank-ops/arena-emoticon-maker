@@ -22,7 +22,7 @@ const schema = z.object({
   presetIds: z.array(z.number().int().min(1).max(150).refine((id) => !!presetById(id), '알 수 없는 프리셋입니다')).max(32).optional(),
   format: z.enum(PACK_FORMAT_IDS).optional(),
   curationPackageId: z.string().refine(isCurationPackageId, '알 수 없는 큐레이션 패키지입니다.').optional(),
-  /** 무료 12컷 워터마크 미리보기 팩 (체험 사용자 전용) */
+  /** 무료 미리보기 팩 (무료로 4컷 생성 → 잠금 해제 시 12컷 완성, 체험 사용자 전용) */
   preview: z.boolean().optional(),
 });
 
@@ -35,9 +35,9 @@ export async function POST(req: Request) {
     const access = aiAccess(user);
     const preview = body.preview === true;
     if (preview) {
-      // 무료 미리보기 팩 — 사용자·IP 하루 1팩, 12컷 전체를 워터마크로.
+      // 무료 미리보기 팩 — 사용자·IP 하루 1팩. 팩은 12컷 구성이고 무료로 그리는 건 앞 4컷.
       if (access !== 'trial') return fail('PREVIEW_ONLY', '무료 미리보기는 무료 체험 사용자에게만 제공됩니다.', 403);
-      if (body.size !== 12) return fail('INVALID_SIZE', '무료 미리보기는 12컷으로만 만들 수 있어요.', 422);
+      if (body.size !== 12) return fail('INVALID_SIZE', '무료 미리보기는 12컷 완성팩 구성으로만 만들 수 있어요.', 422);
       await consumeTrialPreviewPack({ userId: user.id, ipHash: trialIpHash(req) });
     } else if (access === 'trial') {
       // 체험 사용자는 미리보기 팩 외의 12/24/32컷 대량 생성을 할 수 없다 (원가 방어).

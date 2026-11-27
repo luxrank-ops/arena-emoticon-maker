@@ -83,7 +83,7 @@ export default async function PresetsPage() {
               <div className="mt-auto flex flex-wrap items-center justify-between gap-2 pt-4">
                 <span className="text-[11px] font-black text-coralink">{t(`완성권 ${(format.unlockPrice ?? 5900).toLocaleString('en-US')}원`, `Unlock ₩${(format.unlockPrice ?? 5900).toLocaleString('en-US')}`)}</span>
                 <Link href={lp(format.id === 'pet-meme' ? '/studio/upload?format=pet-meme&subject=pet' : `/studio/upload?format=${format.id}`)} className="btn-primary !px-4 !py-2 text-xs">
-                  {t('12컷 미리보기 →', 'Preview 12 cuts →')}
+                  {t('무료 4컷 미리보기 →', 'Preview 4 cuts free →')}
                 </Link>
               </div>
             </article>

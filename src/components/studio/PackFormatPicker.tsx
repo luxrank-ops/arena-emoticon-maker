@@ -44,7 +44,7 @@ export function PackFormatPicker({
             <span className="chip !border-coral/40 !bg-white !text-coralink">{t('12컷', '12 cuts')}</span>
           </div>
           <p className="mt-1 text-[11px] leading-relaxed text-sub">
-            {t('커플·단톡방 2인 케미, 강아지·고양이 집사 밈. 12컷 전체를 먼저 보고 필요한 팩만 잠금 해제하세요.', 'Couple/group-chat duo chemistry and dog/cat butler memes. Preview all 12 cuts, unlock only what you need.')}
+            {t('커플·단톡방 2인 케미, 강아지·고양이 집사 밈. 4컷은 무료로 먼저 보고, 잠금 해제하면 12컷을 완성해요.', 'Couple/group-chat duo chemistry and dog/cat butler memes. See 4 cuts free, unlock to finish all 12.')}
           </p>
           <div role="radiogroup" aria-label={t('킬러 테마 선택', 'Choose a killer theme')} className="mt-3 grid gap-3 sm:grid-cols-2">
             {killerFormats.map((format) => {

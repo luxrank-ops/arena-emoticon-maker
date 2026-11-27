@@ -220,6 +220,8 @@ export interface Frame {
   comboPairId?: string;
   /** 운영 검토 후 숨긴 콘텐츠 — 다시 생성하거나 이미지를 제공하지 않는다 */
   hiddenAt?: string;
+  /** 무료 미리보기 팩에서 결제 후 고화질(최종 품질)로 다시 그린 시각 — 같은 컷을 반복해서 다시 그리지 않는다 */
+  hiResAt?: string;
 }
 
 export interface FrameView extends Frame {
@@ -255,11 +257,12 @@ export interface Pack {
   /** 'ai' 면 컷 이미지(imageId)가 있어야 완성. 없으면 레거시 SVG 재조합 팩 */
   renderer?: 'ai';
   /**
-   * 무료 12컷 워터마크 미리보기 팩.
-   *  · 결제 전에는 컷 전체가 반투명 워터마크와 함께 보이고 내보내기가 잠긴다.
-   *  · 단건 완성권(₩5,900~₩7,900) 결제로 unlockedAt 이 채워지면 고화질·투명 PNG·ZIP 이 열린다.
+   * 무료 미리보기 팩 (2026-11-27 원가 절감 개편).
+   *  · 팩 구성은 12컷 그대로이고, 무료로는 앞 `sampleCuts`(기본 4컷)만 Flash 로 그려 워터마크로 보여 준다.
+   *  · 나머지 컷은 이미지 없이 잠금 상태로 두고, 단건 완성권(₩5,900~₩7,900) 결제로 unlockedAt 이 채워지면
+   *    이어서 12컷 전체를 고화질로 그려 준다.
    */
-  preview?: { watermark: string; cuts: number; model?: 'flash' };
+  preview?: { watermark: string; cuts: number; sampleCuts?: number; model?: 'flash' };
   /** 단건 잠금 해제 결제 완료 시각 (있으면 내보내기·무워터마크가 열린다) */
   unlockedAt?: string;
   /** 잠금 해제에 쓴 SKU (영수증·고객지원 추적용) */

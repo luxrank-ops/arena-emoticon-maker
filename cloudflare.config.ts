@@ -24,16 +24,17 @@ export default defineConfig({
       DEMO_MODE: bindings.text("0"),
       // 유료 등급 정비 기간에는 관리자만 AI 생성(이미지·특정 재확인). 전체 공개로 전환하려면 "0".
       GENERATION_ADMIN_ONLY: bindings.text("1"),
-      // 무료 미리보기(일반 방문자 12컷 워터마크 팩) — 배포만으로 열린다. 닫으려면 "0".
-      //  · 상한은 free-trial.ts 가 이 값으로 강제한다(사용자·IP·전체 하루/월, 미리보기 팩 수).
-      //  · 원가: 미리보기는 Flash 모델 ≈ $0.02/장 → 12컷 팩 ≈ $0.24, 하루 45장 ≈ $0.9 (월 900장 ≈ $18).
+      // 무료 미리보기(일반 방문자 4컷 워터마크 팩) — 배포만으로 열린다. 닫으려면 "0".
+      //  · 상한은 free-trial.ts 가 이 값으로 강제한다(계정당 생애 1팩 + IP·전체 하루/월).
+      //  · 원가: 미리보기는 Flash 모델 ≈ $0.02/장 → 무료 4컷 ≈ $0.08, 하루 45장 ≈ $0.9 (월 900장 ≈ $18).
       TRIAL_FREE_ENABLED: bindings.text("1"),
       TRIAL_IMAGES_PER_USER_DAY: bindings.text("18"),
       TRIAL_IMAGES_PER_IP_DAY: bindings.text("24"),
       TRIAL_IMAGES_PER_DAY: bindings.text("45"),
       TRIAL_IMAGES_PER_MONTH: bindings.text("900"),
-      TRIAL_CUTS_PER_USER_DAY: bindings.text("12"),
-      TRIAL_PREVIEW_PACKS_PER_USER_DAY: bindings.text("1"),
+      TRIAL_CUTS_PER_USER_DAY: bindings.text("4"),
+      // 계정당 최초 1팩(평생 1회) — 날짜로 초기화되지 않는 생애 키(pack:life).
+      TRIAL_PREVIEW_PACKS_PER_USER: bindings.text("1"),
       TRIAL_PREVIEW_PACKS_PER_IP_DAY: bindings.text("2"),
       GEMINI_PHOTO_MODEL: bindings.text("gemini-3-pro-image-preview"),
       GEMINI_STYLE_MODEL: bindings.text("gemini-3.1-flash-image-preview"),

@@ -87,7 +87,7 @@ export function SheetPicker({
   const [needPhoto, setNeedPhoto] = useState(false);
   const [photoTick, setPhotoTick] = useState(0);
   // 무료 미리보기 팩 — 오늘 남은 미리보기 팩 수(서버 카운터)
-  const [previewLeft, setPreviewLeft] = useState(trialStatus?.previewPacksLeftToday ?? 0);
+  const [previewLeft, setPreviewLeft] = useState(trialStatus?.previewPacksLeft ?? 0);
   const [previewBusy, setPreviewBusy] = useState(false);
   const activePackage = !formatInfo && composition === 'preset'
     ? CURATION_PACKAGES.find((pkg) => pkg.count === presetIds.length && pkg.cuts.every((cut, index) => presetIds[index] === cut.presetId))
@@ -194,7 +194,7 @@ export function SheetPicker({
     };
   }
 
-  /** 무료 12컷 워터마크 미리보기 팩 — 크레딧 없이 만들고, 결제 전에는 내보내기가 잠긴다. */
+  /** 무료 미리보기(4컷) 팩 — 크레딧 없이 앞 4컷을 그리고, 결제 전에는 내보내기가 잠긴다. */
   async function createPreview() {
     if (!chosen || previewBusy) return;
     setPreviewBusy(true);
@@ -224,7 +224,7 @@ export function SheetPicker({
         body: JSON.stringify({ sheetId, size: PREVIEW_PACK_SIZE, locale, preview: true, ...previewSelection }),
       });
       const packJson = await packRes.json().catch(() => null);
-      if (!packRes.ok) throw new Error(locale === 'en' ? 'We could not open your preview pack. Please try again tomorrow.' : (packJson?.error?.message ?? '미리보기 팩을 만들지 못했어요.'));
+      if (!packRes.ok) throw new Error(locale === 'en' ? 'We could not open your preview pack. The free preview is once per account.' : (packJson?.error?.message ?? '미리보기 팩을 만들지 못했어요.'));
       setPreviewLeft((left) => Math.max(0, left - 1));
       try {
         if (loadPhoto(`sheet:${sheetId}`)) linkPhoto(`sheet:${sheetId}`, `pack:${packJson.packId}`);
@@ -412,17 +412,17 @@ export function SheetPicker({
         <div className="card p-5">
           <div className="flex flex-wrap items-start justify-between gap-2">
             <div>
-              <p className="text-sm font-black">{t('무료 12컷 미리보기', 'Free 12-cut preview')}</p>
+              <p className="text-sm font-black">{t('무료 4컷 미리보기', 'Free 4-cut preview')}</p>
               <p className="mt-1 max-w-xl text-xs leading-relaxed text-sub">
-                {t(TRIAL_MESSAGES.banner, 'Free preview: one draft, then all twelve cuts with a watermark. Unlock the pack to download.')}
+                {t(TRIAL_MESSAGES.banner, 'Free preview: one draft, then 4 of the 12 cuts with a watermark. Unlock the pack to finish all 12 cuts.')}
               </p>
             </div>
-            <span className="chip">{t(`오늘 ${previewLeft}팩 남음`, `${previewLeft} preview today`)}</span>
+            <span className="chip">{previewLeft > 0 ? t(`무료 미리보기 ${previewLeft}회 남음`, `${previewLeft} free preview left`) : t('무료 미리보기 사용함', 'Free preview used')}</span>
           </div>
 
           <ul className="mt-4 grid gap-1.5 text-[12px] leading-relaxed text-ink/80 sm:grid-cols-2">
-            <li>· {t('12컷 전체를 워터마크로 먼저 확인', 'See all 12 cuts, watermarked')}</li>
-            <li>· {t('마음에 들면 ₩5,900에 잠금 해제 (2인 케미 ₩7,900 · 반려동물 ₩6,900)', 'Unlock from ₩5,900 (duo ₩7,900 · pet ₩6,900)')}</li>
+            <li>· {t('먼저 4컷을 워터마크로 확인 (2×2 · 계정당 1회)', 'See 4 cuts watermarked first (2×2, once per account)')}</li>
+            <li>· {t('마음에 들면 ₩5,900에 잠금 해제 — 나머지 8컷까지 12컷 완성 (2인 케미 ₩7,900 · 반려동물 ₩6,900)', 'Unlock from ₩5,900 — the remaining 8 cuts finish all 12 (duo ₩7,900 · pet ₩6,900)')}</li>
             <li>· {t('친구 초대 1명당 3컷 무료 해제', '3 free cuts per invited friend')}</li>
             <li>· {t('잠금 해제 후 고화질·투명 PNG·ZIP', 'High-res transparent PNG & ZIP after unlock')}</li>
           </ul>
@@ -438,13 +438,13 @@ export function SheetPicker({
             onClick={() => void createPreview()}
           >
             {previewBusy
-              ? t('12컷 미리보기 팩을 여는 중…', 'Opening your 12-cut preview…')
+              ? t('4컷 미리보기 팩을 여는 중…', 'Opening your 4-cut preview…')
               : previewLeft === 0
-                ? t('오늘의 무료 미리보기를 모두 사용했어요', "Today's free preview is used up")
-                : t(`12컷 전체 미리보기 팩 만들기`, 'Open my 12-cut preview pack')}
+                ? t('무료 미리보기를 이미 사용했어요 (계정당 1회)', 'Free preview already used (once per account)')
+                : t(`무료 4컷 미리보기 만들기`, 'Open my 4-cut preview pack')}
           </button>
           <p className="mt-2 text-center text-[11px] leading-relaxed text-sub">
-            {t('미리보기는 저해상도·워터마크이며, 결제 전에는 내보내기가 잠깁니다.', 'Previews are low-resolution and watermarked; exports stay locked until payment.')}
+            {t('4컷은 저해상도·워터마크이며, 결제 전에는 내보내기가 잠깁니다. 잠금 해제하면 나머지 8컷까지 12컷 전체를 받아요.', 'The 4 cuts are low-resolution and watermarked; exports stay locked until payment. Unlocking draws the remaining 8 cuts for the full 12.')}
           </p>
           <div className="mt-4 flex flex-wrap justify-center gap-2">
             <Link href={lp('/pricing')} className="btn-ghost !px-4 !py-2 text-xs">{t('가격 보기', 'See pricing')}</Link>
