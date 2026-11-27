@@ -292,7 +292,9 @@ export function PhotoCutoutStudio({
           videoCanvasesRef.current.set(cut.id, vCanvases);
         }
 
-        setCuts((prev) => prev.map((item) => (item.id === cut.id ? { ...item, preview, matte: info ?? item.matte } : item)));
+        // 배경 유지(프레임) 모드에는 누끼를 쓰지 않으므로 'AI 정밀 누끼' 표시도 남기지 않는다.
+        const matte = backdrop === 'frame' ? undefined : (info ?? cut.matte);
+        setCuts((prev) => prev.map((item) => (item.id === cut.id ? { ...item, preview, matte } : item)));
       } catch {
         setError(t('미리보기를 만들지 못했어요. 사진을 다시 선택해 주세요.', 'We could not build the preview. Please choose the photo again.'));
       } finally {
