@@ -61,7 +61,7 @@ const PHOTO = 'data:image/jpeg;base64,AAAA';
   const layer = cutoutLayer(style);
   check('레이어가 만들어진다', !!layer);
   check('앞뒤 공백을 지운다', layer?.text === '퇴근!!');
-  check('기본 서체는 라운드(주아)', layer?.style === 'calli');
+  check('기본 서체는 동글 손글씨(주아)', layer?.style === 'round');
   check('가운데 정렬', layer?.x === 0.5);
   check('아래쪽 기본 위치', layer?.y === CUTOUT_POSITION_Y.bottom);
   check('데코는 자동이 기본', layer?.decor === 'auto');

@@ -130,6 +130,8 @@ export function buildPetRenderPrompt(input: RenderInput): string {
     `Create exactly one individual ${styles[input.tone] ?? STYLE_DIRECTIONS[input.tone]} sticker of the pet in the first reference photo, expressing ${EMOTION_PROMPTS[input.emotion]}.`,
     'The first image is the original pet photo and the only source of the animal’s identity. Preserve its species, breed only if visible, fur colors and markings, ear shape, eyes, muzzle and facial proportions. Do not transform the animal into a human or another species. Do not invent markings. Keep the animal recognizable across all stickers.',
     input.mode === 'full' ? 'Show the whole animal, from ears to paws, centered with space around it.' : 'Show the animal’s head and upper body centered, with face clearly visible.',
+    // 12컷이 모두 같은 정면 앉은 자세로 나오지 않게 — 감정·동작에 맞는 포즈와 각도를 고르게 한다.
+    'Give this sticker its own pose and camera angle that fit the requested action (close-up, three-quarter turn, lying down, mid-air, overhead or low angle). Do not default to a calm straight-on sitting portrait, and keep the face large and expressive at 360 by 360 pixels.',
     'Square canvas, clean edges, clear expression at 360 by 360 pixels. One animal only. No grid, collage, panels, multiple animals, watermark or unsolicited text.',
     CUTOUT_RULES,
     'Adapt any expression, gesture, costume, prop or scene to the animal’s anatomy. Keep it safe and non-distressing; do not add human hands or human facial anatomy.',

@@ -6,7 +6,7 @@ import { buildRenderPrompt, letteringDirection } from '../src/lib/ai/gemini-rend
 import { charAdvance, inkFor, layoutCaption } from '../src/lib/studio/caption';
 import { planCaption } from '../src/lib/studio/caption-plan';
 import { fontCssFromBytes } from '../src/lib/svg-fonts';
-import { drawLayer, normalizeLayer } from '../src/lib/studio/layers';
+import { drawLayer, normalizeLayer, normalizeLayers } from '../src/lib/studio/layers';
 import { renderTextLayersSvg } from '../src/lib/art/text-layers-svg';
 import {
   planDecor,
@@ -37,7 +37,7 @@ function spec(overrides: Partial<StickerSpec> = {}): StickerSpec {
 }
 
 /** 번들 캘리그라피 폰트를 SVG 안에 심는 CSS (CI 에도 파일이 있으므로 그대로 읽는다) */
-const calliCss = fontCssFromBytes('calli', new Uint8Array(readFileSync('public/fonts/EmotiHakRound.woff2')));
+const calliCss = fontCssFromBytes('round', new Uint8Array(readFileSync('public/fonts/EmotiHakRound.woff2')));
 
 for (const emotion of Object.keys(EMOTIONS) as Emotion[]) {
   for (const tone of Object.keys(TONES) as Tone[]) {
@@ -54,9 +54,11 @@ const capStart = lively.indexOf('data-caption-effect="calligraphy"');
 const capGroup = lively.slice(capStart, lively.indexOf('</g>', capStart));
 assert.ok(!capGroup.includes('<rect'), 'no caption box remains');
 assert.ok((lively.match(/<text /g) ?? []).length >= 2, 'caption uses the calligraphy passes (outline + ink)');
-assert.ok(lively.includes('LET’S') && lively.includes('GO!'), 'every word of the caption survives the line break');
+// 글자는 한 자씩 <text> 로 찍힌다 — 태그를 걷어 내면 원문이 그대로 남아야 한다.
+const plainCaption = capGroup.replace(/<[^>]+>/g, '');
+assert.ok(plainCaption.includes('LET’S') && plainCaption.includes('GO!'), 'every word of the caption survives the line break');
 assert.ok(lively.includes('paint-order="stroke fill"'), 'thick white outline is painted under the fill');
-assert.ok(lively.includes('rotate='), 'glyphs carry a hand-written tilt');
+assert.ok(/transform="rotate\(/.test(lively), 'glyphs carry a hand-written tilt');
 assert.ok(lively.includes('url(#captionShadow)'), 'soft drop shadow');
 assert.equal(renderSticker(spec({ emotion: 'joy' })).match(/data-caption-effect="calligraphy"/g)?.length, 1);
 
@@ -68,28 +70,63 @@ assert.ok(renderSticker(spec({ emotion: 'sad' })).includes(inkFor('sad')));
 assert.ok(renderSticker(spec({ emotion: 'tired' })).includes(inkFor('tired')));
 
 // 2줄 + 짧은 마지막 줄 강조
-const twoLine = layoutCaption('오늘도 야근 각', { size: 60, maxWidth: 320, face: 'calli' });
+const twoLine = layoutCaption('오늘도 야근 각', { size: 60, maxWidth: 320, face: 'round' });
 assert.ok(twoLine.lines.length >= 1);
-const emphasised = layoutCaption('자리 비웠습니다', { size: 60, maxWidth: 300, face: 'calli' });
+const emphasised = layoutCaption('자리 비웠습니다', { size: 60, maxWidth: 300, face: 'round' });
 assert.equal(emphasised.lines.length, 2, 'long captions wrap to two lines');
 assert.equal(emphasised.lines[1].size, emphasised.lines[0].size, 'both lines share one size — tidy, no emphasis jump');
 assert.ok(emphasised.width <= 300, 'layout stays inside the band');
 
-// 같은 계산을 쓰므로 SVG·캔버스가 같은 폭을 본다 (주아 한글 = 0.83em, 공백은 더 좁다)
-assert.ok(charAdvance('가', 100, 'calli') > charAdvance('a', 100, 'calli'));
-assert.equal(Math.round(charAdvance('가', 100, 'calli')), 83);
-assert.ok(charAdvance('가', 100, 'brush') > 0);
-assert.equal(Math.round(charAdvance('가', 100, 'hand')), 82);
+// 같은 계산을 쓰므로 SVG·캔버스가 같은 폭을 본다 (서체별 실제 hmtx advance)
+assert.ok(charAdvance('가', 100, 'round') > charAdvance('a', 100, 'round'));
+assert.equal(Math.round(charAdvance('가', 100, 'round')), 81);
+assert.equal(Math.round(charAdvance('가', 100, 'brush')), 69);
+assert.equal(Math.round(charAdvance('가', 100, 'meme')), 84);
+assert.equal(Math.round(charAdvance('가', 100, 'myeongjo')), 91);
 
 const escaped = renderSticker(spec({ line: '<tag>&' }));
-assert.ok(escaped.includes('&lt;tag&gt;&amp;') && !escaped.includes('<tag>'));
+// 글자 단위로 찍히므로 특수문자 하나하나가 이스케이프되어야 한다(원문 태그가 그대로 나가면 안 됨).
+assert.ok(escaped.includes('&lt;') && escaped.includes('&gt;') && escaped.includes('&amp;') && !escaped.includes('<tag>'));
 assert.ok(renderSticker(spec({ line: '가'.repeat(34) })).length > 0, 'long captions are constrained');
+
+// ── 서체 4종 (동글 손글씨 · 세련된 캘리그라피 · 예능/밈 굵은체 · 단정 감성 명조) ──
+import { CAPTION_FACES, CAPTION_FACE_KEYS } from '../src/lib/studio/caption';
+assert.equal(CAPTION_FACE_KEYS.join(','), 'round,brush,meme,myeongjo', 'four bundled faces');
+for (const face of CAPTION_FACE_KEYS) {
+  const spec4 = CAPTION_FACES[face];
+  // 1) 실제 폰트 파일이 앱에 들어 있다 (SVG 임베드·캔버스가 같은 파일을 쓴다)
+  const bytes = new Uint8Array(readFileSync(`public${spec4.file}`));
+  assert.ok(bytes.length > 50_000, `${face}: bundled woff2 (${bytes.length} bytes)`);
+  const css = fontCssFromBytes(face, bytes);
+  assert.ok(css.includes('data:font/woff2;base64,'), `${face}: font embeds into the SVG`);
+  assert.ok(css.includes(`font-weight:${spec4.weight}`), `${face}: @font-face weight matches the canvas weight`);
+  // 2) 같은 문구를 같은 size 로 그리면 눈에 보이는 글자 높이가 비슷하다(서체 보정 fit)
+  const layout = layoutCaption('신난다 오늘도', { size: 100, maxWidth: 900, face });
+  const capHeight = layout.lines[0].size * spec4.ascent;
+  assert.ok(Math.abs(capHeight - 81) < 8, `${face}: optical cap height ≈ round (${capHeight.toFixed(1)})`);
+  // 3) 미리보기(SVG)가 캔버스와 같은 굵기·글자 수로 그린다
+  const layer = normalizeLayer({ text: '실화야?', style: face, x: 0.5, y: 0.85, size: 0.14 });
+  const svg = renderTextLayersSvg([layer], 'joy');
+  assert.ok(svg.includes(`data-caption-face="${face}"`), `${face}: svg marks the face`);
+  assert.ok(svg.includes(`font-weight="${spec4.weight}"`), `${face}: svg weight = canvas weight`);
+  const glyphTexts = (svg.match(/<text /g) ?? []).length;
+  const letters = [...'실화야?'].filter((ch) => ch.trim()).length;
+  const passes = spec4.bold > 0 ? 3 : 2;
+  assert.equal(glyphTexts, letters * passes, `${face}: one <text> per glyph per pass (${glyphTexts})`);
+}
+// 예전 서체 값은 새 4종으로 옮겨 그린다 (저장된 팩도 다시 열면 같은 모습)
+const legacyBrush = normalizeLayers([{ text: '고마워', style: 'brush' }])[0];
+assert.equal(legacyBrush.style, 'brush', 'the calligraphy id survives');
+assert.equal(normalizeLayers([{ text: '고마워', style: 'gothic' }])[0].style, 'meme', 'old gothic moves to the meme face');
 
 // 임베드 폰트(@font-face)는 SVG 안에 들어가 <img>·resvg 래스터화에서도 같은 서체로 그려진다
 const embedded = renderSticker(spec({ line: '월요병' }), { fontCss: calliCss });
 assert.ok(embedded.includes('@font-face') && embedded.includes('data:font/woff2;base64,'));
 assert.ok(embedded.includes('EmotiHak Round'));
 assert.ok(!renderSticker(spec({ line: '월요병' })).includes('@font-face'), 'inline preview skips the embedded copy');
+// 한 화면에 스티커가 여러 개여도 그라데이션 id 가 겹치지 않는다(색이 첫 스티커로 섞이던 문제).
+const prefixed = renderSticker(spec({ line: '월요병' }), { idPrefix: 'zz' });
+assert.ok(prefixed.includes('zz0-ink') && !prefixed.includes('sticker0-ink'), 'caption gradient ids follow the per-sticker prefix');
 
 // 캔버스 렌더러도 같은 레이아웃·잉크를 쓴다 (가짜 2D 컨텍스트로 호출 경로 검증)
 type Call = { op: string; args: unknown[]; fill?: string; stroke?: string; font?: string };
@@ -138,7 +175,7 @@ const fake = {
 } as unknown as CanvasRenderingContext2D;
 
 calls.length = 0;
-drawLayer(fake, normalizeLayer({ text: '커피 수혈 중', style: 'calli', bubble: 'none', x: 0.5, y: 0.86, size: 0.14 }), 360, { emotion: 'tired' });
+drawLayer(fake, normalizeLayer({ text: '커피 수혈 중', style: 'round', bubble: 'none', x: 0.5, y: 0.86, size: 0.14 }), 360, { emotion: 'tired' });
 const strokes = calls.filter((c) => c.op === 'strokeText');
 const fills = calls.filter((c) => c.op === 'fillText');
 assert.ok(strokes.length >= 5 && fills.length >= 5, 'every glyph is stroked and filled (no box)');
@@ -149,7 +186,8 @@ assert.ok(inkStops.length >= 1 && inkStops[0].length >= 3, 'canvas fills with th
 assert.ok(!calls.some((c) => c.op === 'fillRect'), 'no bubble rectangle for bubble=none');
 
 // 예전에 저장된 말풍선 레이어(bubble: 'round')도 다운로드에는 박스를 그리지 않는다.
-const legacy = normalizeLayer({ text: '출근', style: 'calli', bubble: 'round', x: 0.5, y: 0.86, size: 0.14 });
+const legacy = normalizeLayers([{ text: '출근', style: 'calli', bubble: 'round', x: 0.5, y: 0.86, size: 0.14 }])[0];
+assert.equal(legacy.style, 'round', 'legacy calli style maps to the round hand face');
 assert.equal(legacy.bubble, 'none', 'legacy bubble data normalizes to none');
 calls.length = 0;
 drawLayer(fake, legacy, 360, { emotion: 'joy' });
@@ -160,7 +198,7 @@ assert.ok(
 assert.ok(calls.some((c) => c.op === 'fillText'), 'the caption text is still drawn');
 
 // 도장(stamp) 스타일 — 다운로드에도 글자만 찍는다. 예전에 글자 둘레에 그리던 빨간 이중 원(#C9342B)은 없다.
-for (const style of ['stamp'] as const) {
+for (const style of ['myeongjo'] as const) {
   calls.length = 0;
   drawLayer(fake, normalizeLayer({ text: '생존 신고합니다', style, bubble: 'none', effect: 'none', decor: 'off', x: 0.5, y: 0.5, size: 0.2, rotate: -8 }), 360, { emotion: 'smug' });
   assert.ok(!calls.some((c) => c.op === 'arc'), `${style}: no circle/arc is drawn`);

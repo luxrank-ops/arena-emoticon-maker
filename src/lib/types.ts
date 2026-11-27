@@ -245,6 +245,8 @@ export interface Pack {
   curationPackageId?: string;
   /** 'layer' 면 AI 는 글자 없이 그리고 앱이 한글 레이어를 합성한다 */
   textMode?: 'baked' | 'layer';
+  /** 생성할 때 고른 대사 글자체 — 컷 기본값이며 컷마다 편집기에서 바꿀 수 있다 */
+  textStyle?: 'round' | 'brush' | 'meme' | 'myeongjo';
   /** 전 컷에 강제하는 고정 캐릭터 디자인 시트 */
   designSheet?: CharacterDesignSheet;
   tone: Tone;

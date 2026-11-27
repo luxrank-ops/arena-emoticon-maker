@@ -1,13 +1,14 @@
 import { Sticker } from '@/components/Sticker';
 import { DEFAULT_PALETTE, DEFAULT_SIGNATURE } from '@/lib/art/sticker';
-import { layerFromLine, type TextLayer } from '@/lib/studio/layers';
+import { layerFromLine, type TextLayer, type TextLayerStyle } from '@/lib/studio/layers';
 import { tr, type Locale } from '@/lib/i18n/locale';
 import type { Emotion, StickerSpec } from '@/lib/types';
 
-function specFor(src: string, emotion: Emotion, line: string): StickerSpec {
+function specFor(src: string, emotion: Emotion, line: string, style?: TextLayerStyle): StickerSpec {
   // 컷 크기가 작은 자리에서도 대사가 밖으로 넘치지 않게 글자 수에 맞춰 줄인다(512 캔버스 기준).
-  const size = Math.min(0.16, 0.82 / Math.max(line.length, 1));
-  const layer = layerFromLine(line, { size, y: 0.84 });
+  // 작은 타일에서도 대사가 또렷하게 읽히도록 조금 크게 — 길면 자동으로 줄어든다.
+  const size = Math.min(0.19, 0.92 / Math.max(line.length, 1));
+  const layer = layerFromLine(line, { size, y: 0.84, ...(style ? { style } : {}) });
   const textLayers: TextLayer[] = layer ? [layer] : [];
   return {
     seed: 1061,
@@ -38,7 +39,7 @@ export function PhotoStickerRow({
   columns = 4,
   className,
 }: {
-  cuts: readonly { src: string; line: { ko: string; en: string }; emotion: Emotion }[];
+  cuts: readonly { src: string; line: { ko: string; en: string }; emotion: Emotion; style?: TextLayerStyle }[];
   locale: Locale;
   title?: string;
   note?: string;
@@ -55,7 +56,7 @@ export function PhotoStickerRow({
         {cuts.map((cut) => (
           <li key={cut.src} className="min-w-0">
             <Sticker
-              spec={specFor(cut.src, cut.emotion, tr(locale, cut.line.ko, cut.line.en))}
+              spec={specFor(cut.src, cut.emotion, tr(locale, cut.line.ko, cut.line.en), cut.style)}
               ariaLabel={t(`${cut.line.ko} 실사 스티커 예시`, `${cut.line.en} photo sticker sample`)}
             />
           </li>

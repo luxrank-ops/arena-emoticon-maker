@@ -22,6 +22,7 @@ import {
   layerFromLine,
   normalizeLayer,
   normalizeLayers,
+  normalizeTextStyle,
 } from '../src/lib/studio/layers';
 import { PACK_FORMATS, defaultLayerOf, formatCutByTemplate, formatCuts, packFormatById } from '../src/lib/pack-formats';
 import { buildCharacterSheet, designSheetChecklist, designSheetPrompt, isCharacterDesignSheet } from '../src/lib/ai/character-sheet';
@@ -143,15 +144,16 @@ check('모든 청크 CRC 가 맞는다', crcOk);
 assert.throws(() => assembleApng([], 80), /프레임/);
 
 // ── 4. 한글 레이어 ─────────────────────────────────────────
-const layer = normalizeLayer({ text: '퇴근합니다', style: 'stamp', bubble: 'caption', effect: 'sparkle', x: 2, y: -1, size: 9, rotate: 900, color: 'bad' }, 0);
+const layer = normalizeLayer({ text: '퇴근합니다', style: 'myeongjo', bubble: 'caption', effect: 'sparkle', x: 2, y: -1, size: 9, rotate: 900, color: 'bad' }, 0);
 check('레이어 좌표·크기·회전을 범위 안으로 자른다(회전 ±5° — 정갈한 기본값)', layer.x === 0.92 && layer.y === 0.08 && layer.size === 0.34 && layer.rotate === 5);
 check('잘못된 색은 기본색으로', layer.color === '#191512');
-check('스타일·이펙트 유지(말풍선은 항상 없음)', layer.style === 'stamp' && layer.bubble === 'none' && layer.effect === 'sparkle');
+check('스타일·이펙트 유지(말풍선은 항상 없음)', layer.style === 'myeongjo' && layer.bubble === 'none' && layer.effect === 'sparkle');
+check('예전 서체 값은 지금 4종으로 옮긴다', normalizeTextStyle('calli') === 'round' && normalizeTextStyle('hand') === 'round' && normalizeTextStyle('bold') === 'meme' && normalizeTextStyle('stamp') === 'myeongjo' && normalizeTextStyle('brush') === 'brush' && normalizeTextStyle('nope') === 'round');
 check('빈 텍스트 레이어는 제거', normalizeLayers([{ text: '  ' }, { text: '안녕' }]).length === 1);
-check('레이어 최대 4장', normalizeLayers(Array.from({ length: 9 }, (_, i) => ({ text: `레이어${i}`, style: 'hand' }))).length === MAX_LAYERS);
-check('글꼴 6종(캘리그라피·붓글씨 우선) · 이펙트 13종(기본 6 + 문양 확대 6 + 없음)', TEXT_STYLES.length === 6 && TEXT_STYLES[0].id === 'calli' && TEXT_STYLES[1].id === 'brush' && LAYER_EFFECTS.length === 13 && LAYER_EFFECTS[0].id === 'none');
+check('레이어 최대 4장', normalizeLayers(Array.from({ length: 9 }, (_, i) => ({ text: `레이어${i}`, style: 'round' }))).length === MAX_LAYERS);
+check('글꼴 4종(동글 손글씨·캘리·밈·명조) · 이펙트 13종', TEXT_STYLES.length === 4 && TEXT_STYLES.map((s) => s.id).join(',') === 'round,brush,meme,myeongjo' && LAYER_EFFECTS.length === 13 && LAYER_EFFECTS[0].id === 'none');
 const fromLine = layerFromLine('확인했습니다');
-check('대사 → 기본 레이어 생성(캘리그라피, 말풍선 없음)', !!fromLine && fromLine.text === '확인했습니다' && fromLine.bubble === 'none' && fromLine.style === 'calli');
+check('대사 → 기본 레이어 생성(동글 손글씨, 말풍선 없음)', !!fromLine && fromLine.text === '확인했습니다' && fromLine.bubble === 'none' && fromLine.style === 'round');
 check('빈 대사는 레이어 없음', layerFromLine('   ') === null);
 
 // ── 5. 표현 형태 5종 + 킬러 테마 2종 ────────────────────────
@@ -175,11 +177,11 @@ check('템플릿 id 가 전부 고유', new Set(allTemplateIds).size === allTemp
 check('컷 → 형태 역참조', formatCutByTemplate('fmt-situation-si-01')?.format.id === 'situation');
 check('알 수 없는 템플릿은 null', formatCutByTemplate('comic-laugh') === null);
 check('2인 형식(duo · duo-chemi)만 사진 2장 필요', PACK_FORMATS.filter((f) => f.needsSecondPhoto).map((f) => f.id).sort().join(',') === 'duo,duo-chemi');
-check('타이포는 글자 없는 생성 + 기본 도장 레이어', packFormatById('typo')?.textMode === 'layer' && defaultLayerOf(packFormatById('typo')!.cuts[0])?.style === 'stamp' && defaultLayerOf(packFormatById('typo')!.cuts[0])?.text === packFormatById('typo')!.cuts[0].line);
+check('타이포는 글자 없는 생성 + 기본 도장 레이어', packFormatById('typo')?.textMode === 'layer' && defaultLayerOf(packFormatById('typo')!.cuts[0])?.style === 'myeongjo' && defaultLayerOf(packFormatById('typo')!.cuts[0])?.text === packFormatById('typo')!.cuts[0].line);
 const combo = packFormatById('combo')!;
 check('콤보는 위/아래 짝이 서로를 가리킨다', combo.cuts.filter((c) => c.comboRole === 'top').every((c) => !!combo.cuts.find((o) => o.id === c.comboPair && o.comboRole === 'bottom')));
 check('콤보 짝 수가 짝이 아닌 컷과 일치', combo.cuts.length === combo.cuts.filter((c) => c.comboRole === 'top').length * 2);
-check('패러디 첫 컷은 앱이 합성하는 굵은체 레이어', packFormatById('parody')!.cuts[0].textLayer?.style === 'bold');
+check('패러디 첫 컷은 앱이 합성하는 굵은체 레이어', packFormatById('parody')!.cuts[0].textLayer?.style === 'meme');
 check('알 수 없는 형태는 undefined', packFormatById('nope') === undefined);
 
 // ── 6. 고정 캐릭터 디자인 시트 ─────────────────────────────

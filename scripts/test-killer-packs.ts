@@ -35,7 +35,11 @@ check('반려동물은 사진 1장 · ₩6,900', pet.needsSecondPhoto === false 
 const duoLines = duo.cuts.map((cut) => cut.line);
 check('2인 상호작용 전용 대사 포함', ['퇴근 후 치맥 콜?', '야근 중 살려줘', '삐짐 vs 달래기'].every((line) => duoLines.includes(line)));
 const petLines = pet.cuts.map((cut) => cut.line);
-check('집사 밈 대사 포함', ['간식 내놔', '산책 가자', '집사야 일해라', '밥 줘', '누가 방귀 꼈어'].every((line) => petLines.includes(line)));
+// 대사는 사람이 단톡방에 쓰는 말투 — 명령조 키워드가 아니라 감정·눈치가 담긴 문장이어야 한다.
+check('집사 밈 대사 포함', ['지금 뭐 먹어?', '나 좀 봐줘', '삐졌어 건들지마', '오늘 늦게 와?', '진짜 실화야?'].every((line) => petLines.includes(line)));
+check('명령조 키워드 대사는 없다', !petLines.some((line) => ['간식 내놔', '산책 가자', '집사야 일해라', '밥 줘'].includes(line)));
+check('컷마다 표정·포즈·카메라 각도가 다르다', new Set(pet.cuts.map((cut) => cut.action)).size === pet.cuts.length && pet.cuts.every((cut) => /angle|camera|close-up|overhead|wide shot|from the floor/i.test(cut.action)));
+check('반려동물 프롬프트가 정면 앉은 자세 반복을 막는다', /different expression, pose and camera angle/i.test(pet.prompt.scene) && /never the same straight-on sitting portrait/i.test(pet.prompt.scene));
 check('모든 컷에 한글 대사·영문 대사·장면 지시', [...duo.cuts, ...pet.cuts].every((cut) => /[가-힣]/.test(cut.line) && cut.lineEn.length > 0 && cut.action.length > 20));
 check('완성권 SKU 자동 선택', unlockSkuForPack('duo-chemi', 'person') === 'pack-unlock-duo' && unlockSkuForPack('pet-meme', 'pet') === 'pack-unlock-pet');
 check('API 스키마 목록에 두 테마 포함', PACK_FORMAT_IDS.includes('duo-chemi') && PACK_FORMAT_IDS.includes('pet-meme'));

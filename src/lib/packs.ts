@@ -26,7 +26,7 @@ import { curationTitleForSize } from '@/lib/pack-title';
 import type { Locale } from '@/lib/i18n/locale';
 import { buildCharacterSheet } from '@/lib/ai/character-sheet';
 import { defaultLayerOf, formatCuts, packFormatById, type PackFormatId } from '@/lib/pack-formats';
-import { layerFromLine, normalizeLayer, normalizeLayers } from '@/lib/studio/layers';
+import { layerFromLine, normalizeLayer, normalizeLayers, type TextLayerStyle } from '@/lib/studio/layers';
 import { PREVIEW_FREE_CUTS, PREVIEW_PACK_SIZE, PREVIEW_WATERMARK } from '@/lib/trial-policy';
 import { SKUS, unlockSkuForPack } from '@/lib/pricing';
 
@@ -147,7 +147,7 @@ export async function createPack(
    *  · 나머지 컷은 imageId 없이 두고, 잠금 해제 시 /api/render 의 finalize·일반 렌더가 이어서 그린다.
    *  · 결제(단건 완성권) 전에는 내보내기가 잠긴다 (packExportState).
    */
-  opts: { preview?: boolean; curationPackageId?: string } = {},
+  opts: { preview?: boolean; curationPackageId?: string; textStyle?: TextLayerStyle } = {},
 ) {
   if (opts.preview && size !== PREVIEW_PACK_SIZE) {
     throw new PackError('INVALID_SIZE', `무료 미리보기는 ${PREVIEW_PACK_SIZE}컷 팩으로만 만들 수 있어요.`);
@@ -248,12 +248,17 @@ export async function createPack(
     const cut = packFormat ? packFormat.cuts.find((item) => `fmt-${packFormat.id}-${item.id}` === t.id) : undefined;
     const preset = presetList ? presetList[i] : undefined;
     const presetLayer = cut ? defaultLayerOf(cut) : null;
+    // 사용자가 생성 화면에서 고른 글자체가 컷 기본값이 된다(컷마다 편집기에서 다시 바꿀 수 있다).
+    const pickedStyle = opts.textStyle;
+    const baseLayer = preset
+      ? { ...presetTextLayer(preset, locale), text: t.line }
+      : presetLayer
+        ? { ...presetLayer, id: `cut-${cut!.id}` }
+        : layerFromLine(t.line);
     const textLayers = textMode === 'layer'
-      ? preset
-        ? [normalizeLayer({ ...presetTextLayer(preset, locale), text: t.line }, 0)]
-        : presetLayer
-          ? [normalizeLayer({ ...presetLayer, id: `cut-${cut!.id}` }, 0)]
-          : (() => { const layer = layerFromLine(t.line); return layer ? [layer] : []; })()
+      ? baseLayer
+        ? [normalizeLayer(pickedStyle ? { ...baseLayer, style: pickedStyle } : baseLayer, 0)]
+        : []
       : undefined;
     return {
       id: uid('frm'),
@@ -317,6 +322,7 @@ export async function createPack(
     ...(packFormat ? { format: packFormat.id } : {}),
     ...(curationPackage ? { curationPackageId: curationPackage.id } : {}),
     textMode,
+    ...(opts.textStyle ? { textStyle: opts.textStyle } : {}),
     designSheet: buildCharacterSheet({
       tone: sheet.tone,
       subjectKind: sheet.subjectKind ?? 'person',

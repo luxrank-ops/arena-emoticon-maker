@@ -26,6 +26,8 @@ import { compressPhotoFile, linkPhoto, loadPhoto, renderImage, runLimited, saveP
 import type { Emotion, Palette, SheetVariant, StickerSpec, Tone, SubjectKind } from '@/lib/types';
 import { packFormatById, type PackFormatId } from '@/lib/pack-formats';
 import { PREVIEW_PACK_SIZE, TRIAL_MESSAGES } from '@/lib/trial-policy';
+import { CaptionFontPicker } from '@/components/studio/CaptionFontPicker';
+import type { TextLayerStyle } from '@/lib/studio/layers';
 import type { TrialStatus } from '@/lib/free-trial';
 
 // ─────────────────────────────────────────────────────────────
@@ -89,6 +91,8 @@ export function SheetPicker({
   // 무료 미리보기 팩 — 오늘 남은 미리보기 팩 수(서버 카운터)
   const [previewLeft, setPreviewLeft] = useState(trialStatus?.previewPacksLeft ?? 0);
   const [previewBusy, setPreviewBusy] = useState(false);
+  // 대사 글자체 — 4종 중 하나를 고르면 이 팩의 모든 컷 기본 서체가 된다.
+  const [textStyle, setTextStyle] = useState<TextLayerStyle>('round');
   const activePackage = !formatInfo && composition === 'preset'
     ? CURATION_PACKAGES.find((pkg) => pkg.count === presetIds.length && pkg.cuts.every((cut, index) => presetIds[index] === cut.presetId))
     : undefined;
@@ -221,7 +225,7 @@ export function SheetPicker({
       const packRes = await fetch('/api/packs', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sheetId, size: PREVIEW_PACK_SIZE, locale, preview: true, ...previewSelection }),
+        body: JSON.stringify({ sheetId, size: PREVIEW_PACK_SIZE, locale, preview: true, textStyle, ...previewSelection }),
       });
       const packJson = await packRes.json().catch(() => null);
       if (!packRes.ok) throw new Error(locale === 'en' ? 'We could not open your preview pack. The free preview is once per account.' : (packJson?.error?.message ?? '미리보기 팩을 만들지 못했어요.'));
@@ -283,6 +287,7 @@ export function SheetPicker({
           sheetId,
           size,
           locale,
+          textStyle,
           ...(activePackage ? { title: locale === 'en' ? activePackage.titleEn : activePackage.title, curationPackageId: activePackage.id } : {}),
           ...(format ? { format } : {}),
           ...(!format && composition === 'comic' ? { comicExpressionIds: comicIds } : {}),
@@ -577,6 +582,16 @@ export function SheetPicker({
               {presetIds.length !== size ? <p className="mt-2 text-xs font-bold text-coralink">{t(`${size}개를 골라야 팩을 만들 수 있어요.`, `Pick ${size} presets to create this pack.`)}</p> : null}
             </div>
           ) : null}
+        </div>
+
+        <div className="mt-4 rounded-xl border-2 border-line p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-1">
+            <p className="text-sm font-black">{t('대사 글자체', 'Caption font')}</p>
+            <p className="text-[11px] text-sub">{t('컷마다 편집 화면에서 다시 바꿀 수 있어요', 'You can change it per cut later')}</p>
+          </div>
+          <div className="mt-2">
+            <CaptionFontPicker value={textStyle} onChange={setTextStyle} locale={locale} columns={4} label={t('글자체 고르기', 'Pick a font')} />
+          </div>
         </div>
 
         <div className="mt-4 rounded-xl border border-line bg-cream px-4 py-3 text-[12px] leading-relaxed text-sub">

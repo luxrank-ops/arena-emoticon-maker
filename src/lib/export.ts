@@ -214,7 +214,7 @@ export async function renderFrameCanvas(spec: StickerSpec, opts: ExportOptions =
     }
   } else {
     // 글자 레이어가 있으면 그쪽이 대사다 — 절차적 SVG 대사와 겹쳐 찍지 않는다.
-    const fontCss = layers.length ? '' : await captionFontCss('calli');
+    const fontCss = layers.length ? '' : await captionFontCss('round');
     const svg = renderSticker({ ...spec, imageUrl: undefined, line: layers.length ? '' : spec.line }, { fontCss });
     const img = await loadImage(svg);
     fctx.drawImage(img, 0, 0, size, size);

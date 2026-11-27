@@ -55,7 +55,7 @@ export interface CutoutStyle {
 
 export const DEFAULT_CUTOUT_STYLE: CutoutStyle = {
   caption: '',
-  style: 'calli',
+  style: 'round',
   effect: 'none',
   decor: 'auto',
   emotion: 'joy',

@@ -181,6 +181,12 @@ export interface RenderOptions {
    * (인라인 DOM 미리보기는 페이지 CSS 가 폰트를 공급하므로 비워 둔다.)
    */
   fontCss?: string;
+  /**
+   * SVG 안에서 쓰는 그라데이션·필터 id 접두사.
+   * 한 화면에 SVG 가 여러 개 있으면 같은 id 가 서로를 가리켜 색이 섞인다(첫 번째 것만 적용) →
+   * 스티커마다 다른 접두사를 준다.
+   */
+  idPrefix?: string;
 }
 
 export function renderSticker(spec: StickerSpec, opts: RenderOptions = {}): string {
@@ -350,7 +356,7 @@ export function renderSticker(spec: StickerSpec, opts: RenderOptions = {}): stri
   parts.push('</g>');
 
   // 대사 (필터 밖 → 텍스트 선명도 유지)
-  if (hasLine) parts.push(renderLine(spec));
+  if (hasLine) parts.push(renderLine(spec, opts.idPrefix));
 
   const svg =
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="${escapeAttr(EMOTIONS[spec.emotion].label)} 이모티콘">` +
@@ -780,15 +786,15 @@ export function captionDefs(fontCss?: string) {
  *  · 글자마다 살짝 기울인다(SVG rotate 속성 = 글자별 각도). 캔버스 렌더러와 같은 계산(caption.ts).
  *  · 2줄까지 접고, 짧은 마지막 줄은 키워 강조한다. 얼굴을 가리지 않게 하단/상단 여백에 앉힌다.
  */
-function renderLine(spec: StickerSpec) {
+function renderLine(spec: StickerSpec, idPrefix = 'sticker') {
   const text = spec.line.trim().slice(0, 34);
   if (!text) return '';
-  const em = [...text].reduce((sum, ch) => sum + charAdvance(ch, 1, 'calli'), 0);
+  const em = [...text].reduce((sum, ch) => sum + charAdvance(ch, 1, 'round'), 0);
   const wanted = Math.max(34, Math.min(196, 800 / Math.max(1, em)));
   const probe = layoutCaption(text, {
     size: wanted,
     maxWidth: 902,
-    face: 'calli',
+    face: 'round',
     seed: spec.seed,
   });
   const tilt = ((spec.seed % 5) - 2) * 0.9;
@@ -800,7 +806,7 @@ function renderLine(spec: StickerSpec) {
   const layer: TextLayer = {
     id: 'sticker-line',
     text,
-    style: 'calli',
+    style: 'round',
     bubble: 'none',
     effect: 'none',
     x: 0.5,
@@ -809,7 +815,7 @@ function renderLine(spec: StickerSpec) {
     color: '',
     rotate: tilt,
   };
-  const { defs, body } = renderTextLayersWithDefs([layer], spec.emotion, 'sticker');
+  const { defs, body } = renderTextLayersWithDefs([layer], spec.emotion, idPrefix);
   return `<defs>${defs}</defs>${body}`;
 }
 

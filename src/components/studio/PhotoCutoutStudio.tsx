@@ -17,7 +17,8 @@ import {
 } from '@/lib/export';
 import { EMOTIONS } from '@/lib/art/sticker';
 import { formatBytes } from '@/lib/packager';
-import { LAYER_EFFECTS, TEXT_STYLES } from '@/lib/studio/layers';
+import { LAYER_EFFECTS, type TextLayerStyle } from '@/lib/studio/layers';
+import { CaptionFontPicker } from '@/components/studio/CaptionFontPicker';
 import { localizedPath, tr, type Locale } from '@/lib/i18n/locale';
 import { track } from '@/lib/analytics';
 import { SeasonPropArt } from '@/components/season/SeasonPropArt';
@@ -95,7 +96,6 @@ const CHECKER: CSSProperties = {
   backgroundPosition: '0 0, 9px 9px',
 };
 
-const CUTOUT_TEXT_STYLE_IDS = ['calli', 'brush', 'hand', 'gothic', 'bold'] as const;
 const CUTOUT_EFFECT_IDS = ['none', 'heart', 'sparkle', 'star', 'crown', 'flower', 'party', 'sweat', 'zzz', 'question'] as const;
 
 /** 세로로 긴 사진을 정사각으로 다듬는다 (얼굴 위주 = 위쪽 32% 기준, 가운데 = 정중앙) */
@@ -238,7 +238,6 @@ export function PhotoCutoutStudio({
   const currentMotion = selected?.style.motion ?? 'none';
   const isAnimatedSelected = isVideoSelected || currentMotion !== 'none';
 
-  const textStyles = useMemo(() => TEXT_STYLES.filter((item) => (CUTOUT_TEXT_STYLE_IDS as readonly string[]).includes(item.id)), []);
   const effects = useMemo(() => LAYER_EFFECTS.filter((item) => (CUTOUT_EFFECT_IDS as readonly string[]).includes(item.id)), []);
   const activeTheme = CUTOUT_SUGGESTIONS.find((theme) => theme.id === themeId) ?? CUTOUT_SUGGESTIONS[0];
 
@@ -1088,24 +1087,15 @@ export function PhotoCutoutStudio({
               </div>
             </div>
 
-            {/* 서체 선택 */}
-            <p className="mt-4 text-[11px] font-black text-sub">{t('서체', 'Font')}</p>
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {textStyles.map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  disabled={!selected}
-                  aria-pressed={selected?.style.style === item.id}
-                  onClick={() => updateSelected({ style: item.id })}
-                  className={clsx(
-                    'min-h-9 rounded-full border px-3 text-[11px] font-black transition',
-                    selected?.style.style === item.id ? 'border-primary bg-primary text-white shadow-soft' : 'border-line bg-white text-sub hover:border-primary/50',
-                  )}
-                >
-                  {item.label}
-                </button>
-              ))}
+            {/* 서체 선택 — 카드마다 그 서체로 쓴 예시 글자를 보여 준다 */}
+            <div className="mt-4">
+              <CaptionFontPicker
+                value={(selected?.style.style ?? 'round') as TextLayerStyle}
+                onChange={(style) => updateSelected({ style })}
+                locale={locale}
+                disabled={!selected}
+                label={t('서체', 'Font')}
+              />
             </div>
 
             {/* 문구 위치 및 사진 구도 */}

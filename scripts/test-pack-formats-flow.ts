@@ -60,10 +60,10 @@ try {
   check('팩에 형태·글자 모드가 기록된다', typoPack.format === 'typo' && typoPack.textMode === 'layer');
   check('12컷 전부 형태 컷 템플릿', typoPack.frames.length === 12 && typoPack.frames.every((f) => f.templateId.startsWith('fmt-typo-')));
   check('컷마다 기본 글자 레이어가 있다', typoPack.frames.every((f) => (f.textLayers?.length ?? 0) === 1));
-  check('타이포 첫 컷은 도장 레이어', typoPack.frames[0].textLayers?.[0].style === 'stamp' && typoPack.frames[0].textLayers?.[0].text === typoPack.frames[0].line);
+  check('타이포 첫 컷은 명조 레이어', typoPack.frames[0].textLayers?.[0].style === 'myeongjo' && typoPack.frames[0].textLayers?.[0].text === typoPack.frames[0].line);
   check('고정 디자인 시트가 팩에 저장된다', !!typoPack.designSheet && typoPack.designSheet.id.startsWith('ds_'));
   const typoSpec = specFromIdentity(typoPack.identity!, typoPack.frames[0]);
-  check('내보내기 스펙에 레이어가 실린다', (typoSpec.textLayers?.length ?? 0) === 1 && typoSpec.textLayers![0].style === 'stamp');
+  check('내보내기 스펙에 레이어가 실린다', (typoSpec.textLayers?.length ?? 0) === 1 && typoSpec.textLayers![0].style === 'myeongjo');
   check('레이어 문구는 편집 가능한 한글', /[가-힣]/.test(typoSpec.textLayers![0].text));
   check('크레딧이 컷 수만큼 차감된다', (await withDB((db) => db.users.find((u) => u.id === 'u-flow')!.credits)) === 188);
 
