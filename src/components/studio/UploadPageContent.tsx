@@ -16,11 +16,22 @@ export async function UploadPageContent({ step }: { step: 'photo' | 'settings' }
   return (
     <div className="wrap py-6 sm:py-10">
       {access === 'trial' ? (
-        <div role="status" className="mx-auto mb-6 max-w-3xl rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary-dark">
-          <p>{tr(locale, TRIAL_MESSAGES.banner, 'Free preview: one draft, then 4 of the 12 cuts with a watermark. Unlock to finish all 12.')}</p>
-          <p className="mt-1 text-[11px] font-bold text-sub">
-            {tr(locale, '무료 4컷 미리보기는 워터마크·저해상도이며, 결제 전에는 내보내기가 잠깁니다. 마음에 들면 ₩5,900에 잠금 해제하면 나머지 8컷까지 그려 12컷을 완성해요.', 'The free 4-cut preview is watermarked and low-resolution; exports stay locked until you unlock. Unlocking from ₩5,900 draws the remaining 8 cuts for all 12.')}
+        // 무료 체험 안내 — 첫 화면에서 할 일(팩 고르기)을 가리지 않도록 한 줄만 두고,
+        // 자세한 조건은 접어서 필요할 때만 펼친다.
+        <div role="status" className="mx-auto mb-4 max-w-3xl rounded-xl border border-primary/25 bg-primary/[0.04] px-3.5 py-2.5 text-[12px] font-bold text-primary-dark">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="rounded-full bg-white/80 px-2 py-0.5 text-[10px] font-black">무료</span>
+            <span>{tr(locale, '4컷을 먼저 그려 드려요 · 계정당 1회 · 카드 등록 없음', 'We draw 4 cuts first · once per account · no card')}</span>
           </p>
+          <details className="mt-1">
+            <summary className="cursor-pointer text-[11px] font-bold text-sub">{tr(locale, '무료로 어디까지 되나요?', 'What is free?')}</summary>
+            <p className="mt-1 text-[11px] font-bold leading-relaxed text-sub">
+              {tr(locale, TRIAL_MESSAGES.banner, 'Free preview: 4 cuts with a watermark. Unlock to finish all 12.')}
+            </p>
+            <p className="mt-1 text-[11px] font-bold leading-relaxed text-sub">
+              {tr(locale, '무료 미리보기는 워터마크·저해상도이며 결제 전에는 내보내기가 잠깁니다.', 'The preview is watermarked and low-resolution; exports stay locked until you unlock.')}
+            </p>
+          </details>
         </div>
       ) : access === 'blocked' ? (
         <div role="status" className="mx-auto mb-6 max-w-3xl rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm font-semibold text-primary-dark">
