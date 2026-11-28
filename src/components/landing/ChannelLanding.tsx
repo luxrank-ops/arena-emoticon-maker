@@ -96,11 +96,21 @@ export function ChannelLanding({ locale, copy }: Props) {
         <Link href={localizedPath(locale, uploadHref)} className="btn-primary mt-8 w-full !py-4 text-base sm:w-auto sm:!px-10">
           {tr(locale, '지금 바로 만들기 →', 'Start now →')}
         </Link>
-        <p className="mt-6 text-xs text-sub">
-          {tr(locale, '아직 고민 중이면 출시 알림부터 →', 'Still thinking? Get the launch notice →')}{' '}
-          <Link href={localizedPath(locale, '/waitlist')} className="font-bold text-coralink underline">
-            {tr(locale, '사전예약하기', 'Pre-register')}
-          </Link>
+        {/* 앱은 이미 웹에서 바로 쓸 수 있으므로, 여기서는 '가격'과 '다른 팩'으로 동선을 잇는다. */}
+        <p className="mt-6 flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-xs text-sub">
+          <span>
+            {tr(locale, '가격이 궁금하면', 'Curious about pricing?')}{' '}
+            <Link href={localizedPath(locale, '/pricing')} className="font-bold text-coralink underline">
+              {tr(locale, '요금 안내 보기', 'See pricing')}
+            </Link>
+          </span>
+          <span aria-hidden="true" className="text-line">|</span>
+          <span>
+            {tr(locale, '다른 팩도 있어요', 'More packs')}{' '}
+            <Link href={localizedPath(locale, '/studio')} className="font-bold text-coralink underline">
+              {tr(locale, '만들기에서 고르기', 'Choose in Create')}
+            </Link>
+          </span>
         </p>
       </div>
     </section>

@@ -105,10 +105,12 @@ export default async function PricingPage() {
                       className="btn-primary w-full"
                     />
                   ) : (
-                    /* 세 카드의 CTA 위계를 맞춘다 — 같은 동작(무료 4컷 미리보기 시작)이
-                       카드마다 버튼/밑줄 없는 텍스트로 달라 보이지 않게 모두 기본 버튼으로 둔다. */
-                    <Link href="/studio/upload" className="btn-primary block w-full text-center">
-                      무료 4컷 미리보기 시작
+                    /* 카드가 가리키는 곳으로 바로 보낸다 — 크레딧 카드는 아래 크레딧 팩 목록으로. */
+                    <Link
+                      href={tier.id === 'theme' ? '#credits' : '/studio/upload'}
+                      className={tier.id === 'theme' ? 'btn-ghost block w-full text-center' : 'btn-primary block w-full text-center'}
+                    >
+                      {tier.id === 'theme' ? '크레딧 팩 고르기' : '무료 4컷 미리보기 시작'}
                     </Link>
                   )}
                 </div>
@@ -116,7 +118,7 @@ export default async function PricingPage() {
             ))}
           </div>
 
-          <div className="mt-10">
+          <div id="credits" className="mt-10 scroll-mt-24">
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h2 className="text-lg font-black">시즌·테마 크레딧 팩</h2>
@@ -160,12 +162,12 @@ export default async function PricingPage() {
         </>
       )}
 
-      <div className="card-flat mt-10 p-5">
-        <h2 className="text-sm font-black">요금제 표기 안내</h2>
+      <details className="card-flat mt-10 p-5">
+        <summary className="cursor-pointer text-sm font-black">요금제 표기 안내 · 규격 자세히 보기</summary>
         <ul className="mt-2 space-y-1.5 text-[11px] leading-relaxed text-sub">
           {PLAN_DISCLOSURES.map((line) => <li key={line}>· {line}</li>)}
         </ul>
-      </div>
+      </details>
 
       {playBillingEnabled() ? (
         <div className="card mt-4 p-5">
@@ -181,7 +183,13 @@ export default async function PricingPage() {
         </div>
       ) : null}
 
-      <div className="mt-12 grid gap-4 md:grid-cols-2">
+      <div className="mt-8 flex flex-wrap items-center justify-center gap-2 rounded-2xl border border-line bg-white px-4 py-4 text-center">
+        <p className="text-[13px] font-bold text-ink">지금 바로 무료 4컷으로 확인해 보세요.</p>
+        <Link href="/studio/upload" className="btn-primary !px-5 !py-2.5 text-xs">만들러 가기 →</Link>
+        <Link href="/studio/photo" className="btn-ghost !px-4 !py-2.5 text-xs">사진 그대로 무료로 만들기</Link>
+      </div>
+
+      <div className="mt-10 grid gap-4 md:grid-cols-2">
         <div>
           <h2 className="text-lg font-black">결제 전 꼭 확인하세요</h2>
           <div className="mt-3 space-y-2">

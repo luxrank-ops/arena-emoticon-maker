@@ -31,7 +31,7 @@ import type { SubjectKind, Tone } from '@/lib/types';
 // 하단 고정 CTA — 모바일에서는 하단 탭바(3.375rem)+안전 영역 위에 붙고, 배경은 불투명하게 둔다.
 // (반투명이면 뒤 카드가 비쳐 '가려진' 것처럼 보였다) 데스크톱은 탭바가 없어 바닥에 붙인다.
 const STICKY_CTA =
-  'sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 rounded-2xl border border-line bg-paper p-2 shadow-soft lg:bottom-3';
+  'sticky bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-20 rounded-2xl border border-line bg-paper/95 p-2 shadow-pop backdrop-blur lg:bottom-3';
 
 const CONSENT_VERSION = 'v1.2';
 const DRAFT_KEY = 'emotime:studio:draft:v1';
@@ -408,7 +408,7 @@ export function UploadFlow({
       <nav className="mb-6 flex items-center gap-2 text-xs font-bold text-sub" aria-label={t('현재 위치', 'Breadcrumb')}>
         <Link href={lp('/')} className="hover:text-ink">{t('홈', 'Home')}</Link><span>/</span>
         {isPhoto ? (
-          <span className="text-ink">{isFormat ? t('표현 형태', 'Pack format') : isMode ? t('구도 선택', 'Choose a composition') : t('사진 선택', 'Choose a photo')}</span>
+          <span className="text-ink">{isFormat ? t('팩 종류', 'Pack type') : isMode ? t('구도 선택', 'Choose a composition') : t('사진 선택', 'Choose a photo')}</span>
         ) : (
           <>
             <button type="button" onClick={goToPhoto} className="min-h-11 hover:text-ink">{t('구도·사진', 'Composition & photo')}</button>
@@ -419,12 +419,12 @@ export function UploadFlow({
         <span className="ml-auto chip">STEP {isPhoto ? '1' : '2'} / 4</span>
       </nav>
       <div className="mx-auto mb-6 max-w-3xl sm:mb-8">
-        <h1 className="h2 break-keep">{isFormat ? t('어떤 표현 형태로 만들까요?', 'Which pack format?') : isMode ? t('어떤 스타일로 만들까요?', 'What would you like to create?') : isPhoto ? t('사진을 업로드해 주세요', 'Upload your photo') : t('이모티콘 스타일을 골라주세요', 'Choose your sticker style')}</h1>
+        <h1 className="h2 break-keep">{isFormat ? t('어떤 이모티콘 팩을 만들까요?', 'Which sticker pack?') : isMode ? t('어떤 스타일로 만들까요?', 'What would you like to create?') : isPhoto ? t('사진을 업로드해 주세요', 'Upload your photo') : t('이모티콘 스타일을 골라주세요', 'Choose your sticker style')}</h1>
         <p className="mt-2 text-base leading-relaxed text-sub">
-          {isFormat ? t('킬러 테마(2인 케미 · 반려동물 집사 밈)부터 상황·행동, 뉴스 자막, 글자 주인공, 이펙트 콤보까지 고르면 그 형태에 맞는 컷과 프롬프트로 만들어 드려요. 기본 감정 팩도 그대로 쓸 수 있어요.', 'Start with a killer theme (duo chemistry, pet butler memes) or pick situations, captions, typography or effects. Classic expression packs still work as before.') : isMode ? t('표정을 강조할지, 귀여운 포즈를 살릴지 선택해 주세요.', 'Choose expressive close-ups or cute full-body poses.') : isPhoto ? t('정면과 얼굴이 잘 보이는 사진 한 장이면 충분해요.', 'One clear, front-facing photo is all you need.') : t('구도와 스타일을 선택하고 필수 항목에 동의하면 시안 만들기를 시작합니다.', 'Choose a composition and style, accept the required terms, and create your character drafts.')}
+          {isFormat ? t('먼저 만들 팩을 하나 고르세요. 잘 모르겠으면 기본 감정 팩으로 시작하면 돼요. 다음 화면에서 사진을 올려요.', 'Pick the pack you want. If unsure, start with the classic emotion pack. You add your photo on the next screen.') : isMode ? t('표정을 강조할지, 귀여운 포즈를 살릴지 선택해 주세요.', 'Choose expressive close-ups or cute full-body poses.') : isPhoto ? t('정면과 얼굴이 잘 보이는 사진 한 장이면 충분해요.', 'One clear, front-facing photo is all you need.') : t('구도와 스타일을 고르고 동의하면 4컷을 먼저 그려 드려요.', 'Choose a composition and style, accept the terms, and we draw 4 cuts first.')}
         </p>
         <ol aria-label={t('제작 진행 단계', 'Creation progress')} className="mt-5 grid grid-cols-4 gap-1 text-center text-[10px] font-bold sm:gap-2 sm:text-sm">
-          {(locale === 'en' ? ['Mode & photo', 'Style', 'Character', 'Pack'] : ['구도·사진', '스타일·동의', '시안 선택', '팩 완성']).map((label, index) => (
+          {(locale === 'en' ? ['Pack & photo', 'Style', '4-cut preview', 'All 12 cuts'] : ['팩·사진 고르기', '스타일·동의', '4컷 미리보기', '12컷 완성']).map((label, index) => (
             <li key={label} aria-current={index === (isPhoto ? 0 : 1) ? 'step' : undefined} className={`rounded-xl border px-1 py-2 ${index === (isPhoto ? 0 : 1) ? 'border-primary bg-primary/10 text-primary-dark' : 'border-line text-sub'}`}>
               {index + 1}. {label}
             </li>
@@ -489,11 +489,11 @@ export function UploadFlow({
         >
           <span aria-hidden="true" className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-xl shadow-soft">📸</span>
           <span className="min-w-0">
-            <span className="block text-sm font-black text-primary-dark">{t('내 사진 바로 누끼 스티커 (AI 생성 없이 즉시 완성)', 'Cut my photo into a sticker (no AI redraw)')}</span>
+            <span className="block text-sm font-black text-primary-dark">{t('사진 그대로 바로 만들기 (무료)', 'Use my photo as-is (free)')}</span>
             <span className="mt-0.5 block text-[11px] font-semibold leading-relaxed text-sub">
               {subjectKind === 'pet'
-                ? t('사진 배경 그대로 둥근 프레임 + 캘리그라피 한 줄 · 무료 · 크레딧 0', 'Your photo in a rounded frame, plus one line of lettering · free')
-                : t('사진 그대로 배경만 떼고 캘리그라피 한 줄 · 무료 · 크레딧 0', 'Your own photo, background removed, plus one line of lettering · free')}
+                ? t('AI 없이 사진 배경 그대로, 둥근 프레임에 한 줄만 얹어요', 'No AI: keep the photo, add one line in a rounded frame')
+                : t('AI 없이 배경만 떼고 한 줄만 얹어 바로 저장해요', 'No AI: background removed, one line added, saved instantly')}
             </span>
           </span>
           <span aria-hidden="true" className="ml-auto shrink-0 text-sm font-black text-primary-dark">→</span>
@@ -516,9 +516,9 @@ export function UploadFlow({
         />
         <div className={STICKY_CTA}>
           <button type="button" className="btn-primary min-h-14 w-full !py-4 text-base" onClick={() => { setMotion('forward'); setPhotoPhase('mode'); }}>
-            {format ? t(`${(formatInfo?.label ?? '표현 형태').replace(/\s*팩$/, '')} 팩으로 시작`, `Start a ${(formatInfo?.labelEn ?? 'format').replace(/\s*pack$/, '')} pack`) : t('기본 감정 팩으로 시작', 'Start a classic pack')}<span aria-hidden="true"> →</span>
+            {format ? t(`${(formatInfo?.label ?? '팩').replace(/\s*팩$/, '')} 팩으로 시작`, `Start a ${(formatInfo?.labelEn ?? 'pack').replace(/\s*pack$/, '')} pack`) : t('기본 감정 팩으로 시작', 'Start a classic pack')}<span aria-hidden="true"> →</span>
           </button>
-          <p className="py-2 text-center text-[11px] text-sub">{t('형태는 다음 단계에서도 다시 바꿀 수 있어요.', 'You can change the format again in the next step.')}</p>
+          <p className="py-1 text-center text-[10px] font-bold text-sub">{t('마음에 안 들면 언제든 다시 바꿀 수 있어요', 'Change it anytime')}</p>
         </div>
       </div>
     </>
@@ -528,7 +528,7 @@ export function UploadFlow({
       {stepHeader}
       <div key="mode" className={clsx('mx-auto max-w-2xl space-y-4', motionClass)}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <button type="button" onClick={() => { setMotion('back'); setPhotoPhase('format'); }} className="min-h-11 rounded-xl px-2 text-sm font-semibold text-sub hover:bg-paper hover:text-primary-dark">← {t('표현 형태 다시 선택', 'Change pack format')}</button>
+          <button type="button" onClick={() => { setMotion('back'); setPhotoPhase('format'); }} className="min-h-11 rounded-xl px-2 text-sm font-semibold text-sub hover:bg-paper hover:text-primary-dark">← {t('팩 다시 고르기', 'Change pack')}</button>
           <span className="chip">{formatInfo ? `${formatInfo.emoji} ${locale === 'en' ? formatInfo.labelEn : formatInfo.label}` : t('기본 감정 팩', 'Classic emotions')}</span>
         </div>
         <div role="radiogroup" aria-label={t('이모티콘 구도 선택', 'Sticker composition')} className="grid grid-cols-2 gap-3">

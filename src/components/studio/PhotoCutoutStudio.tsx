@@ -701,9 +701,9 @@ export function PhotoCutoutStudio({
         </div>
       </header>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)]">
-        {/* ── 미리보기 + 내려받기 ─────────────────────────── */}
-        <section className="card h-fit overflow-hidden lg:sticky lg:top-24">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.02fr)_minmax(0,0.98fr)] lg:items-start">
+        {/* ── 미리보기 + 내려받기 — 모바일에서는 사진을 올린 다음에 보인다 ─────────── */}
+        <section className="card order-2 h-fit min-w-0 overflow-hidden lg:sticky lg:top-24 lg:order-none lg:col-start-1 lg:row-span-3 lg:row-start-1">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line px-4 py-3">
             <p className="text-sm font-black">
               {t('미리보기', 'Preview')}
@@ -752,7 +752,12 @@ export function PhotoCutoutStudio({
               ) : null}
             </div>
 
-            {/* 단일 컷 다운로드 버튼군 */}
+            {/* 내려받기 — 사진을 올려 컷이 생기기 전에는 버튼을 열지 않는다(0컷 ZIP 방지) */}
+            {!selected ? (
+              <p className="mt-4 rounded-xl border border-dashed border-line bg-cream/40 px-3 py-3 text-center text-[11px] font-bold leading-relaxed text-sub">
+                {t('사진을 올리면 여기에 저장 버튼이 생겨요. (무료 · 크레딧 0)', 'Add a photo and the save buttons appear here. (Free)')}
+              </p>
+            ) : (
             <div className="mt-4 space-y-2">
               {isAnimatedSelected ? (
                 <div className="grid gap-2">
@@ -838,15 +843,15 @@ export function PhotoCutoutStudio({
                 </button>
               </div>
             </div>
+            )}
 
             {notice ? <p role="status" className="mt-3 rounded-xl border border-mint/40 bg-mint/10 px-3 py-2 text-[11px] font-bold leading-relaxed text-ink">{notice}</p> : null}
             {error ? <p role="alert" className="mt-3 rounded-xl border border-coral/50 bg-coral/10 px-3 py-2 text-[11px] font-bold leading-relaxed text-coralink">{error}</p> : null}
           </div>
         </section>
 
-        <div className="space-y-4">
           {/* ── 사진·동영상 올리기 ──────────────────────────────── */}
-          <section className="card p-4 sm:p-5">
+          <section className="card order-1 min-w-0 p-4 sm:p-5 lg:order-none lg:col-start-2 lg:row-start-1">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
                 <h2 className="text-sm font-black">{t('① 사진 또는 동영상 올리기', '① Add photos or video')}</h2>
@@ -997,7 +1002,7 @@ export function PhotoCutoutStudio({
           </section>
 
           {/* ── 문구·모션·스타일 편집 ────────────────────────── */}
-          <section className="card p-4 sm:p-5">
+          <section className="card order-3 min-w-0 p-4 sm:p-5 lg:order-none lg:col-start-2 lg:row-start-2">
             <h2 className="text-sm font-black">{t('② 문구·모션 편집', '② Lettering & motion')}</h2>
 
             {/* 1) 움직임 효과 선택 (단일 사진 모션 vs 동영상 원본 동작) */}
@@ -1579,11 +1584,29 @@ export function PhotoCutoutStudio({
             ) : null}
           </section>
 
-          <section className="card-flat space-y-1.5 p-4 text-[11px] leading-relaxed text-sub">
+          <section className="card-flat order-4 min-w-0 space-y-1.5 p-4 text-[11px] leading-relaxed text-sub lg:order-none lg:col-start-2 lg:row-start-3">
             <p><strong className="text-ink">{t('사진과 영상은 서버로 보내지 않아요.', 'Photos & videos never leave your device.')}</strong> {t('누끼·글자·외곽선·APNG/GIF 인코딩을 모두 이 브라우저 안에서 계산하고, 내려받는 순간에도 업로드가 없어요.', 'Cutout, lettering, borders, and APNG/GIF encoding are computed entirely in your browser.')}</p>
             <p>{t('동영상은 1~3초 내외의 클립에서 12프레임을 추출하여 가장 자연스러운 카톡 움티로 완성됩니다.', 'Short 1-3s video clips are converted into smooth 12-frame Kakao animated stickers.')}</p>
           </section>
-        </div>
+
+          {/* 다음 동선 — 사진 누끼로 끝내지 않고 다른 팩·가격으로 이어진다. */}
+          <section className="card order-5 min-w-0 p-4 lg:order-none lg:col-start-2 lg:row-start-4">
+            <h2 className="text-sm font-black">{t('다음에 해 볼 수 있어요', 'What you can do next')}</h2>
+            <div className="mt-2 grid gap-1.5 text-[12px] font-bold">
+              <Link href={lp('/studio/upload')} className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-2.5 text-ink transition hover:border-primary/40 hover:text-primary-dark">
+                <span>{t('AI로 12컷 표정 팩 만들기', 'Make a 12-cut AI expression pack')}</span>
+                <span aria-hidden="true">→</span>
+              </Link>
+              <Link href={lp('/pets')} className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-2.5 text-ink transition hover:border-primary/40 hover:text-primary-dark">
+                <span>{t('반려동물 집사 밈 팩 보기', 'See the pet butler pack')}</span>
+                <span aria-hidden="true">→</span>
+              </Link>
+              <Link href={lp('/pricing')} className="flex items-center justify-between rounded-xl border border-line bg-white px-3 py-2.5 text-ink transition hover:border-primary/40 hover:text-primary-dark">
+                <span>{t('가격·잠금 해제 안내', 'Pricing & unlock')}</span>
+                <span aria-hidden="true">→</span>
+              </Link>
+            </div>
+          </section>
       </div>
     </div>
   );

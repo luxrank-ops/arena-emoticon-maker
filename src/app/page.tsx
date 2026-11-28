@@ -11,16 +11,20 @@ import { seasonQueryString, seasonTeaserViews, seasonTimeContext } from '@/lib/s
 import { pageMetadata } from '@/lib/seo';
 import { HERO_PHOTO_CUTS, STYLE_TILES } from '@/lib/photo-samples';
 
+// 홈 스타일 스트립 — '실사 짤'과 그림이 거의 같은 '실사 포토' 타일은 빼고 4개만 보여 준다.
+// (11가지 전체는 /studio/upload 의 스타일 단계에서 고른다)
+const HOME_STYLE_TILES = STYLE_TILES.filter((tile) => tile.tone !== 'caricature').slice(0, 4);
+
 // 홈은 layout 의 기본 title·description·OG 를 그대로 쓰고, canonical 만 자기 참조로 고정한다.
 export async function generateMetadata() {
   return pageMetadata({ path: '/' });
 }
 
 const steps = [
-  { number: '01', title: '사진 고르기', text: '밝은 정면 사진을 선택하고 사진 상태를 확인해요.' },
-  { number: '02', title: '스타일과 시안 선택', text: '구도와 스타일을 정하고, 만들어진 시안 중 마음에 드는 것을 골라요.' },
-  { number: '03', title: '표정 골라 만들기', text: '컷 수와 감정 표현을 선택하면 이모티콘을 한 장씩 만들어요.' },
-  { number: '04', title: '편집하고 저장하기', text: '내 팩에서 컷을 편집하고 PNG나 ZIP으로 내려받아요.' },
+  { number: '01', title: '만들 팩 고르기', text: '기본 감정 팩, 2인 케미, 반려동물 집사 밈 중에서 골라요.' },
+  { number: '02', title: '사진 한 장 올리기', text: '얼굴이 잘 보이는 정면 사진이면 충분해요. 커플·반려 팩은 두 장이에요.' },
+  { number: '03', title: '4컷 먼저 확인', text: '고른 스타일로 4컷을 먼저 그려 드려요. 워터마크가 있어요.' },
+  { number: '04', title: '12컷 완성·저장', text: '마음에 들면 잠금 해제로 나머지 8컷까지 받아 카톡에 보내요.' },
 ];
 const questions = [
   { q: '사진은 어떻게 사용되나요?', a: '사진은 이 탭에 임시 보관되고, 생성 전 확인과 이미지 생성 시 Google Gemini로 전송됩니다. 원본 사진은 서버에 저장하지 않으며 생성된 시안과 컷은 보관됩니다.' },
@@ -124,7 +128,7 @@ export default async function LandingPage({
                 <span aria-hidden="true" className="grid h-5 w-5 place-items-center rounded-full brand-gradient text-[9px] text-white">
                   ✦
                 </span>
-                {trial ? '4컷을 무료로 먼저, 잠금 해제하면 12컷 완성' : '사람과 반려동물 사진 한 장으로 시작해요'}
+                {trial ? '사진 1장 → 4컷은 무료, 마음에 들면 12컷' : '사람과 반려동물 사진 한 장으로 시작해요'}
               </span>
 
               <h1
@@ -137,11 +141,11 @@ export default async function LandingPage({
               </h1>
 
               <p className="mt-3 max-w-xl break-keep text-[13.5px] leading-relaxed text-sub sm:text-[15px]">
-                무엇을 만들지 먼저 고르세요. 사진 한 장이면 충분하고, 사진이 없어도 대사·프리셋으로 바로 만들 수 있어요.
+                무엇을 만들지 고르면 다음 화면에서 사진을 올려요. 사진이 없어도 대사·프리셋만으로 만들 수 있어요.
               </p>
 
               <div className="mt-4 flex flex-wrap gap-1.5">
-                {['사진 1장', '실사 짤 무료', '화풍 11종'].map((item) => (
+                {['사진 1장', '4컷 무료', '실사 기본'].map((item) => (
                   <span
                     key={item}
                     className="inline-flex items-center gap-1 rounded-full border border-line/80 bg-white/65 px-2.5 py-1 text-[10.5px] font-bold text-sub backdrop-blur"
@@ -251,16 +255,16 @@ export default async function LandingPage({
         <div className="flex flex-wrap items-end justify-between gap-2">
           <div>
             <p className="eyebrow">STYLE LIBRARY</p>
-            <h2 id="tone-title" className="mt-2 text-lg font-extrabold tracking-[-0.025em] sm:text-xl">사진 그대로, 아니면 화풍을 골라서</h2>
-            <p className="mt-1 text-xs leading-relaxed text-sub sm:text-sm">기본은 사진 그대로 쓰는 <b>실사 짤</b>이에요. 사람은 배경을 지운 투명 스티커로, 반려동물은 털 끝을 살린 원본 배경 + 둥근 프레임으로 마감해요. AI로 그릴 땐 무료 6가지 화풍, 결제하면 11종 전체가 열려요.</p>
+            <h2 id="tone-title" className="mt-2 text-lg font-extrabold tracking-[-0.025em] sm:text-xl">사진 그대로, 아니면 그림 스타일을 골라서</h2>
+            <p className="mt-1 text-xs leading-relaxed text-sub sm:text-sm">기본은 사진 그대로 쓰는 <b>실사 짤</b>이에요. 반려동물은 털 끝을 살린 원본 배경 + 둥근 프레임, 사람은 배경을 지운 투명 스티커로 마감해요. AI로 그리면 무료 6가지, 결제하면 11가지 스타일이 모두 열려요.</p>
           </div>
           <Link href="/studio/upload" className="group inline-flex items-center gap-1 text-xs font-black text-primary-dark">
             사진으로 만들기
             <ChevronRight className="h-3.5 w-3.5 transition group-hover:translate-x-0.5" aria-hidden="true" />
           </Link>
         </div>
-        <ul className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-4 sm:gap-3 lg:grid-cols-7">
-          {STYLE_TILES.map((tile) => (
+        <ul className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+          {HOME_STYLE_TILES.map((tile) => (
             <li key={tile.src} className={`group overflow-hidden rounded-[1.15rem] border bg-white p-1.5 text-center shadow-card transition duration-300 hover:-translate-y-0.5 hover:shadow-pop ${tile.tone === 'photo-sticker' ? 'border-primary/35 ring-1 ring-primary/20' : 'border-line/80'}`}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={tile.src} alt={`${tile.label.ko} 스타일 이모티콘 예시`} width={512} height={512} className="aspect-square w-full rounded-[0.9rem] object-contain transition duration-300 group-hover:scale-[1.03]" />
@@ -357,28 +361,27 @@ export default async function LandingPage({
           <p className="eyebrow">PRICING</p>
           <h2 id="price-title" className="h2 mt-2">미리 보고, 필요한 만큼만</h2>
           <p className="mt-2 text-sm leading-relaxed text-sub">무료 4컷으로 먼저 확인한 뒤, 팩 하나만 결제해 12컷을 완성하거나 여러 팩을 크레딧으로 만드세요.</p>
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            {PRICE_TIERS.map((tier) => {
-              const card = (
-                <div className={`flex h-full flex-col rounded-[1.5rem] p-5 ${tier.highlight ? 'bg-white' : 'border border-line/80 bg-white/90 shadow-card'}`}>
-                  <p className="text-[10px] font-black uppercase tracking-[0.16em] text-sub">{tier.name}</p>
-                  <p className="mt-2 text-2xl font-extrabold tracking-[-0.03em]">
+          {/* 홈에서는 가격을 한눈에 비교할 수 있게 세 줄로만 보여 주고, 조건·환불은 /pricing 에서 본다. */}
+          <div className="mt-5 overflow-hidden rounded-[1.4rem] border border-line/80 bg-white shadow-card">
+            {PRICE_TIERS.map((tier) => (
+              <Link
+                key={tier.id}
+                href="/pricing"
+                className={`flex items-center justify-between gap-3 px-4 py-3.5 transition hover:bg-primary/[0.03] sm:px-5 ${tier.highlight ? 'bg-primary/[0.04]' : 'border-t border-line/70'}`}
+              >
+                <span className="min-w-0">
+                  <span className="block text-[10px] font-black uppercase tracking-[0.16em] text-sub">{tier.name}</span>
+                  <span className="mt-0.5 block break-keep text-[12px] font-bold text-primary-dark">{tier.tagline}</span>
+                </span>
+                <span className="shrink-0 text-right">
+                  <span className="block text-lg font-extrabold tracking-[-0.03em]">
                     {tier.priceLabel}
-                    <span className="text-xs font-bold text-sub"> {tier.unit}</span>
-                  </p>
-                  <p className="mt-1 text-[12px] font-bold text-primary-dark">{tier.tagline}</p>
-                  <ul className="mt-3 flex-1 space-y-1 text-[11px] leading-relaxed text-sub">
-                    {tier.points.map((point) => <li key={point}>· {point}</li>)}
-                  </ul>
-                  <Link href="/pricing" className="btn-ghost mt-4 !py-2 text-xs">자세히 보기 →</Link>
-                </div>
-              );
-              return tier.highlight ? (
-                <div key={tier.id} className="gradient-ring shadow-glow">{card}</div>
-              ) : (
-                <div key={tier.id}>{card}</div>
-              );
-            })}
+                    <span className="text-[11px] font-bold text-sub"> {tier.unit}</span>
+                  </span>
+                  <span className="mt-0.5 block text-[10.5px] font-black text-primary-dark">자세히 →</span>
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
       </section>
@@ -386,16 +389,16 @@ export default async function LandingPage({
       {/* ── 컷 편집 가이드 ───────────────────────────────────────── */}
       <section id="accessory-guide" className="wrap scroll-mt-36 py-10 sm:py-14" aria-labelledby="accessory-guide-title">
         <p className="eyebrow">CUT EDITOR</p>
-        <h2 id="accessory-guide-title" className="h2 mt-2">표정과 악세사리 바꾸기</h2>
-        <p className="mt-2 max-w-2xl break-keep text-sm leading-relaxed text-sub">내 팩에서 컷의 편집을 누른 뒤 표정·문구·악세사리를 고르고 ‘다시 그리기’를 눌러 적용해요. 악세사리는 최대 3개까지 고를 수 있어요.</p>
-        <div className="mt-4 flex flex-wrap gap-2" aria-label="악세사리 예시">
+        <h2 id="accessory-guide-title" className="h2 mt-2">만든 뒤에도 고칠 수 있어요</h2>
+        <p className="mt-2 max-w-2xl break-keep text-sm leading-relaxed text-sub">내 팩에서 컷을 누르면 표정·문구·액세서리를 바꿔 다시 그릴 수 있어요. 액세서리는 한 컷에 3개까지예요.</p>
+        <div className="mt-4 flex flex-wrap gap-2" aria-label="액세서리 예시">
           {ACCESSORIES.slice(0, 4).map((item) => (
             <span key={item.id} className="inline-flex items-center gap-1.5 rounded-full border border-line/80 bg-white px-3 py-1.5 text-[11px] font-bold text-sub shadow-card">
               <span aria-hidden="true" className="text-sm">{item.emoji}</span> {item.name}
             </span>
           ))}
         </div>
-        <p className="mt-4 text-xs leading-relaxed text-sub">다시 그리기는 일반 사용자 1크레딧이며 관리자는 차감되지 않습니다. 다시 그리기 실패 시 크레딧 자동 복구를 시도합니다.</p>
+        <p className="mt-4 text-xs leading-relaxed text-sub">다시 그리기는 1크레딧이에요. 실패하면 쓴 크레딧은 돌려드려요.</p>
         <Link href="/studio/packs" className="btn-ghost mt-5">내 팩에서 편집하기 →</Link>
       </section>
 
