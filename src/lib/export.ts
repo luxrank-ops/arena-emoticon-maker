@@ -661,7 +661,7 @@ export async function exportPackZip(
       `· 파일: ${size}×${size}px 투명 PNG · 총 ${items.length}컷`,
       '· 카카오 이모티콘 스튜디오 제안 규격은 멈춘 이모티콘 32컷 · 움직이는 이모티콘 24컷 · 360×360 · 개당 150KB입니다 (앱의 규격 패키저가 자동 검증·압축).',
       '· AI 생성 결과물이며, 본인 사용 목적으로 제공됩니다.',
-      '· 상업적 사용은 Studio 플랜 라이선스가 필요합니다.',
+      '· 상업적 사용은 Creator Pro 라이선스가 필요합니다.',
     ].join('\n'),
   );
   return await zip.generateAsync({ type: 'blob' });
@@ -823,7 +823,7 @@ export async function exportKakaoPackZip(
       `· 파일 크기 한도: 개당 ${(maxBytes / 1024).toFixed(0)}KB (validation.json 참고)`,
       `· 자동 압축 적용: ${compressed}개 파일`,
       `· 검증 결과: ${validation.ok ? '통과' : '미충족 — ' + validation.summary}`,
-      '· AI 생성 결과물이며 본인 사용 목적입니다. 상업적 사용은 Studio 플랜 라이선스가 필요합니다.',
+      '· AI 생성 결과물이며 본인 사용 목적입니다. 상업적 사용은 Creator Pro 라이선스가 필요합니다.',
       '· 카카오 스튜디오 제출은 직접 진행해야 하며, 앱은 규격 검증과 ZIP 묶음까지만 돕습니다.',
     ].join('\n'),
   );
