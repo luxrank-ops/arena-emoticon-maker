@@ -818,9 +818,9 @@ export function PackViewer({
             {kakaoBusy ? '패키징 중…' : '카카오 규격 ZIP 내려받기'}
           </button>
           {!kakao.packaging ? (
-            <Link href="/pricing" className="chip !border-coral/50 !bg-coral/10 !text-coralink">
-              Studio 플랜에서 사용 가능
-            </Link>
+            <a href="#unlock" className="chip !border-coral/50 !bg-coral/10 !text-coralink">
+              잠금 해제하면 카카오 ZIP까지 받아요
+            </a>
           ) : null}
           {kakao.packaging && !kakao.validation.ok ? (
             <span className="text-[11px] leading-relaxed text-sub">
@@ -845,8 +845,8 @@ export function PackViewer({
       <div className="rounded-2xl border-2 border-dashed border-line p-4 text-center text-xs leading-relaxed text-sub">
         {locale === 'en' ? <>Share the exported PNG or GIF in chats just like a photo.<br />Every caption remains editable before you download and share.</> : <>
         카톡에서는 내보낸 PNG/GIF를 사진처럼 보내면 됩니다. <br />
-        <strong className="text-ink">Studio 플랜</strong>은 카카오 제안 규격(멈춘 32컷·움직이는 24컷, 360×360, 개당 150KB) 자동 압축·검증·패키징까지
-        자동으로 해드려요.
+        <strong className="text-ink">잠금 해제한 팩</strong>은 카카오 제안 규격(멈춘 32컷·움직이는 24컷, 360×360, 개당 150KB)
+        자동 압축·검증·패키징까지 한 번에 해드려요.
         </>}
       </div>
 
